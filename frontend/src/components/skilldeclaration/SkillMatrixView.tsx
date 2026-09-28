@@ -163,9 +163,10 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
                 id: Number(d.id),
                 name: d.name,
             }));
-            setDeptList(parsed);
+            const listWithAll = [{ id: 0, name: 'Toàn bộ' }, ...parsed];
+            setDeptList(listWithAll);
             if (parsed.length > 0) {
-                setSelectedDeptId((prev) => prev ?? (parsed.find((d) => d.id !== 1)?.id || parsed[0].id));
+                setSelectedDeptId((prev) => prev ?? (parsed.find((d) => d.id !== 1)?.id || 0));
             }
             return;
         }
@@ -173,7 +174,8 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
         getOrgTree()
             .then((tree) => {
                 const flat = flattenOrgTree(tree);
-                setDeptList(flat);
+                const listWithAll = [{ id: 0, name: 'Toàn bộ' }, ...flat];
+                setDeptList(listWithAll);
                 if (flat.length > 0) {
                     // Ưu tiên chọn phòng ban chuyên trách (khác nút gốc công ty) để hiển thị ma trận thực tế
                     const preferred = flat.find((d) => d.id !== 1) || flat[0];
@@ -187,10 +189,9 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
 
     // 2. Tải ma trận kỹ năng khi phòng ban được chọn thay đổi
     useEffect(() => {
-        if (!selectedDeptId) return;
-
         setLoading(true);
-        getDepartmentSkillMatrix(selectedDeptId)
+        const deptIdToFetch = selectedDeptId && selectedDeptId > 0 ? selectedDeptId : undefined;
+        getDepartmentSkillMatrix(deptIdToFetch)
             .then((res) => {
                 setMatrixData(res);
             })
@@ -206,7 +207,7 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
     const deptOptions = useMemo(() => deptList.map((d) => d.name), [deptList]);
     const currentDeptName = useMemo(() => {
         const d = deptList.find((item) => item.id === selectedDeptId);
-        return d ? d.name : deptOptions[0] || '';
+        return d ? d.name : deptOptions[0] || 'Toàn bộ';
     }, [deptList, selectedDeptId, deptOptions]);
 
     const handleDeptChange = (name: string) => {

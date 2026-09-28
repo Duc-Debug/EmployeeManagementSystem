@@ -341,6 +341,7 @@ export default function SkillresourceSearch({
     const [orgUnits, setOrgUnits] = useState<{ id: number; name: string }[]>([]);
     const [realEmployees, setRealEmployees] = useState<ResourceEmployee[]>([]);
     const [loading, setLoading] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
 
     // 1. Tải danh mục kỹ năng & cây phòng ban từ backend
     useEffect(() => {
@@ -399,6 +400,7 @@ export default function SkillresourceSearch({
     // 2. Gọi backend tìm kiếm nhân sự theo kỹ năng & độ rảnh
     const executeSearch = async () => {
         setLoading(true);
+        setHasSearched(true);
         try {
             const { year, week } = getCurrentYearAndWeek();
             const fromYear = year;
@@ -528,7 +530,7 @@ export default function SkillresourceSearch({
         }
     }
 
-    const dataSource = realEmployees.length > 0 ? realEmployees : propEmployees;
+    const dataSource = hasSearched ? realEmployees : (realEmployees.length > 0 ? realEmployees : propEmployees);
 
     const filteredEmployees = useMemo(() => {
         const keyword = filters.keyword.trim().toLowerCase();

@@ -130,7 +130,7 @@ export const AccessControlView: React.FC = () => {
                 <div className="flex items-start gap-2.5">
                     <Info className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
                     <div className="space-y-1">
-                        <span className="font-bold text-indigo-900">Quy chuẩn kiến trúc phân quyền hệ thống (Fail-Closed RBAC & Data Scope):</span>
+                        <span className="font-bold text-indigo-900">Quy chuẩn kiến trúc phân quyền hệ thống:</span>
                         <p className="text-slate-600 leading-relaxed">
                             Hệ thống áp dụng <strong>6 Vai trò nghiệp vụ bất biến</strong> (VT-01 → VT-06). Khi phân quyền tài khoản tại mục <strong className="text-indigo-700">Quản lý tài khoản</strong>, mỗi người dùng được gán kèm 1 trong 3 cấp độ <strong>Data Scope</strong>: <span className="font-semibold text-slate-900">COMPANY</span> (Toàn công ty), <span className="font-semibold text-slate-900">ORGANIZATION_BRANCH</span> (Nhánh đơn vị trực thuộc) hoặc <span className="font-semibold text-slate-900">SELF</span> (Cá nhân).
                         </p>
@@ -173,15 +173,15 @@ export const AccessControlView: React.FC = () => {
 
                                     const renderCellBadge = (p?: any) => {
                                         if (!p || !p.actions.view) {
-                                            return <span className="inline-block rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 border border-rose-100">❌ Ẩn</span>;
+                                            return <span className="inline-block rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 border border-rose-100">Ẩn</span>;
                                         }
                                         if (p.actions.create && p.actions.edit && (p.actions.delete || p.actions.approve)) {
-                                            return <span className="inline-block rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">✅ Toàn quyền</span>;
+                                            return <span className="inline-block rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">Toàn quyền</span>;
                                         }
                                         if (p.actions.create && !p.actions.delete) {
-                                            return <span className="inline-block rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">📝 Ghi / Đề xuất</span>;
+                                            return <span className="inline-block rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">Ghi / Đề xuất</span>;
                                         }
-                                        return <span className="inline-block rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 border border-sky-200">👁️ Xem ({p.scope?.type === 'all' ? 'Cty' : p.scope?.type === 'department_managed' ? 'Nhánh' : 'Team/Mình'})</span>;
+                                        return <span className="inline-block rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 border border-sky-200">Xem ({p.scope?.type === 'all' ? 'Cty' : p.scope?.type === 'department_managed' ? 'Nhánh' : 'Team/Mình'})</span>;
                                     };
 
                                     return (
@@ -351,25 +351,25 @@ export const AccessControlView: React.FC = () => {
 
                                                         let accessBadge = (
                                                             <span className="inline-block rounded-md bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 border border-rose-100">
-                                                                ❌ Bị ẩn (Chặn 403)
+                                                                Bị ẩn
                                                             </span>
                                                         );
                                                         if (isView && isCreate && isEdit && (isDelete || isApprove)) {
                                                             accessBadge = (
                                                                 <span className="inline-block rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                                                    ✅ Toàn quyền
+                                                                    Toàn quyền
                                                                 </span>
                                                             );
                                                         } else if (isView && isCreate) {
                                                             accessBadge = (
                                                                 <span className="inline-block rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200">
-                                                                    📝 Ghi / Đề xuất
+                                                                    Ghi / Đề xuất
                                                                 </span>
                                                             );
                                                         } else if (isView) {
                                                             accessBadge = (
                                                                 <span className="inline-block rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 border border-sky-200">
-                                                                    👁️ Xem (Read-only)
+                                                                    Chỉ xem
                                                                 </span>
                                                             );
                                                         }

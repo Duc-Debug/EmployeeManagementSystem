@@ -1168,7 +1168,7 @@ export default function ProjectView() {
         <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
             {/* Top Navigation / Header Bar */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                <div className="flex flex-col gap-3.5 2xl:flex-row 2xl:items-center 2xl:justify-between">
+                <div className="flex flex-col gap-3.5 md:flex-row md:items-center md:justify-between">
                     {/* Logo & Identity */}
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-100 font-bold text-lg shrink-0">

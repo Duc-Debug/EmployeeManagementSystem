@@ -60,26 +60,60 @@ public class DepartmentSkillMatrixService implements GetDepartmentSkillMatrixUse
 
     @Override
     public DepartmentSkillMatrixResult execute(Long orgUnitId) {
-        if (orgUnitId == null) {
-            throw new IllegalArgumentException("ID đơn vị/bộ phận không được để trống");
-        }
-
         Long currentUserId = authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ);
 
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
-       
-        OrgUnit orgUnit = loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))
-                .orElseThrow(() -> new OrgUnitNotFoundException("Không tìm thấy đơn vị/bộ phận với ID: " + orgUnitId));
+        Long effectiveOrgUnitId;
+        switch (currentUser.getDataScope()) {
+            case COMPANY -> {
+                // null = toàn công ty
+                effectiveOrgUnitId = orgUnitId;
+            }
+            case ORGANIZATION_BRANCH -> {
+                if (currentUser.getScopeOrgUnitId() == null) {
+                    throw new PermissionDeniedException(PermissionCode.EMPLOYEE_SKILL_READ);
+                }
 
-        
-        requireOrgUnitInScope(currentUser, orgUnitId);
+                if (orgUnitId == null) {
+                    // "Toàn bộ" = toàn bộ nhánh mà user quản lý
+                    effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
+                } else {
+                    boolean inScope = currentUser.getScopeOrgUnitId().equals(orgUnitId)
+                            || loadOrgUnitPort.existsInOrgUnitBranch(
+                                    orgUnitId,
+                                    currentUser.getScopeOrgUnitId()
+                            );
 
-  
-        List<Employee> employees = loadEmployeePort.findActiveByOrgUnitId(orgUnitId);
+                    if (!inScope) {
+                        throw new PermissionDeniedException(PermissionCode.EMPLOYEE_SKILL_READ);
+                    }
 
-      
+                    effectiveOrgUnitId = orgUnitId;
+                }
+            }
+            case SELF -> throw new PermissionDeniedException(PermissionCode.EMPLOYEE_SKILL_READ);
+            default -> throw new PermissionDeniedException(PermissionCode.EMPLOYEE_SKILL_READ);
+        }
+
+        OrgUnit orgUnit = null;
+        if (effectiveOrgUnitId != null) {
+            orgUnit = loadOrgUnitPort.findById(new OrgUnitId(effectiveOrgUnitId))
+                    .orElseThrow(() -> new OrgUnitNotFoundException("Không tìm thấy đơn vị/bộ phận với ID: " + effectiveOrgUnitId));
+        }
+
+        List<Employee> employees;
+        if (effectiveOrgUnitId == null) {
+            employees = loadEmployeePort.findAllActive();
+        } else {
+            List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
+            List<Long> branchIds = resolveScopeBranchOrgUnitIds(effectiveOrgUnitId, allUnits);
+            employees = (branchIds != null && branchIds.size() > 1)
+                    ? loadEmployeePort.findActiveByOrgUnitIds(branchIds)
+                    : loadEmployeePort.findActiveByOrgUnitId(effectiveOrgUnitId);
+        }
+
         List<Skill> skills = skillCatalogRepository.findAll();
 
        
@@ -160,27 +194,43 @@ public class DepartmentSkillMatrixService implements GetDepartmentSkillMatrixUse
                 unstaffedCount
         );
 
-        Long orgUnitIdValue = orgUnit.getId() != null ? orgUnit.getId().getValue() : orgUnitId;
+        Long orgUnitIdValue = (orgUnit != null && orgUnit.getId() != null)
+                ? orgUnit.getId().getValue()
+                : (effectiveOrgUnitId != null ? effectiveOrgUnitId : null);
+        String orgUnitCode = orgUnit != null ? orgUnit.getUnitCode() : "ALL";
+        String orgUnitName = orgUnit != null ? orgUnit.getUnitName() : "Toàn công ty";
+
         return new DepartmentSkillMatrixResult(
                 orgUnitIdValue,
-                orgUnit.getUnitCode(),
-                orgUnit.getUnitName(),
+                orgUnitCode,
+                orgUnitName,
                 skillHeaders,
                 rows,
                 summary
         );
     }
 
-    private void requireOrgUnitInScope(User currentUser, Long orgUnitId) {
-        boolean inScope = switch (currentUser.getDataScope()) {
-            case COMPANY -> true;
-            case ORGANIZATION_BRANCH -> currentUser.getScopeOrgUnitId() != null
-                    && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());
-            case SELF -> false;
-        };
-
-        if (!inScope) {
-            throw new PermissionDeniedException(PermissionCode.EMPLOYEE_SKILL_READ);
+    private List<Long> resolveScopeBranchOrgUnitIds(Long orgUnitId, List<OrgUnit> allUnits) {
+        if (orgUnitId == null) {
+            return null;
         }
+        List<OrgUnit> unitList = allUnits != null ? allUnits : loadOrgUnitPort.findAll();
+        if (unitList == null) {
+            return List.of(orgUnitId);
+        }
+        Set<Long> result = new HashSet<>();
+        result.add(orgUnitId);
+        boolean added = true;
+        while (added) {
+            added = false;
+            for (OrgUnit u : unitList) {
+                if (u.getId() != null && u.getParentId() != null && result.contains(u.getParentId().getValue())) {
+                    if (result.add(u.getId().getValue())) {
+                        added = true;
+                    }
+                }
+            }
+        }
+        return new java.util.ArrayList<>(result);
     }
 }
