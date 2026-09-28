@@ -19,7 +19,7 @@
 Hệ thống được thiết kế theo chuẩn **14 Epics (`NCL-01` $\rightarrow$ `NCL-14`)**, bao phủ **84 User Stories** và vận hành bởi ma trận phân quyền 2 lớp (**6 Vai trò nghiệp vụ RBAC** kết hợp **Data Scope theo cấu trúc cây tổ chức**).
 
 ### 🌐 Môi trường Triển khai Sẵn sàng (Live Deployment)
-- **Frontend App (Vercel):** [https://employee-management-system-izcr9mk17-duc-debug.vercel.app]
+- **Frontend App (Vercel):** [[https://employee-management-system-izcr9mk17-duc-debug.vercel.app](https://employee-management-system-pink-mu.vercel.app/)]
 - **Backend API (Render Cloud):** [https://employeemanagementsystem-tdpn.onrender.com](https://employeemanagementsystem-tdpn.onrender.com) *(API Base: `/api/v1`)*
 - **Database (Aiven Cloud / Local):** MySQL 8.0 ( Flyway Migrations tự động).
 
