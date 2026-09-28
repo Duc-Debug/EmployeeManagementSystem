@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { uploadBackupFile } from "@/lib/api/backup";
+import { uploadBackupFile, validateBackupUploadFileName } from "@/lib/api/backup";
 import type { BackupItem } from "@/lib/api/backup";
 import { FileUp, Loader2, UploadCloud, AlertCircle, X } from "lucide-react";
 
@@ -40,7 +40,7 @@ export function UploadBackupModal({
       setError("Vui lòng chọn một tệp sao lưu JSON Snapshot (.json)");
       return;
     }
-    if (!selectedFile.name.toLowerCase().endsWith(".json")) {
+    if (!validateBackupUploadFileName(selectedFile.name)) {
       setError("Định dạng tệp không hợp lệ. Hệ thống chỉ hỗ trợ tệp .json");
       return;
     }
