@@ -3,6 +3,7 @@ package com.hrm.employeemanagement.infrastructure.transaction.project;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
+import com.hrm.employeemanagement.application.dto.project.ProjectSummaryResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
@@ -30,6 +31,12 @@ public class TransactionalProjectServiceDecorator
                 page,
                 size
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProjectSummaryResult getProjectSummary() {
+        return delegate.getProjectSummary();
     }
 
     @Override

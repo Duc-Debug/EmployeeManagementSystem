@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, CheckCircle2, UserCheck, AlertCircle, FileText } from "lucide-react";
 import { resolveScheduleConflictWithNote } from "@/lib/api/schedule-conflict";
 import type { ScheduleConflict } from "@/lib/api/schedule-conflict";
-import { getEmployees } from "@/lib/api/employees";
+import { fetchAllEmployees } from "@/lib/api/employees";
 import type { EmployeeProfile } from "@/lib/api/employees";
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
@@ -46,21 +46,7 @@ export default function ConflictResolutionModal({
                 setOrgUnitNamesMap(map);
             }
 
-            let currentPage = 1;
-            const pageSize = 50;
-            const allEmployees: EmployeeProfile[] = [];
-            let total = 0;
-            do {
-                const empPage = await getEmployees(currentPage, pageSize);
-                const items = empPage?.content || [];
-                allEmployees.push(...items);
-                total = empPage?.totalElements || 0;
-                if (items.length < pageSize || allEmployees.length >= total) {
-                    break;
-                }
-                currentPage++;
-            } while (currentPage <= 20);
-
+            const allEmployees = await fetchAllEmployees();
             setEmployees(allEmployees);
         } catch (err) {
             console.error("Lỗi khi tải danh sách nhân viên:", err);

@@ -13,7 +13,7 @@ import {
     Calendar as CalendarIcon,
     DollarSign,
 } from "lucide-react";
-import { getProjects, type ProjectResult } from "@/lib/api/projects";
+import { getProjects, getProjectSummary, type ProjectResult, type ProjectSummaryResult } from "@/lib/api/projects";
 import { getEmployees, type EmployeeProfile } from "@/lib/api/employees";
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
@@ -37,6 +37,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
     const [departmentsList, setDepartmentsList] = useState<{ id: number; name: string; managerName?: string; count: number }[]>([]);
     const [skillsCount, setSkillsCount] = useState(0);
     const [capacitySummary, setCapacitySummary] = useState<CapacityMatrixSummary | null>(null);
+    const [projectSummary, setProjectSummary] = useState<ProjectSummaryResult | null>(null);
     const [totalProjectsCount, setTotalProjectsCount] = useState<number>(0);
     const [totalEmployeesCount, setTotalEmployeesCount] = useState<number>(0);
 
@@ -52,7 +53,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
     const loadExecutiveData = async () => {
         setLoading(true);
         try {
-            const [projectsRes, empRes, treeRes, matrixRes, skillsRes] = await Promise.allSettled([
+            const [projectsRes, empRes, treeRes, matrixRes, skillsRes, projSummaryRes] = await Promise.allSettled([
                 getProjects(0, 50),
                 getEmployees(1, 50),
                 getOrgTree(),
@@ -64,6 +65,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                     size: 50,
                 }),
                 getSkills(),
+                getProjectSummary(),
             ]);
 
             if (projectsRes.status === "fulfilled" && projectsRes.value) {
@@ -90,6 +92,9 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
             }
             if (skillsRes.status === "fulfilled" && skillsRes.value) {
                 setSkillsCount(skillsRes.value.length);
+            }
+            if (projSummaryRes.status === "fulfilled" && projSummaryRes.value) {
+                setProjectSummary(projSummaryRes.value);
             }
         } catch (err) {
             console.error("Failed to load executive overview data:", err);
@@ -119,10 +124,11 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
 
     // Derived metrics
     const totalStaff = totalEmployeesCount || employees.length || capacitySummary?.totalEmployees || 0;
-    const totalProjects = totalProjectsCount || projects.length;
+    const totalProjects = projectSummary?.totalProjects ?? totalProjectsCount ?? projects.length;
+    const activeProjectsCount = projectSummary?.activeProjects ?? projects.filter((p) => p.status === "ACTIVE").length;
+    const plannedProjectsCount = projectSummary?.plannedProjects ?? projects.filter((p) => p.status === "PLANNED").length;
+    const closedProjectsCount = projectSummary?.closedProjects ?? projects.filter((p) => p.status === "CLOSED").length;
     const activeProjects = projects.filter((p) => p.status === "ACTIVE");
-    const plannedProjects = projects.filter((p) => p.status === "PLANNED");
-    const closedProjects = projects.filter((p) => p.status === "CLOSED");
     const totalHours = activeProjects.reduce((sum, p) => sum + (p.estimatedHours || 0), 0);
     const avgUtilization = capacitySummary?.averageUtilization != null ? Math.round(capacitySummary.averageUtilization) : 0;
     const overloadedStaffCount = capacitySummary?.overloadedEmployeesCount || 0;
@@ -210,11 +216,11 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                             <span className="text-[10px] text-slate-400">tổng số dự án</span>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium">
-                            <span className="text-emerald-700 font-bold">{activeProjects.length} Chạy</span>
+                            <span className="text-emerald-700 font-bold">{activeProjectsCount} Chạy</span>
                             <span className="text-slate-300">·</span>
-                            <span className="text-blue-700 font-bold">{plannedProjects.length} KH</span>
+                            <span className="text-blue-700 font-bold">{plannedProjectsCount} KH</span>
                             <span className="text-slate-300">·</span>
-                            <span className="text-slate-500 font-bold">{closedProjects.length} Đóng</span>
+                            <span className="text-slate-500 font-bold">{closedProjectsCount} Đóng</span>
                         </div>
                     </div>
                 </div>

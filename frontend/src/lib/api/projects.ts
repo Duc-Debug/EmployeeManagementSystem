@@ -137,6 +137,20 @@ export async function getProjects(page = 0, size = 50): Promise<PageResult<Proje
   return await apiRequest<PageResult<ProjectResult>>(`/projects?page=${page}&size=${size}`);
 }
 
+export interface ProjectSummaryResult {
+  totalProjects: number;
+  activeProjects: number;
+  plannedProjects: number;
+  closedProjects: number;
+}
+
+/**
+ * Lấy số liệu tổng hợp trạng thái dự án (phục vụ Executive Dashboard KPI)
+ */
+export async function getProjectSummary(): Promise<ProjectSummaryResult> {
+  return await apiRequest<ProjectSummaryResult>('/projects/summary');
+}
+
 /**
  * Lấy chi tiết dự án theo ID
  */

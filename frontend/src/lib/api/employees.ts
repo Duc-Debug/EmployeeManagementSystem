@@ -33,6 +33,31 @@ export async function getEmployees(page: number = 1, size: number = 50): Promise
   });
 }
 
+/**
+ * Tải toàn bộ danh sách nhân viên sử dụng phân trang size <= 50 an toàn
+ */
+export async function fetchAllEmployees(
+  fetchPage: (page: number, size: number) => Promise<PageResult<EmployeeProfile>> = getEmployees
+): Promise<EmployeeProfile[]> {
+  const pageSize = 50;
+  const allEmployees: EmployeeProfile[] = [];
+  let page = 1;
+
+  while (true) {
+    const result = await fetchPage(page, pageSize);
+    const items = result?.content || [];
+    allEmployees.push(...items);
+    const totalPages = result?.totalPages || 1;
+
+    if (items.length === 0 || allEmployees.length >= (result?.totalElements || 0) || page >= totalPages) {
+      break;
+    }
+    page++;
+  }
+
+  return allEmployees;
+}
+
 export interface UpdateEmployeeProfilePayload {
   version: number;
   orgUnitId: number;

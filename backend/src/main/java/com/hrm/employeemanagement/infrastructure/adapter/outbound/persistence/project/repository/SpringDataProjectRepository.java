@@ -264,4 +264,30 @@ public interface SpringDataProjectRepository
     List<Object[]> findManagerIdsByProjectIds(
             @Param("projectIds") List<Long> projectIds
     );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM projects p
+        WHERE p.manager_id = :employeeId
+          AND p.status = :status
+        """,
+        nativeQuery = true)
+    long countManagedByAndStatus(
+            @Param("employeeId") Long employeeId,
+            @Param("status") String status
+    );
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT p.id)
+        FROM projects p
+        JOIN project_members pm
+            ON pm.project_id = p.id
+        WHERE pm.employee_id = :employeeId
+          AND p.status = :status
+        """,
+        nativeQuery = true)
+    long countMemberProjectsAndStatus(
+            @Param("employeeId") Long employeeId,
+            @Param("status") String status
+    );
 }

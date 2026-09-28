@@ -251,4 +251,45 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
                 }
                 return projectRepository.countByOrgUnitBranchAndStatus(scopeOrgUnitId, ProjectStatus.ACTIVE.name());
         }
+
+        @Override
+        public long countByStatus(String status) {
+                if (status == null) {
+                        return count();
+                }
+                return projectRepository.countByStatus(status);
+        }
+
+        @Override
+        public long countByOrgUnitBranchAndStatus(Long scopeOrgUnitId, String status) {
+                if (scopeOrgUnitId == null) {
+                        return countByStatus(status);
+                }
+                if (status == null) {
+                        return countByOrgUnitBranch(scopeOrgUnitId);
+                }
+                return projectRepository.countByOrgUnitBranchAndStatus(scopeOrgUnitId, status);
+        }
+
+        @Override
+        public long countManagedByAndStatus(Long employeeId, String status) {
+                if (employeeId == null) {
+                        return 0L;
+                }
+                if (status == null) {
+                        return countManagedBy(employeeId);
+                }
+                return projectRepository.countManagedByAndStatus(employeeId, status);
+        }
+
+        @Override
+        public long countMemberProjectsAndStatus(Long employeeId, String status) {
+                if (employeeId == null) {
+                        return 0L;
+                }
+                if (status == null) {
+                        return countMemberProjects(employeeId);
+                }
+                return projectRepository.countMemberProjectsAndStatus(employeeId, status);
+        }
 }

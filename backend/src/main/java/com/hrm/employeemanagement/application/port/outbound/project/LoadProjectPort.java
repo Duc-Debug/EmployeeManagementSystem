@@ -46,4 +46,20 @@ public interface LoadProjectPort {
     long countActiveProjects();
 
     long countActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId);
+
+    default long countByStatus(String status) {
+        return 0L;
+    }
+
+    default long countByOrgUnitBranchAndStatus(Long scopeOrgUnitId, String status) {
+        return 0L;
+    }
+
+    default long countManagedByAndStatus(Long employeeId, String status) {
+        return 0L;
+    }
+
+    default long countMemberProjectsAndStatus(Long employeeId, String status) {
+        return 0L;
+    }
 }

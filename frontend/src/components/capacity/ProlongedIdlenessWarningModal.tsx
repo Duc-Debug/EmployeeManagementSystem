@@ -157,9 +157,9 @@ export function ProlongedIdlenessWarningModal({
     setIsExporting(true);
     try {
       let currentPage = 0;
+      let totalPages = 1;
       const exportPageSize = 50;
       const allItems: ProlongedIdleStaffItem[] = [];
-      let total = 0;
 
       do {
         const pageData = await getProlongedIdleStaff({
@@ -176,13 +176,13 @@ export function ProlongedIdlenessWarningModal({
 
         const items = pageData?.items || [];
         allItems.push(...items);
-        total = pageData?.totalIdleEmployees || 0;
+        totalPages = pageData?.totalPages || 1;
 
-        if (items.length < exportPageSize || allItems.length >= total) {
+        if (items.length === 0 || allItems.length >= (pageData?.totalIdleEmployees || 0)) {
           break;
         }
         currentPage++;
-      } while (currentPage < 50);
+      } while (currentPage < totalPages);
 
       const itemsToExport = allItems;
       if (itemsToExport.length === 0) return;

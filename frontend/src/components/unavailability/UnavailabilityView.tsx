@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
 import {
   getEmployeeProfileByUserId,
-  getEmployees,
+  fetchAllEmployees,
   type EmployeeProfile,
 } from "@/lib/api/employees";
 import {
@@ -122,26 +122,13 @@ export default function UnavailabilityView() {
     let isMounted = true;
     async function loadDirectory() {
       try {
-        let currentPage = 1;
-        const pageSize = 50;
+        const employees = await fetchAllEmployees();
+        if (!isMounted) return;
         const map: Record<number, string> = {};
-        let total = 0;
-        do {
-          const res = await getEmployees(currentPage, pageSize);
-          if (!isMounted) return;
-          const items = res?.content || [];
-          for (const emp of items) {
-            map[emp.id] = emp.fullName;
-          }
-          total = res?.totalElements || 0;
-          if (items.length < pageSize || Object.keys(map).length >= total) {
-            break;
-          }
-          currentPage++;
-        } while (currentPage <= 10);
-        if (isMounted) {
-          setEmployeesMap(map);
+        for (const emp of employees) {
+          map[emp.id] = emp.fullName;
         }
+        setEmployeesMap(map);
       } catch {
         // Silently ignore if not authorized
       }

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
+import com.hrm.employeemanagement.application.dto.project.ProjectSummaryResult;
 import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
 import com.hrm.employeemanagement.application.port.inbound.project.GetProjectListUseCase;
@@ -180,6 +181,71 @@ public class ProjectService implements
                                                                 size),
                                                 loadProjectPort.countMemberProjects(
                                                                 employeeId));
+                        }
+                        default -> {
+                                saveDeniedAudit(
+                                                currentUserId,
+                                                currentUser,
+                                                null,
+                                                "UNSUPPORTED_SELF_ROLE");
+
+                                throw new PermissionDeniedException(
+                                                PermissionCode.PROJECT_READ);
+                        }
+                };
+        }
+
+        @Override
+        public ProjectSummaryResult getProjectSummary() {
+                Long currentUserId = authorizationService.require(
+                                PermissionCode.PROJECT_READ);
+
+                User currentUser = loadCurrentUserOrThrow(currentUserId);
+                DataScope dataScope = currentUser.getDataScope();
+
+                return switch (dataScope) {
+                        case COMPANY -> new ProjectSummaryResult(
+                                        loadProjectPort.count(),
+                                        loadProjectPort.countByStatus(com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
+                                        loadProjectPort.countByStatus(com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
+                                        loadProjectPort.countByStatus(com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
+                        case ORGANIZATION_BRANCH -> {
+                                Long orgUnitId = currentUser.getScopeOrgUnitId();
+                                yield new ProjectSummaryResult(
+                                                loadProjectPort.countByOrgUnitBranch(orgUnitId),
+                                                loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
+                                                loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
+                                                loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
+                        }
+                        case SELF -> loadSelfScopedProjectSummary(currentUser, currentUserId);
+                };
+        }
+
+        private ProjectSummaryResult loadSelfScopedProjectSummary(
+                        User currentUser,
+                        Long currentUserId) {
+                RoleCode roleCode = currentUser.getRole().getCode();
+
+                return switch (roleCode) {
+                        case VT_02 -> {
+                                Long employeeId = loadCurrentEmployeeIdOrDeny(
+                                                currentUserId,
+                                                currentUser);
+                                yield new ProjectSummaryResult(
+                                                loadProjectPort.countManagedBy(employeeId),
+                                                loadProjectPort.countManagedByAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
+                                                loadProjectPort.countManagedByAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
+                                                loadProjectPort.countManagedByAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
+                        }
+                        case VT_04 -> {
+                                Long employeeId = loadCurrentEmployeeIdOrDeny(
+                                                currentUserId,
+                                                currentUser);
+                                yield new ProjectSummaryResult(
+                                                loadProjectPort.countMemberProjects(employeeId),
+                                                loadProjectPort.countMemberProjectsAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
+                                                loadProjectPort.countMemberProjectsAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
+                                                loadProjectPort.countMemberProjectsAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
                         }
                         default -> {
                                 saveDeniedAudit(
