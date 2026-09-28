@@ -62,6 +62,9 @@ class AuthLogoutIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private com.hrm.employeemanagement.infrastructure.security.UserStatusCache userStatusCache;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String TEST_USERNAME = "admin_logout_e2e";
@@ -75,6 +78,7 @@ class AuthLogoutIntegrationTest {
                 .build();
 
         tokenBlacklistAdapter.clear();
+        userStatusCache.clear();
 
         RoleJpaEntity adminRole = roleRepository.findByCode("VT-06")
                 .orElseGet(() -> roleRepository.save(new RoleJpaEntity(null, "VT-06", "Quản trị viên")));
@@ -88,7 +92,7 @@ class AuthLogoutIntegrationTest {
                     true
             );
             u.setDataScope(DataScope.COMPANY.name());
-            u.setPasswordChangedAt(java.time.Instant.now());
+            u.setPasswordChangedAt(java.time.Instant.now().minusSeconds(86400));
             u = userRepository.save(u);
 
             employeeRepository.save(new EmployeeJpaEntity(
@@ -103,8 +107,8 @@ class AuthLogoutIntegrationTest {
             ));
             return u;
         });
-        user.setPasswordChangedAt(java.time.Instant.now());
-        user = userRepository.save(user);
+        user.setPasswordChangedAt(java.time.Instant.now().minusSeconds(86400));
+        user = userRepository.saveAndFlush(user);
         testUserId = user.getId();
         auditLogRepository.deleteAll();
     }
@@ -282,5 +286,11 @@ class AuthLogoutIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "NotABearerToken"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        userStatusCache.clear();
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 }

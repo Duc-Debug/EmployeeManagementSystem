@@ -50,6 +50,7 @@ class LeaveRequestControllerIntegrationTest {
     @Autowired private SpringDataOrgUnitRepository orgUnitRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private com.hrm.employeemanagement.infrastructure.security.UserStatusCache userStatusCache;
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private MockMvc mockMvc;
@@ -63,6 +64,8 @@ class LeaveRequestControllerIntegrationTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .apply(springSecurity())
                 .build();
+
+        userStatusCache.clear();
 
         Long orgUnitId = orgUnitRepository.findByUnitCode("COMPANY_ROOT")
                 .map(OrgUnitJpaEntity::getId)
@@ -114,6 +117,7 @@ class LeaveRequestControllerIntegrationTest {
         if (staffUser != null) {
             userRepository.deleteById(staffUser.getId());
         }
+        userStatusCache.clear();
     }
 
     @Test
@@ -187,7 +191,7 @@ class LeaveRequestControllerIntegrationTest {
                 null, username, passwordEncoder.encode(PASSWORD), role, true);
         user.setDataScope(dataScope.name());
         user.setScopeOrgUnitId(scopeOrgUnitId);
-        user.setPasswordChangedAt(java.time.Instant.now());
+        user.setPasswordChangedAt(java.time.Instant.now().minusSeconds(86400));
         return userRepository.saveAndFlush(user);
     }
 

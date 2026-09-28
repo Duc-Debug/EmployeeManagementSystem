@@ -150,6 +150,10 @@ public class AuthController {
 
         changePasswordUseCase.changePassword(command);
 
+        if (userStatusCache != null && currentUser.getUsername() != null) {
+            userStatusCache.evict(currentUser.getUsername());
+        }
+
         return ResponseEntity.ok(
                 ApiResponse.success("Đổi mật khẩu thành công. Các phiên đăng nhập cũ đã được chấm dứt.", null)
         );
