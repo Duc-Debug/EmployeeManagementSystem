@@ -17,6 +17,7 @@ public class PasswordResetEmailOutboxJpaEntity {
     @Column(nullable = false)
     private String username;
 
+    @Convert(converter = PasswordResetTokenEncryptionConverter.class)
     @Column(name = "reset_token", nullable = false)
     private String resetToken;
 
@@ -52,15 +53,27 @@ public class PasswordResetEmailOutboxJpaEntity {
         this.createdAt = Instant.now();
     }
 
+    public Long getId() { return id; }
     public String getRecipientEmail() { return recipientEmail; }
     public String getUsername() { return username; }
     public String getResetToken() { return resetToken; }
     public long getValidityMinutes() { return validityMinutes; }
 
+    public boolean isExpired(Instant now) {
+        if (createdAt == null || validityMinutes == null) return false;
+        return !createdAt.plus(validityMinutes, java.time.temporal.ChronoUnit.MINUTES).isAfter(now);
+    }
+
     public void markDelivered(Instant now) {
         this.deliveredAt = now;
-        this.resetToken = "DELIVERED";
+        this.resetToken = "";
         this.lastError = null;
+    }
+
+    public void markExpired(Instant now) {
+        this.deliveredAt = now;
+        this.resetToken = "";
+        this.lastError = "EXPIRED";
     }
 
     public void scheduleRetry(Instant availableAt, String error) {
