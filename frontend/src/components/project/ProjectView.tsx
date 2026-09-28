@@ -3,7 +3,7 @@ import { getUsers } from '@/lib/api/users';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getEmployees, getEmployeeProfileByUserId } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
-import { allocateProjectHours, getProjectWeeklyAllocations } from '@/lib/api/allocations';
+import { allocateProjectHours, fetchMonthProjectAllocations } from '@/lib/api/allocations';
 import {
     getProjects,
     getProjectById,
@@ -65,6 +65,7 @@ import {
     type UpdateMilestonePayload,
 } from '@/lib/api/milestones';
 import {
+    generateProjectMonthsAroundCurrent,
     type ProjectMonth,
     type TaskCategoryGroup,
     type ProjectMember,
@@ -102,35 +103,7 @@ import { ProjectTaskTrackingView } from './ProjectTaskTrackingView';
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
 function buildMonths(): ProjectMonth[] {
-    const now = new Date();
-    return [-1, 0, 1].map((offset) => {
-        const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-        const year = first.getFullYear();
-        const month = first.getMonth();
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        const weeks = Array.from({ length: Math.ceil(lastDay / 7) }, (_, index) => {
-            const start = index * 7 + 1;
-            const end = Math.min(start + 6, lastDay);
-            return {
-                key: `W${index + 1}`,
-                label: `Tuần ${index + 1}`,
-                dates: `${String(start).padStart(2, '0')}/${String(month + 1).padStart(2, '0')} - ${String(end).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`,
-                isCurrent: now.getFullYear() === year && now.getMonth() === month && now.getDate() >= start && now.getDate() <= end,
-            };
-        });
-        return { id: `${year}-${String(month + 1).padStart(2, '0')}`, name: `Tháng ${String(month + 1).padStart(2, '0')}/${year}`, weeks };
-    });
-}
-
-function getIsoWeek(date: Date): { year: number; week: number } {
-    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const day = utcDate.getUTCDay() || 7;
-    utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day);
-    const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
-    return {
-        year: utcDate.getUTCFullYear(),
-        week: Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7),
-    };
+    return generateProjectMonthsAroundCurrent(12, 12);
 }
 
 /**
@@ -560,26 +533,43 @@ export default function ProjectView() {
     }, [location.search]);
 
     const [months] = useState(buildMonths);
-    const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
+    const [selectedMonthIdx, setSelectedMonthIdx] = useState(() => {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const currentId = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+        const initialMonths = buildMonths();
+        const idx = initialMonths.findIndex((m) => m.id === currentId);
+        return idx >= 0 ? idx : 0;
+    });
+
+    const baseProjectMembersRef = useRef<ProjectMember[]>([]);
 
     const getDisplayedIsoWeek = useCallback((weekKey: string) => {
         const month = months[selectedMonthIdx];
-        const [year, monthNumber] = month.id.split('-').map(Number);
-        const index = Math.max(0, month.weeks.findIndex((week) => week.key === weekKey));
-        return getIsoWeek(new Date(year, monthNumber - 1, index * 7 + 1));
+        const week = month?.weeks.find((w) => w.key === weekKey);
+        if (week?.year && week?.weekNumber) {
+            return { year: week.year, week: week.weekNumber };
+        }
+        const weekNum = Number(weekKey.replace(/\D/g, ''));
+        const [year] = (month?.id || '').split('-').map(Number);
+        return { year: year || new Date().getFullYear(), week: weekNum || 1 };
     }, [months, selectedMonthIdx]);
 
     const loadProjectAllocations = useCallback(async (baseMembersInput?: ProjectMember[]) => {
         if (!canReadAllocations || !selectedProjectId) return;
         const month = months[selectedMonthIdx];
+        if (!month || month.weeks.length === 0) return;
         try {
-            const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
-                const isoWeek = getDisplayedIsoWeek(week.key);
-                const rows = await getProjectWeeklyAllocations(selectedProjectId, isoWeek.year, isoWeek.week, isoWeek.week);
-                return { key: week.key, rows };
-            }));
+            // 1 request duy nhất cho toàn bộ range của tháng (P0-3)
+            const allAllocations = await fetchMonthProjectAllocations(
+                selectedProjectId,
+                month.weeks
+            );
+
             setMembers((previous) => {
-                const currentBase = baseMembersInput && baseMembersInput.length > 0 ? baseMembersInput : previous;
+                const currentBase = baseMembersInput && baseMembersInput.length > 0
+                    ? baseMembersInput
+                    : (baseProjectMembersRef.current.length > 0 ? baseProjectMembersRef.current : previous);
                 const existingEmpIds = new Set(
                     currentBase.map((m) => m.employeeId || Number(m.id.replace('u-', '')))
                 );
@@ -588,9 +578,11 @@ export default function ProjectView() {
                     const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
                     const weeklyHours: Record<string, number> = {};
                     let allocRoleId = member.projectRoleId;
-                    rowsByWeek.forEach(({ key, rows }) => {
-                        const matchingRows = rows.filter((row) => row.employeeId === employeeId);
-                        weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                    month.weeks.forEach((week) => {
+                        const matchingRows = allAllocations.filter(
+                            (row) => row.employeeId === employeeId && row.year === week.year && row.weekNumber === week.weekNumber
+                        );
+                        weeklyHours[week.key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
                         if (!allocRoleId) {
                             const found = matchingRows.find((r) => r.projectRoleId);
                             if (found?.projectRoleId) allocRoleId = found.projectRoleId;
@@ -601,12 +593,10 @@ export default function ProjectView() {
 
                 // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
                 const allocatedEmpIds = new Set<number>();
-                rowsByWeek.forEach(({ rows }) => {
-                    rows.forEach((r) => {
-                        if (r.allocatedHours > 0 && !existingEmpIds.has(r.employeeId)) {
-                            allocatedEmpIds.add(r.employeeId);
-                        }
-                    });
+                allAllocations.forEach((r) => {
+                    if (Number(r.allocatedHours) > 0 && !existingEmpIds.has(r.employeeId)) {
+                        allocatedEmpIds.add(r.employeeId);
+                    }
                 });
 
                 if (allocatedEmpIds.size > 0 && allEmployees.length > 0) {
@@ -617,9 +607,11 @@ export default function ProjectView() {
                         if (empObj) {
                             const weeklyHours: Record<string, number> = {};
                             let allocRoleId = empObj.projectRoleId;
-                            rowsByWeek.forEach(({ key, rows }) => {
-                                const matchingRows = rows.filter((row) => row.employeeId === empId);
-                                weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                            month.weeks.forEach((week) => {
+                                const matchingRows = allAllocations.filter(
+                                    (row) => row.employeeId === empId && row.year === week.year && row.weekNumber === week.weekNumber
+                                );
+                                weeklyHours[week.key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
                                 if (!allocRoleId) {
                                     const found = matchingRows.find((r) => r.projectRoleId);
                                     if (found?.projectRoleId) allocRoleId = found.projectRoleId;
@@ -637,7 +629,7 @@ export default function ProjectView() {
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
             setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
         }
-    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId, allEmployees]);
+    }, [canReadAllocations, months, selectedMonthIdx, selectedProjectId, allEmployees]);
 
     useEffect(() => {
         if (canReadAllocations && selectedProjectId) {
@@ -685,6 +677,8 @@ export default function ProjectView() {
                     const projectRole = projectRoleMap.get(empIdNum);
                     return projectRole ? { ...emp, role: projectRole } : emp;
                 });
+
+            baseProjectMembersRef.current = projectMembers;
 
             setMembers((prevMembers) => {
                 const prevHoursMap = new Map(prevMembers.map((m) => [m.id, m.weeklyHours]));
