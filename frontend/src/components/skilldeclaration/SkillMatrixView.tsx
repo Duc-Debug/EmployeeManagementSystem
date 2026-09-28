@@ -164,10 +164,17 @@ const EMPTY_DEPT_LIST: DepartmentItem[] = [];
 
 export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenCatalog }: SkillMatrixViewProps) {
     const currentUser = useAuthUser();
+    const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
+    const isAllowed = ['VT-01', 'VT-05', 'VT-06'].includes(roleCode);
     const isBranchScope = currentUser?.dataScope === 'ORGANIZATION_BRANCH' && Boolean(currentUser?.scopeOrgUnitId);
 
     const [deptList, setDeptList] = useState<{ id: number; name: string }[]>([]);
-    const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
+    const [selectedDeptId, setSelectedDeptId] = useState<number | null>(() => {
+        if (isBranchScope) {
+            return currentUser?.scopeOrgUnitId || currentUser?.orgUnitId || 0;
+        }
+        return 0;
+    });
     const [selectedGroupName, setSelectedGroupName] = useState('Tất cả nhóm kỹ năng');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
@@ -175,6 +182,8 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
 
     // 1. Tải danh sách phòng ban thật từ API, lọc theo phạm vi DataScope của user
     useEffect(() => {
+        if (!isAllowed) return;
+
         getOrgTree()
             .then((tree) => {
                 const nodes = Array.isArray(tree) ? tree : [tree];
@@ -192,7 +201,7 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
                     const preferred = isBranchScope
                         ? flat[0]
                         : (flat.find((d) => d.id !== 1) || flat[0]);
-                    setSelectedDeptId((prev) => prev ?? preferred.id);
+                    setSelectedDeptId((prev) => (prev != null && listWithAll.some((d) => d.id === prev) ? prev : preferred.id));
                 } else {
                     setSelectedDeptId(0);
                 }
@@ -226,10 +235,15 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
                     setSelectedDeptId(0);
                 }
             });
-    }, [departments, isBranchScope, currentUser?.scopeOrgUnitId]);
+    }, [departments, isAllowed, isBranchScope, currentUser?.scopeOrgUnitId]);
 
     // 2. Tải ma trận kỹ năng khi phòng ban được chọn thay đổi
     useEffect(() => {
+        if (!isAllowed) {
+            setMatrixData(null);
+            return;
+        }
+
         setLoading(true);
         const deptIdToFetch = selectedDeptId && selectedDeptId > 0 ? selectedDeptId : undefined;
         getDepartmentSkillMatrix(deptIdToFetch)
@@ -243,7 +257,7 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
             .finally(() => {
                 setLoading(false);
             });
-    }, [selectedDeptId]);
+    }, [selectedDeptId, isAllowed]);
 
     const deptOptions = useMemo(() => deptList.map((d) => d.name), [deptList]);
     const currentDeptName = useMemo(() => {

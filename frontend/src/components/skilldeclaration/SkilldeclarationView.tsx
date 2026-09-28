@@ -160,7 +160,7 @@ export default function SkilldeclarationView({
 
     // 2. Tải danh sách kỹ năng cá nhân đã khai báo (cho VT-04)
     const loadPersonalSkills = async () => {
-        if (roleCode !== 'VT-04' && roleCode !== 'VT-06') return;
+        if (roleCode !== 'VT-04') return;
         try {
             const data = await getMySkills();
             const mapped: DeclaredSkill[] = data.map((es) => ({
@@ -184,9 +184,9 @@ export default function SkilldeclarationView({
         }
     };
 
-    // 3. Tải danh sách yêu cầu chờ duyệt (cho VT-03 và VT-06)
+    // 3. Tải danh sách yêu cầu chờ duyệt (Chỉ dành cho Quản lý nguồn lực VT-03)
     const loadApprovals = async () => {
-        if (roleCode !== 'VT-03' && roleCode !== 'VT-06') return;
+        if (roleCode !== 'VT-03') return;
         try {
             const data = await getPendingSkills();
             const mapped: PendingApprovalSkill[] = data.map((p) => ({
@@ -210,8 +210,12 @@ export default function SkilldeclarationView({
 
     useEffect(() => {
         loadCatalog();
-        loadPersonalSkills();
-        loadApprovals();
+        if (roleCode === 'VT-04') {
+            loadPersonalSkills();
+        }
+        if (roleCode === 'VT-03') {
+            loadApprovals();
+        }
     }, [roleCode]);
 
     async function handleApproveRequest(id: number, adjustedLevel?: number, notes?: string) {
@@ -481,8 +485,8 @@ export default function SkilldeclarationView({
                     />
                 )}
 
-                {/* Tab Duyệt kỹ năng (Dành cho VT-03 & VT-06) */}
-                {activeTab === 'approve' && (roleCode === 'VT-03' || roleCode === 'VT-06') && (
+                {/* Tab Duyệt kỹ năng (Dành riêng cho Quản lý nguồn lực VT-03) */}
+                {activeTab === 'approve' && roleCode === 'VT-03' && (
                     <SkillApproveTable
                         requests={approvalRequests}
                         onApprove={handleApproveRequest}
