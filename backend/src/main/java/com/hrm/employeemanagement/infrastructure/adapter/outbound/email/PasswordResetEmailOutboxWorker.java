@@ -34,12 +34,18 @@ public class PasswordResetEmailOutboxWorker {
     }
 
     private void deliver(PasswordResetEmailOutboxJpaEntity message) {
+        Instant now = Instant.now();
+        if (message.isExpired(now)) {
+            message.markExpired(now);
+            log.warn("Password reset email token expired before delivery for recipient: {}", message.getRecipientEmail());
+            return;
+        }
         try {
             emailPort.sendPasswordResetEmail(message.getRecipientEmail(), message.getUsername(),
                     message.getResetToken(), message.getValidityMinutes());
-            message.markDelivered(Instant.now());
+            message.markDelivered(now);
         } catch (RuntimeException ex) {
-            message.scheduleRetry(Instant.now().plus(1, ChronoUnit.MINUTES), ex.getMessage());
+            message.scheduleRetry(now.plus(1, ChronoUnit.MINUTES), ex.getMessage());
             log.warn("Password reset email delivery failed; queued for retry: {}", message.getRecipientEmail());
         }
     }
