@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getUsers } from '@/lib/api/users';
+import { can } from '@/lib/permissions';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getEmployees, getEmployeeProfileByUserId } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
@@ -416,31 +416,37 @@ export default function ProjectView() {
         return list;
     }, [categories]);
 
-    // 1. Tải danh sách nhân sự thật từ API (ưu tiên getAssignableEmployees cho phép PM thấy mọi nhân sự active)
+    // 1. Tải danh sách nhân sự thật từ API (chỉ PM có PROJECT_WBS_MANAGE mới gọi getAssignableEmployees)
     useEffect(() => {
-        getAssignableEmployees()
-            .then((members) => {
-                if (members && members.length > 0) {
-                    const fetchedMembers: ProjectMember[] = members.map((emp) => ({
-                        id: `u-${emp.employeeId}`,
-                        employeeId: emp.employeeId,
-                        roleCode: emp.roleCode,
-                        name: emp.fullName || emp.employeeCode,
-                        role: emp.orgUnitName || 'Nhân viên',
-                        avatar: '',
-                        capacity: 40,
-                        weeklyHours: {},
-                        contractEndDate: emp.contractEndDate,
-                        status: emp.status,
-                    }));
-                    setAllEmployees(fetchedMembers);
-                } else {
+        const canManageWbs = can('PROJECT_WBS_MANAGE', currentUser) || isPm;
+
+        if (canManageWbs) {
+            getAssignableEmployees()
+                .then((members) => {
+                    if (members && members.length > 0) {
+                        const fetchedMembers: ProjectMember[] = members.map((emp) => ({
+                            id: `u-${emp.employeeId}`,
+                            employeeId: emp.employeeId,
+                            roleCode: emp.roleCode,
+                            name: emp.fullName || emp.employeeCode,
+                            role: emp.orgUnitName || 'Nhân viên',
+                            avatar: '',
+                            capacity: 40,
+                            weeklyHours: {},
+                            contractEndDate: emp.contractEndDate,
+                            status: emp.status,
+                        }));
+                        setAllEmployees(fetchedMembers);
+                    } else {
+                        fallbackLoadEmployees();
+                    }
+                })
+                .catch(() => {
                     fallbackLoadEmployees();
-                }
-            })
-            .catch(() => {
-                fallbackLoadEmployees();
-            });
+                });
+        } else {
+            fallbackLoadEmployees();
+        }
 
         function fallbackLoadEmployees() {
             getEmployees(1, 100)
@@ -462,30 +468,11 @@ export default function ProjectView() {
                         setAllEmployees(fetchedMembers);
                     }
                 })
-                .catch(() => {
-                    getUsers(0, 100)
-                        .then((res) => {
-                            if (res?.content && res.content.length > 0) {
-                                const fetchedMembers: ProjectMember[] = res.content
-                                  .filter((u) => u.employeeId !== null && u.employeeId !== 1 && !String(u.roleCode).includes('06'))
-                                  .map((u) => ({
-                                    id: `u-${u.employeeId}`,
-                                    employeeId: u.employeeId ?? undefined,
-                                    name: u.fullName || u.username,
-                                    role: u.roleCode || 'Nhân viên',
-                                    avatar: '',
-                                    capacity: 40,
-                                    weeklyHours: {},
-                                }));
-                                setAllEmployees(fetchedMembers);
-                            }
-                        })
-                        .catch((err) => {
-                            console.warn('Failed to load employees for the project view:', err);
-                        });
+                .catch((err) => {
+                    console.warn('Failed to load employees for the project view:', err);
                 });
         }
-    }, []);
+    }, [currentUser, isPm]);
 
     // 2. Tải danh sách dự án thật từ Database
     const loadProjects = useCallback(async () => {
