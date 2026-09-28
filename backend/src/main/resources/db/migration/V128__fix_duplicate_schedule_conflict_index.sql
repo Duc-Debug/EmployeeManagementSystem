@@ -5,6 +5,7 @@
 -- on schedule_conflict_warnings, keeping uk_schedule_conflict_existing
 -- ============================================================
 
--- Drop redundant duplicate unique index/constraint created in V76 if present
+-- Drop redundant duplicate unique index created in V76
 -- (V93 established canonical uk_schedule_conflict_existing on the same columns)
-ALTER TABLE schedule_conflict_warnings DROP CONSTRAINT IF EXISTS uk_conflict_emp_year_week_type;
+ALTER TABLE schedule_conflict_warnings
+    DROP INDEX uk_conflict_emp_year_week_type;
