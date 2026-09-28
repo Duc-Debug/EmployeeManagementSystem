@@ -25,6 +25,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Re
 import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -84,6 +85,11 @@ class AuthControllerTest {
                 .setCustomArgumentResolvers(new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
                 .setControllerAdvice(new UserExceptionHandler())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -271,10 +277,25 @@ class AuthControllerTest {
     @Test
     @DisplayName("GET /api/v1/auth/me trả về 200 OK và thông tin user khi đã đăng nhập thành công")
     void testGetCurrentUser_Authenticated_Returns200OK() throws Exception {
-        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
-        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(10L));
+        Role role = new Role(new RoleId(1L), RoleCode.VT_04, "Nhân viên chuyên môn");
+        User user = new User(new UserId(1L), "nv01", "hash", role, UserStatus.ACTIVE, new EmployeeId(5L), "nv01@example.com", null, 1L);
 
-        UserResult userResult = new UserResult(1L, "admin", "VT-06", "Quản trị viên", UserStatus.ACTIVE, 10L, "Admin User", 1L, "Phòng IT", com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY, null);
+        UserResult userResult = new UserResult(
+                1L,
+                "nv01",
+                "nv01@example.com",
+                "VT-04",
+                "Nhân viên chuyên môn",
+                UserStatus.ACTIVE,
+                5L,
+                "NV-DEV01",
+                "Nguyễn Văn Dev",
+                1L,
+                "Ban Phát triển Phần mềm",
+                com.hrm.employeemanagement.domain.authorization.DataScope.SELF,
+                null,
+                java.util.Collections.emptyList()
+        );
         when(getCurrentUserProfileUseCase.getCurrentUserProfile(1L)).thenReturn(userResult);
 
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
@@ -286,8 +307,56 @@ class AuthControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.id").value(1L))
-                    .andExpect(jsonPath("$.data.username").value("admin"))
-                    .andExpect(jsonPath("$.data.roleCode").value("VT-06"));
+                    .andExpect(jsonPath("$.data.username").value("nv01"))
+                    .andExpect(jsonPath("$.data.email").value("nv01@example.com"))
+                    .andExpect(jsonPath("$.data.employeeId").value(5L))
+                    .andExpect(jsonPath("$.data.employeeCode").value("NV-DEV01"))
+                    .andExpect(jsonPath("$.data.employeeCode").value(org.hamcrest.Matchers.not("EMP5")))
+                    .andExpect(jsonPath("$.data.employeeCode").value(org.hamcrest.Matchers.not("EMP-5")))
+                    .andExpect(jsonPath("$.data.employeeCode").value(org.hamcrest.Matchers.notNullValue()))
+                    .andExpect(jsonPath("$.data.roleCode").value("VT-04"));
+
+            verify(getCurrentUserProfileUseCase, times(1)).getCurrentUserProfile(1L);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/me không tự sinh EMP-xxx khi employeeCode bị thiếu")
+    void testGetCurrentUser_WithoutEmployeeCode_DoesNotGenerateEmpCode() throws Exception {
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Quản trị viên");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(5L), "admin@example.com", null, 1L);
+
+        UserResult userResult = new UserResult(
+                1L,
+                "admin",
+                "admin@example.com",
+                "VT-06",
+                "Quản trị viên",
+                UserStatus.ACTIVE,
+                5L,
+                null,
+                "Admin User",
+                1L,
+                "Ban Giám đốc",
+                com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY,
+                null,
+                java.util.Collections.emptyList()
+        );
+        when(getCurrentUserProfileUseCase.getCurrentUserProfile(1L)).thenReturn(userResult);
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, java.util.Collections.emptyList())
+        );
+
+        try {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.employeeId").value(5L))
+                    .andExpect(jsonPath("$.data.employeeCode").doesNotExist())
+                    .andExpect(jsonPath("$.data.email").value("admin@example.com"));
 
             verify(getCurrentUserProfileUseCase, times(1)).getCurrentUserProfile(1L);
         } finally {

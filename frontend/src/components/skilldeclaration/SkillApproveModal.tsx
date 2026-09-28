@@ -30,7 +30,7 @@ export default function SkillApproveModal({
 
     useEffect(() => {
         if (skillItem) {
-            setSelectedLevel(skillItem.level);
+            setSelectedLevel(skillItem.pendingLevel ?? skillItem.level);
             setReviewNotes(skillItem.reviewNotes || "");
             setError(null);
         }
@@ -38,8 +38,9 @@ export default function SkillApproveModal({
 
     if (!open || !skillItem) return null;
 
-    const originalLevel = skillItem.level;
-    const isLevelChanged = selectedLevel !== originalLevel;
+    const targetLevel = skillItem.pendingLevel ?? skillItem.level;
+    const isLevelChanged = selectedLevel !== targetLevel;
+    const isUpdateProposal = skillItem.pendingLevel != null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -129,14 +130,23 @@ export default function SkillApproveModal({
                             </span>
                         </div>
 
+                        {isUpdateProposal && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-slate-500 font-medium">Mức hiện tại đang hiệu lực:</span>
+                                <span className="font-semibold text-slate-700">
+                                    Level {skillItem.level} ({skillItem.years} năm)
+                                </span>
+                            </div>
+                        )}
+
                         <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
                             <span className="text-slate-500 font-medium">Mức nhân viên đề xuất:</span>
                             <span className="inline-flex items-center gap-1.5 font-bold text-slate-800">
                                 <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">
-                                    Level {originalLevel}
+                                    Level {targetLevel}
                                 </span>
-                                <span>- {PROFICIENCY_LEVELS.find((l) => l.level === originalLevel)?.label || `Level ${originalLevel}`}</span>
-                                <span className="text-slate-400 font-normal">({skillItem.years} năm kinh nghiệm)</span>
+                                <span>- {PROFICIENCY_LEVELS.find((l) => l.level === targetLevel)?.label || `Level ${targetLevel}`}</span>
+                                <span className="text-slate-400 font-normal">({skillItem.pendingYears ?? skillItem.years} năm kinh nghiệm)</span>
                             </span>
                         </div>
                     </div>
@@ -150,7 +160,7 @@ export default function SkillApproveModal({
                             {isLevelChanged && (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                                     <Sparkles className="h-3 w-3" />
-                                    {selectedLevel > originalLevel ? "Điều chỉnh tăng" : "Điều chỉnh giảm"} so với đề xuất
+                                    {selectedLevel > targetLevel ? "Điều chỉnh tăng" : "Điều chỉnh giảm"} so với đề xuất
                                 </span>
                             )}
                         </div>
@@ -158,7 +168,7 @@ export default function SkillApproveModal({
                         <div className="grid grid-cols-5 gap-2">
                             {PROFICIENCY_LEVELS.map((pl) => {
                                 const isSelected = selectedLevel === pl.level;
-                                const isOriginal = originalLevel === pl.level;
+                                const isTarget = targetLevel === pl.level;
                                 return (
                                     <button
                                         key={pl.level}
@@ -169,13 +179,13 @@ export default function SkillApproveModal({
                                             isSelected
                                                 ? "border-emerald-500 bg-emerald-50/80 text-emerald-900 ring-2 ring-emerald-400/40 shadow-xs"
                                                 : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700",
-                                            isOriginal && !isSelected && "border-indigo-200 bg-indigo-50/30"
+                                            isTarget && !isSelected && "border-indigo-200 bg-indigo-50/30"
                                         )}
                                     >
                                         <span className="text-xs font-black">Lvl {pl.level}</span>
                                         <span className="text-[10px] font-semibold mt-0.5 truncate w-full">{pl.label}</span>
-                                        {isOriginal && (
-                                            <span className="text-[9px] text-indigo-600 font-medium mt-0.5">Gốc</span>
+                                        {isTarget && (
+                                            <span className="text-[9px] text-indigo-600 font-medium mt-0.5">Đề xuất</span>
                                         )}
                                     </button>
                                 );

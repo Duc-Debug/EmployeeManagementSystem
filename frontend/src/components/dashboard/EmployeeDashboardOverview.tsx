@@ -579,23 +579,23 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         <div className="space-y-2 text-xs">
                             <div className="flex justify-between py-1 border-b border-slate-100">
                                 <span className="text-slate-500">Mã nhân sự:</span>
-                                <span className="font-mono font-bold text-slate-800">{user?.employeeCode || "NV001"}</span>
+                                <span className="font-mono font-bold text-slate-800">{user?.employeeCode || "—"}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
                                 <span className="text-slate-500">Họ và tên:</span>
-                                <span className="font-semibold text-slate-800">{user?.fullName || user?.username}</span>
+                                <span className="font-semibold text-slate-800">{user?.fullName || user?.username || "—"}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
                                 <span className="text-slate-500">Phòng ban:</span>
-                                <span className="font-semibold text-slate-800">{user?.orgUnitName || "Ban Phát triển Phần mềm"}</span>
+                                <span className="font-semibold text-slate-800">{user?.orgUnitName || "—"}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
                                 <span className="text-slate-500">Vai trò hệ thống:</span>
-                                <span className="font-semibold text-sky-700">{user?.roleName || "Nhân viên"}</span>
+                                <span className="font-semibold text-sky-700">{user?.roleName || "—"}</span>
                             </div>
                             <div className="flex justify-between py-1">
                                 <span className="text-slate-500">Email:</span>
-                                <span className="text-slate-700 truncate max-w-[160px]">{user?.email || "employee@company.com"}</span>
+                                <span className="text-slate-700 truncate max-w-[160px]">{user?.email || "—"}</span>
                             </div>
                         </div>
                     </div>

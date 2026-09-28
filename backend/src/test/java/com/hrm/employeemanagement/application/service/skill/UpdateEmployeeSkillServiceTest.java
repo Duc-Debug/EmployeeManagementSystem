@@ -91,8 +91,10 @@ class UpdateEmployeeSkillServiceTest {
         EmployeeSkillResult result = service.execute(command);
 
         assertNotNull(result);
-        assertEquals(4, result.proficiencyLevel());
-        assertEquals("PENDING", result.status()); // Chuyển từ APPROVED -> PENDING theo quy tắc nghiệp vụ
+        assertEquals(2, result.proficiencyLevel()); // Giữ nguyên mức đã duyệt đang có hiệu lực
+        assertEquals(4, result.pendingProficiencyLevel()); // Mức mới được lưu vào pending để chờ duyệt
+        assertEquals(new BigDecimal("3.0"), result.pendingYearsOfExperience());
+        assertEquals("APPROVED", result.status()); // Giữ nguyên trạng thái APPROVED trong lúc chờ duyệt
 
         ArgumentCaptor<AuditLog> auditCaptor = ArgumentCaptor.forClass(AuditLog.class);
         verify(auditLogRepository).save(auditCaptor.capture());

@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { uploadBackupFile, validateBackupUploadFileName } from "@/lib/api/backup";
 import type { BackupItem } from "@/lib/api/backup";

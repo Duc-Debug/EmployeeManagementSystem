@@ -201,15 +201,28 @@ public class SkillService implements
         Skill skill = loadSkillPort.findById(new SkillId(command.id()))
                 .orElseThrow(() -> new SkillNotFoundException("Không tìm thấy kỹ năng với ID: " + command.id()));
 
-        String oldValue = "name=" + skill.getName();
+        String oldValue = "name=" + skill.getName() + ";status=" + (skill.getStatus() != null ? skill.getStatus().name() : "ACTIVE");
 
-        Skill savedSkill = saveSkillPort.save(skill);
+        SkillStatus newStatus = (skill.getStatus() == SkillStatus.INACTIVE) ? SkillStatus.ACTIVE : SkillStatus.INACTIVE;
 
-        String newValue = "deactivated";
+        Skill updatedSkill = new Skill(
+                skill.getId(),
+                skill.getCode(),
+                skill.getName(),
+                skill.getCategory(),
+                skill.getDescription(),
+                skill.getGroupId(),
+                skill.getCreatedAt(),
+                newStatus
+        );
+
+        Skill savedSkill = saveSkillPort.save(updatedSkill);
+
+        String newValue = "status=" + newStatus.name();
 
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "SKILL_DEACTIVATED",
+                newStatus == SkillStatus.INACTIVE ? "SKILL_DEACTIVATED" : "SKILL_ACTIVATED",
                 "skills",
                 savedSkill.getId(),
                 oldValue,
@@ -335,11 +348,11 @@ public class SkillService implements
     private SkillResult toSkillResult(Skill s, String groupName) {
         return new SkillResult(
                 s.getId(),
-                null,
+                s.getGroupId(),
                 groupName,
                 s.getName(),
                 s.getDescription(),
-                "ACTIVE",
+                s.getStatus() != null ? s.getStatus().name() : "ACTIVE",
                 null,
                 s.getCreatedAt(),
                 null

@@ -84,6 +84,10 @@ public class ScheduleConflictPersistenceAdapter implements LoadScheduleConflictP
     @Override
     public ScheduleConflict save(ScheduleConflict conflict) {
         ScheduleConflictJpaEntity entity = toEntity(conflict);
+        if (entity.getId() != null) {
+            ScheduleConflictJpaEntity saved = repository.saveAndFlush(entity);
+            return toDomain(saved);
+        }
         try {
             ScheduleConflictJpaEntity saved = transactionalHelper.saveAndFlushRequiresNew(entity);
             return toDomain(saved);

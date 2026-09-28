@@ -116,7 +116,7 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
         }
 
         if (demands == null || demands.isEmpty()) {
-            return new RecruitmentDemandMetrics(Map.of(), BigDecimal.ZERO, 0);
+            return new RecruitmentDemandMetrics(Map.of(), BigDecimal.ZERO, 0, Map.of());
         }
 
         List<Long> roleIds = demands.stream()
@@ -130,6 +130,7 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
                         Collectors.mapping(ProjectRoleSkillJpaEntity::getSkillId, Collectors.toList())));
 
         Map<Long, BigDecimal> demandMap = new HashMap<>();
+        Map<Long, Set<String>> projectSetBySkill = new HashMap<>();
         BigDecimal unmappedHours = BigDecimal.ZERO;
         int unmappedRoles = 0;
         for (ProjectDemandByRoleProjection d : demands) {
@@ -139,15 +140,21 @@ public class RecruitmentDemandReportPersistenceAdapter implements LoadRecruitmen
                 unmappedRoles++;
                 continue;
             }
-            // A role-to-skill mapping means that the skill is required for the
-            // role. The role's effort must therefore remain visible in full for
-            // every required skill; the mapping contains no allocation weight.
+            String projectLabel = d.getProjectName() != null ? d.getProjectName() : (d.getProjectCode() != null ? d.getProjectCode() : null);
             skillIds.stream()
                     .filter(Objects::nonNull)
                     .distinct()
-                    .forEach(skillId -> demandMap.merge(skillId, d.getRequiredHours(), BigDecimal::add));
+                    .forEach(skillId -> {
+                        demandMap.merge(skillId, d.getRequiredHours(), BigDecimal::add);
+                        if (projectLabel != null) {
+                            projectSetBySkill.computeIfAbsent(skillId, k -> new java.util.LinkedHashSet<>()).add(projectLabel);
+                        }
+                    });
         }
-        return new RecruitmentDemandMetrics(Map.copyOf(demandMap), unmappedHours, unmappedRoles);
+        Map<Long, List<String>> projectNamesBySkill = projectSetBySkill.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> List.copyOf(e.getValue())));
+
+        return new RecruitmentDemandMetrics(Map.copyOf(demandMap), unmappedHours, unmappedRoles, projectNamesBySkill);
     }
 
     @Override

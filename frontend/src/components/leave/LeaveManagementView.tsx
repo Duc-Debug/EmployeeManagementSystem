@@ -86,15 +86,15 @@ export default function LeaveManagementView() {
     const isRM = roleCode === "VT-03";
     const isHR = roleCode === "VT-05";
     const isDirector = roleCode === "VT-01";
-    const isApprover = isRM || isHR || isDirector;
-    const isEmployee = !isApprover && roleCode !== "VT-02" && roleCode !== "VT-06"; // VT-04
-    const canCreateLeave = (Boolean(user?.permissions?.includes("LEAVE_REQUEST_CREATE")) || roleCode === "VT-04") && roleCode !== "VT-02";
+    const isApprover = isRM || isHR;
+    const isEmployee = roleCode === "VT-04"; // VT-04
+    const canCreateLeave = (roleCode === "VT-04" || Boolean(user?.permissions?.includes("LEAVE_REQUEST_CREATE"))) && !["VT-01", "VT-02", "VT-06"].includes(roleCode);
 
     const canViewDeptCalendar = isRM || isHR || isDirector || roleCode === "VT-06" || roleCode === "VT-02";
     const [viewMode, setViewMode] = useState<"list" | "dept-calendar">(() => {
         const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
         if (searchParams?.get("requestId")) return "list";
-        return canViewDeptCalendar && (isRM || isHR || roleCode === "VT-02") ? "dept-calendar" : "list";
+        return canViewDeptCalendar && (isRM || isHR || isDirector || roleCode === "VT-02") ? "dept-calendar" : "list";
     });
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [balance, setBalance] = useState<LeaveBalanceDto | null>(null);

@@ -76,6 +76,10 @@ public class AuthorizationService {
         return currentUserId;
     }
 
+    public User getAuthenticatedUser() {
+        return authenticatedUserPort.getAuthenticatedUser();
+    }
+
     public Long requireAny(PermissionCode... permissions) {
         Objects.requireNonNull(
                 permissions,

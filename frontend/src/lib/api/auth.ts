@@ -3,6 +3,7 @@
 import { apiRequest } from "../api-client";
 import {
   clearAuthSession,
+  getStoredUser,
   setAuthToken,
   setStoredUser,
   type AuthUser,
@@ -20,6 +21,7 @@ export interface AuthTokenResponse {
   tokenType: string;
   userId: number;
   username: string;
+  requiresPasswordChange?: boolean;
 }
 
 export interface ChangePasswordPayload {
@@ -30,6 +32,8 @@ export interface ChangePasswordPayload {
 
 export interface UserResultDto {
   dataScope: DataScope;
+  email?: string | null;
+  employeeCode?: string | null;
   employeeId: number | null;
   fullName: string;
   id: number;
@@ -41,6 +45,28 @@ export interface UserResultDto {
   status: UserStatus;
   username: string;
   permissions?: string[];
+  requiresPasswordChange?: boolean;
+}
+
+export function mapAuthUser(userRes: UserResultDto, requiresPasswordChange?: boolean): AuthUser {
+  return {
+    dataScope: userRes.dataScope,
+    email: userRes.email ?? null,
+    employeeCode: userRes.employeeCode ?? null,
+    fullName: userRes.fullName,
+    id: userRes.id,
+    orgUnitId: userRes.orgUnitId,
+    orgUnitName: userRes.orgUnitName,
+    roleCode: userRes.roleCode,
+    roleName: userRes.roleName,
+    scopeOrgUnitId: userRes.scopeOrgUnitId,
+    status: userRes.status,
+    username: userRes.username,
+    permissions: userRes.permissions || [],
+    requiresPasswordChange: Boolean(
+      requiresPasswordChange ?? userRes.requiresPasswordChange
+    ),
+  };
 }
 
 export async function login(payload: LoginPayload): Promise<AuthUser> {
@@ -61,21 +87,10 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
       method: "GET",
     });
 
-    const authUser: AuthUser = {
-      dataScope: userRes.dataScope,
-      email: null,
-      employeeCode: userRes.employeeId ? `EMP-${userRes.employeeId}` : null,
-      fullName: userRes.fullName,
-      id: userRes.id,
-      orgUnitId: userRes.orgUnitId,
-      orgUnitName: userRes.orgUnitName,
-      roleCode: userRes.roleCode,
-      roleName: userRes.roleName,
-      scopeOrgUnitId: userRes.scopeOrgUnitId,
-      status: userRes.status,
-      username: userRes.username,
-      permissions: userRes.permissions || [],
-    };
+    const requiresPasswordChange = Boolean(
+      userRes.requiresPasswordChange ?? loginRes.requiresPasswordChange
+    );
+    const authUser = mapAuthUser(userRes, requiresPasswordChange);
 
     setStoredUser(authUser);
     return authUser;
@@ -90,21 +105,7 @@ export async function getCurrentUser(): Promise<AuthUser> {
     method: "GET",
   });
 
-  const authUser: AuthUser = {
-    dataScope: userRes.dataScope,
-    email: null,
-    employeeCode: userRes.employeeId ? `EMP-${userRes.employeeId}` : null,
-    fullName: userRes.fullName,
-    id: userRes.id,
-    orgUnitId: userRes.orgUnitId,
-    orgUnitName: userRes.orgUnitName,
-    roleCode: userRes.roleCode,
-    roleName: userRes.roleName,
-    scopeOrgUnitId: userRes.scopeOrgUnitId,
-    status: userRes.status,
-    username: userRes.username,
-    permissions: userRes.permissions || [],
-  };
+  const authUser = mapAuthUser(userRes);
 
   setStoredUser(authUser);
   return authUser;
@@ -115,6 +116,13 @@ export async function changePassword(payload: ChangePasswordPayload): Promise<vo
     body: JSON.stringify(payload),
     method: "POST",
   });
+  const stored = getStoredUser();
+  if (stored) {
+    setStoredUser({
+      ...stored,
+      requiresPasswordChange: false,
+    });
+  }
 }
 
 export interface ForgotPasswordPayload {

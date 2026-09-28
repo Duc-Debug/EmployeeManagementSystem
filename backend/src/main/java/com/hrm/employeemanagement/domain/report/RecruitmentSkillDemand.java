@@ -14,6 +14,7 @@ public class RecruitmentSkillDemand {
     private final BigDecimal availableCapacityHours;
     private final BigDecimal shortfallHours;
     private final String status; // "DEFICIT" hoặc "SUFFICIENT"
+    private final java.util.List<String> demandingProjects;
 
     public RecruitmentSkillDemand(
             Long skillId,
@@ -21,7 +22,8 @@ public class RecruitmentSkillDemand {
             String skillName,
             String category,
             BigDecimal requiredDemandHours,
-            BigDecimal availableCapacityHours
+            BigDecimal availableCapacityHours,
+            java.util.List<String> demandingProjects
     ) {
         this.skillId = skillId;
         this.skillCode = Objects.requireNonNull(skillCode, "skillCode must not be null");
@@ -29,6 +31,7 @@ public class RecruitmentSkillDemand {
         this.category = category != null ? category : "Chung";
         this.requiredDemandHours = requiredDemandHours != null ? requiredDemandHours.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
         this.availableCapacityHours = availableCapacityHours != null ? availableCapacityHours.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
+        this.demandingProjects = demandingProjects != null ? demandingProjects : java.util.List.of();
 
         BigDecimal diff = this.requiredDemandHours.subtract(this.availableCapacityHours);
         if (diff.compareTo(BigDecimal.ZERO) > 0) {
@@ -38,6 +41,17 @@ public class RecruitmentSkillDemand {
             this.shortfallHours = BigDecimal.ZERO.setScale(2);
             this.status = "SUFFICIENT";
         }
+    }
+
+    public RecruitmentSkillDemand(
+            Long skillId,
+            String skillCode,
+            String skillName,
+            String category,
+            BigDecimal requiredDemandHours,
+            BigDecimal availableCapacityHours
+    ) {
+        this(skillId, skillCode, skillName, category, requiredDemandHours, availableCapacityHours, java.util.List.of());
     }
 
     public Long getSkillId() {
@@ -70,6 +84,10 @@ public class RecruitmentSkillDemand {
 
     public String getStatus() {
         return status;
+    }
+
+    public java.util.List<String> getDemandingProjects() {
+        return demandingProjects;
     }
 
     public boolean isDeficit() {

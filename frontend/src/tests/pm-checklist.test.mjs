@@ -8,9 +8,9 @@ import { ProjectTaskModal } from "../components/project/ProjectTaskModal.tsx";
 import { TaskBoardCard } from "../components/task/TaskBoardCard.tsx";
 import { resolveActiveTab } from "../components/dashboard/dashboard-routing.ts";
 
-test("PM sidebar exposes the 15 allowed modules and hides the 9 others", () => {
+test("PM sidebar exposes the 12 allowed modules and hides the 12 others", () => {
   const visible = SIDEBAR_GROUPS.flatMap(group => group.items).filter(item => canAccessTab("VT-02", item.id, "SELF")).map(item => item.id);
-  assert.deepEqual(visible, ["overview", "capacity-dashboard", "project", "capacity", "schedule-conflict", "my-schedule", "attendance", "availability", "unavailability", "leave", "working-calendar", "project-allocation-report", "departments", "skills", "roles"]);
+  assert.deepEqual(visible, ["overview", "capacity-dashboard", "project", "capacity", "schedule-conflict", "attendance", "leave", "working-calendar", "project-allocation-report", "departments", "skills", "roles"]);
   for (const role of ["VT-01", "VT-03", "VT-05"]) assert.equal(canAccessTab(role, "attendance"), false);
   assert.equal(resolveActiveTab("/projects/123"), "project");
 });

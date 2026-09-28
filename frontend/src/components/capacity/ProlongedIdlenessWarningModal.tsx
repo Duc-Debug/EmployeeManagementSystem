@@ -45,7 +45,7 @@ export function ProlongedIdlenessWarningModal({
   const normalizedRole = currentUser?.roleCode
     ? currentUser.roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "")
     : "";
-  const canAcknowledge = normalizedRole === "VT-03" || normalizedRole === "VT-06";
+  const canAcknowledge = normalizedRole === "VT-03";
 
   // Filter states
   const now = new Date();
@@ -53,9 +53,11 @@ export function ProlongedIdlenessWarningModal({
   const [fromYear, setFromYear] = useState<number>(currentYear);
   const [fromWeek, setFromWeek] = useState<number>(initialWeek ?? 1);
   const [durationWeeks, setDurationWeeks] = useState<number>(4);
-  const CONSECUTIVE_THRESHOLD = 3; // TC-01: Ngưỡng cố định theo quy tắc nghiệp vụ Domain Policy
+  const CONSECUTIVE_THRESHOLD = 3; // Ngưỡng cố định theo quy tắc nghiệp vụ Domain Policy
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OPEN" | "ACKNOWLEDGED">("ALL");
-  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(initialOrgUnitId);
+  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<number | undefined>(
+    initialOrgUnitId ?? (currentUser?.dataScope !== "COMPANY" && currentUser?.orgUnitId ? currentUser.orgUnitId : undefined)
+  );
   const [search, setSearch] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [page, setPage] = useState<number>(0);
@@ -354,14 +356,14 @@ export function ProlongedIdlenessWarningModal({
                 </select>
               </div>
 
-              {/* Quy tắc chuỗi tuần nhàn rỗi (TC-01) */}
+              {/* Quy tắc chuỗi tuần nhàn rỗi */}
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
                   Quy tắc cảnh báo
                 </label>
                 <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                  <span>&ge; 3 tuần (TC-01)</span>
+                  <span>&ge; 3 tuần liên tiếp</span>
                 </div>
               </div>
 
@@ -394,7 +396,7 @@ export function ProlongedIdlenessWarningModal({
                   onChange={(e) => setSelectedOrgUnitId(e.target.value ? Number(e.target.value) : undefined)}
                   className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-amber-500"
                 >
-                  <option value="">Toàn công ty</option>
+                  {currentUser?.dataScope === "COMPANY" && <option value="">Toàn công ty</option>}
                   {orgUnits.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}

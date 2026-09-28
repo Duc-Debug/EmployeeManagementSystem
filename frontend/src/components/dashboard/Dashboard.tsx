@@ -44,10 +44,6 @@ import { getUsers } from "@/lib/api/users";
 
 const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [];
 
-// Mã nhân viên đang thao tác ở "Trạm chấm công nhanh" — tạm gán cứng cho tới
-// khi màn hình này đọc được người dùng đang đăng nhập từ auth thật.
-const CURRENT_EMPLOYEE_ID = "NV001";
-
 export default function Dashboard() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -62,6 +58,24 @@ export default function Dashboard() {
         const targetPath = tabId === "overview" ? "/" : `/${tabId}`;
         navigate(targetPath);
     };
+
+    useEffect(() => {
+        if (user?.requiresPasswordChange) {
+            navigate("/change-password", { replace: true });
+        }
+    }, [user, navigate]);
+
+    // Điều hướng trang Không sẵn sàng độc lập: Nhúng vào lịch tuần của VT-04, các vai trò khác về trang chủ
+    useEffect(() => {
+        if (activeTab === "unavailability") {
+            const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+            if (role === "VT-04" || role === "ROLE-EMPLOYEE" || role === "EMPLOYEE") {
+                navigate("/my-schedule", { replace: true });
+            } else {
+                navigate("/", { replace: true });
+            }
+        }
+    }, [activeTab, user, navigate]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(
@@ -122,7 +136,7 @@ export default function Dashboard() {
             hour: "2-digit",
             minute: "2-digit",
         });
-        const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
+        const currentIdStr = user?.employeeCode || (user?.id != null ? String(user.id) : "—");
         const currentName = user?.fullName || user?.username || "Tôi ";
         const currentDept = user?.orgUnitName || "Phòng chuyên môn";
 
@@ -140,7 +154,7 @@ export default function Dashboard() {
             }
             return [
                 {
-                    id: user?.employeeCode || currentIdStr,
+                    id: currentIdStr,
                     name: currentName,
                     dept: currentDept,
                     inTime: time,
@@ -161,7 +175,7 @@ export default function Dashboard() {
             hour: "2-digit",
             minute: "2-digit",
         });
-        const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
+        const currentIdStr = user?.employeeCode || (user?.id != null ? String(user.id) : "—");
         const currentName = user?.fullName || user?.username || "Tôi ";
 
         setAttendanceRecords((prev) =>

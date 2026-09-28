@@ -2,6 +2,7 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.security;
 
 import com.hrm.employeemanagement.application.port.outbound.security.TokenBlacklistPort;
 import com.hrm.employeemanagement.infrastructure.security.JwtProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ import java.util.concurrent.TimeUnit;
  * Offloads token revocation state to Redis TTL keys, preventing JVM heap memory growth and OOM risk.
  */
 @Component
-@Profile("prod")
+@Profile({"redis", "prod"})
 public class RedisTokenBlacklistAdapter implements TokenBlacklistPort {
 
     private static final String BLACKLIST_KEY_PREFIX = "token:blacklist:";
@@ -26,6 +27,7 @@ public class RedisTokenBlacklistAdapter implements TokenBlacklistPort {
     private final StringRedisTemplate redisTemplate;
     private final JwtProperties jwtProperties;
 
+    @Autowired
     public RedisTokenBlacklistAdapter(StringRedisTemplate redisTemplate, JwtProperties jwtProperties) {
         this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
         this.jwtProperties = jwtProperties;

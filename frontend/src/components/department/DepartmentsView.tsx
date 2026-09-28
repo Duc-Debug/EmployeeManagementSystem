@@ -7,11 +7,12 @@ import OrgChart from "./OrgChart";
 export default function DepartmentsView() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTab = searchParams.get("tab");
-    const departmentSubTab = currentTab === "chart" ? "tree" : "list";
+    // Mặc định hiển thị "Sơ đồ tổ chức" (OrgChart) theo yêu cầu UX
+    const departmentSubTab = currentTab === "list" ? "list" : "tree";
 
     const handleSubTabChange = (tab: "list" | "tree") => {
-        if (tab === "tree") {
-            setSearchParams({ tab: "chart" });
+        if (tab === "list") {
+            setSearchParams({ tab: "list" });
         } else {
             setSearchParams({});
         }

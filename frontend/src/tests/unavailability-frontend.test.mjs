@@ -100,17 +100,17 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("Role-based access & Tab visibility", () => {
-    test("TC-08: canAccessTab cho phép tất cả các vai trò hợp lệ (VT-01 -> VT-06) truy cập tab unavailability", () => {
+    test("TC-08: canAccessTab chặn truy cập tab unavailability vì đã chuyển vào Lịch phân bổ", () => {
       const roles = ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"];
       for (const r of roles) {
-        assert.equal(canAccessTab(r, "unavailability"), true, `Role ${r} phải được truy cập tab unavailability`);
+        assert.equal(canAccessTab(r, "unavailability"), false, `Role ${r} không truy cập tab unavailability độc lập`);
       }
     });
 
-    test("TC-09: canAccessTab cho phép khi user có permission UNAVAILABILITY_DECLARE hoặc UNAVAILABILITY_APPROVE", () => {
-      assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_DECLARE"]), true);
-      assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_APPROVE"]), true);
-      assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_READ"]), true);
+    test("TC-09: canAccessTab không mở tab unavailability độc lập ngay cả khi user có permission", () => {
+      assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_DECLARE"]), false);
+      assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_APPROVE"]), false);
+      assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_READ"]), false);
     });
   });
 

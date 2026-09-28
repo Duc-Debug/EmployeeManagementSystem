@@ -17,6 +17,7 @@ export interface AuthUser {
   status: UserStatus;
   username: string;
   permissions?: string[];
+  requiresPasswordChange?: boolean;
 }
 
 const TOKEN_KEY = "nexushrm_auth_token";

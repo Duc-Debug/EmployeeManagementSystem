@@ -4,7 +4,12 @@
 .env
 .env.local
 .env.prod
+
 ### Postman ###
 docs/postman/
 docs/plans/
-docs/PM_RBAC_BUG_CHECKLIST.md
+
+### IntelliJ IDEA ###
+.idea/
+
+backend/uploads/backups

@@ -142,13 +142,21 @@ export async function downloadBillableRateReport(
   window.URL.revokeObjectURL(downloadUrl);
 }
 
+export interface BillableRateCalculationResult {
+  netAvailableHours: number;
+  totalActualHours: number;
+  billableRate: number | null;
+  hasAvailableHours: boolean;
+  status: string;
+}
+
 export function calculateBillableRate(
   standardHours: number,
   holidayHours: number,
   approvedLeaveHours: number,
   billableHours: number,
   nonBillableHours: number
-) {
+): BillableRateCalculationResult {
   const netAvailableHours = Math.max(0, standardHours - holidayHours - approvedLeaveHours);
   const totalActualHours = billableHours + nonBillableHours;
 
@@ -179,7 +187,10 @@ export function calculateBillableRate(
   };
 }
 
-export function canAccessBillableRateTab(roleCode?: string | null, permissions?: string[] | null) {
+export function canAccessBillableRateTab(
+  roleCode?: string | null,
+  permissions?: readonly string[] | null
+): boolean {
   const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
   return (
     permissions?.includes("BILLABLE_HOURS_REPORT_READ") === true ||

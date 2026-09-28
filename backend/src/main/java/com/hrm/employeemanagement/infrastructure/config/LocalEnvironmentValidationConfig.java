@@ -39,16 +39,20 @@ public class LocalEnvironmentValidationConfig {
                     "JWT_SECRET"
             );
 
-            if (environment.getProperty(
-                    "INITIAL_ADMIN_ENABLED",
-                    Boolean.class,
-                    false
-            )) {
-                require(
-                        environment,
-                        missingVariables,
-                        "INITIAL_ADMIN_PASSWORD"
-                );
+            boolean adminEnabled = Boolean.parseBoolean(
+                    environment.getProperty(
+                            "INITIAL_ADMIN_ENABLED",
+                            environment.getProperty("app.security.initial-admin.enabled", "false")
+                    )
+            );
+            if (adminEnabled) {
+                String adminPassword = environment.getProperty("INITIAL_ADMIN_PASSWORD");
+                if (adminPassword == null || adminPassword.isBlank()) {
+                    adminPassword = environment.getProperty("app.security.initial-admin.password");
+                }
+                if (adminPassword == null || adminPassword.isBlank()) {
+                    missingVariables.add("INITIAL_ADMIN_PASSWORD");
+                }
             }
 
             if (!missingVariables.isEmpty()) {

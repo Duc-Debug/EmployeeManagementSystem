@@ -3,7 +3,11 @@ import { getUsers } from '@/lib/api/users';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getEmployees, getEmployeeProfileByUserId } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
-import { allocateProjectHours, getProjectWeeklyAllocations } from '@/lib/api/allocations';
+import {
+    allocateProjectHours,
+    fetchMonthProjectAllocations,
+    type ProjectWeeklyAllocationResult,
+} from '@/lib/api/allocations';
 import {
     getProjects,
     getProjectById,
@@ -30,7 +34,6 @@ import {
     Users,
     BarChart3,
     AlertTriangle,
-    Columns,
     Layers,
     CalendarDays,
     Search,
@@ -66,7 +69,9 @@ import {
     type UpdateMilestonePayload,
 } from '@/lib/api/milestones';
 import {
+    generateProjectMonthsAroundCurrent,
     type ProjectMonth,
+    type MonthWeek,
     type TaskCategoryGroup,
     type ProjectMember,
     type TaskItem,
@@ -103,35 +108,7 @@ import { ProjectTaskTrackingView } from './ProjectTaskTrackingView';
 const CATEGORY_COLORS = ['indigo', 'purple', 'emerald', 'sky', 'amber', 'rose'];
 
 function buildMonths(): ProjectMonth[] {
-    const now = new Date();
-    return [-1, 0, 1].map((offset) => {
-        const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-        const year = first.getFullYear();
-        const month = first.getMonth();
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        const weeks = Array.from({ length: Math.ceil(lastDay / 7) }, (_, index) => {
-            const start = index * 7 + 1;
-            const end = Math.min(start + 6, lastDay);
-            return {
-                key: `W${index + 1}`,
-                label: `Tuần ${index + 1}`,
-                dates: `${String(start).padStart(2, '0')}/${String(month + 1).padStart(2, '0')} - ${String(end).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`,
-                isCurrent: now.getFullYear() === year && now.getMonth() === month && now.getDate() >= start && now.getDate() <= end,
-            };
-        });
-        return { id: `${year}-${String(month + 1).padStart(2, '0')}`, name: `Tháng ${String(month + 1).padStart(2, '0')}/${year}`, weeks };
-    });
-}
-
-function getIsoWeek(date: Date): { year: number; week: number } {
-    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const day = utcDate.getUTCDay() || 7;
-    utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day);
-    const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
-    return {
-        year: utcDate.getUTCFullYear(),
-        week: Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7),
-    };
+    return generateProjectMonthsAroundCurrent(12, 12);
 }
 
 /**
@@ -295,9 +272,17 @@ export default function ProjectView() {
     const canManageProject = isPm;
     const canManageProjectMembers = isPm || isRm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
     const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
-    const [viewMode, setViewMode] = useState<'split' | 'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
-        return canReadAllocations ? 'split' : 'wbs';
+    const [viewMode, setViewMode] = useState<'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
+        return isRm ? 'workload' : 'wbs';
     });
+
+    useEffect(() => {
+        if (isRm) {
+            setViewMode('workload');
+        } else {
+            setViewMode('wbs');
+        }
+    }, [isRm]);
     const [categories, setCategories] = useState<TaskCategoryGroup[]>([]);
     const [allEmployees, setAllEmployees] = useState<ProjectMember[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -548,90 +533,141 @@ export default function ProjectView() {
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         if (searchParams.get('taskId')) {
-            setViewMode((prev) => (prev === 'wbs' || prev === 'split' ? prev : (canReadAllocations ? 'split' : 'wbs')));
+            setViewMode('wbs');
         }
-    }, [location.search, canReadAllocations]);
+    }, [location.search]);
 
     const [months] = useState(buildMonths);
-    const [selectedMonthIdx, setSelectedMonthIdx] = useState(1);
+    const [selectedMonthIdx, setSelectedMonthIdx] = useState(() => {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const currentId = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+        const initialMonths = buildMonths();
+        const idx = initialMonths.findIndex((m) => m.id === currentId);
+        return idx >= 0 ? idx : 0;
+    });
+
+    const allocationRequestRef = useRef(0);
+    const baseProjectMembersRef = useRef<ProjectMember[]>([]);
+    const latestAllocationsRef = useRef<{
+        projectId: number;
+        monthId: string;
+        allocations: ProjectWeeklyAllocationResult[];
+    } | null>(null);
 
     const getDisplayedIsoWeek = useCallback((weekKey: string) => {
         const month = months[selectedMonthIdx];
-        const [year, monthNumber] = month.id.split('-').map(Number);
-        const index = Math.max(0, month.weeks.findIndex((week) => week.key === weekKey));
-        return getIsoWeek(new Date(year, monthNumber - 1, index * 7 + 1));
+        const week = month?.weeks.find((w) => w.key === weekKey);
+        if (week?.year && week?.weekNumber) {
+            return { year: week.year, week: week.weekNumber };
+        }
+        const weekNum = Number(weekKey.replace(/\D/g, ''));
+        const [year] = (month?.id || '').split('-').map(Number);
+        return { year: year || new Date().getFullYear(), week: weekNum || 1 };
     }, [months, selectedMonthIdx]);
 
-    const loadProjectAllocations = useCallback(async (baseMembersInput?: ProjectMember[]) => {
-        if (!canReadAllocations || !selectedProjectId) return;
-        const month = months[selectedMonthIdx];
-        try {
-            const rowsByWeek = await Promise.all(month.weeks.map(async (week) => {
-                const isoWeek = getDisplayedIsoWeek(week.key);
-                const rows = await getProjectWeeklyAllocations(selectedProjectId, isoWeek.year, isoWeek.week, isoWeek.week);
-                return { key: week.key, rows };
-            }));
-            setMembers((previous) => {
-                const currentBase = baseMembersInput && baseMembersInput.length > 0 ? baseMembersInput : previous;
-                const existingEmpIds = new Set(
-                    currentBase.map((m) => m.employeeId || Number(m.id.replace('u-', '')))
-                );
+    const applyAllocationsToMembers = useCallback((
+        baseMembers: ProjectMember[],
+        allocations: ProjectWeeklyAllocationResult[],
+        monthWeeks: MonthWeek[],
+        employeesList: ProjectMember[]
+    ): ProjectMember[] => {
+        const existingEmpIds = new Set(
+            baseMembers.map((m) => m.employeeId || Number(m.id.replace('u-', '')))
+        );
 
-                const updated = currentBase.map((member) => {
-                    const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+        const updated = baseMembers.map((member) => {
+            const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+            const weeklyHours: Record<string, number> = {};
+            let allocRoleId = member.projectRoleId;
+            monthWeeks.forEach((week) => {
+                const matchingRows = allocations.filter(
+                    (row) => row.employeeId === employeeId && row.year === week.year && row.weekNumber === week.weekNumber
+                );
+                weeklyHours[week.key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                if (!allocRoleId) {
+                    const found = matchingRows.find((r) => r.projectRoleId);
+                    if (found?.projectRoleId) allocRoleId = found.projectRoleId;
+                }
+            });
+            return { ...member, weeklyHours, projectRoleId: allocRoleId };
+        });
+
+        // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
+        const allocatedEmpIds = new Set<number>();
+        allocations.forEach((r) => {
+            if (Number(r.allocatedHours) > 0 && !existingEmpIds.has(r.employeeId)) {
+                allocatedEmpIds.add(r.employeeId);
+            }
+        });
+
+        if (allocatedEmpIds.size > 0 && employeesList.length > 0) {
+            allocatedEmpIds.forEach((empId) => {
+                const empObj = employeesList.find(
+                    (e) => (e.employeeId || Number(e.id.replace('u-', ''))) === empId
+                );
+                if (empObj) {
                     const weeklyHours: Record<string, number> = {};
-                    let allocRoleId = member.projectRoleId;
-                    rowsByWeek.forEach(({ key, rows }) => {
-                        const matchingRows = rows.filter((row) => row.employeeId === employeeId);
-                        weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                    let allocRoleId = empObj.projectRoleId;
+                    monthWeeks.forEach((week) => {
+                        const matchingRows = allocations.filter(
+                            (row) => row.employeeId === empId && row.year === week.year && row.weekNumber === week.weekNumber
+                        );
+                        weeklyHours[week.key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
                         if (!allocRoleId) {
                             const found = matchingRows.find((r) => r.projectRoleId);
                             if (found?.projectRoleId) allocRoleId = found.projectRoleId;
                         }
                     });
-                    return { ...member, weeklyHours, projectRoleId: allocRoleId };
-                });
-
-                // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
-                const allocatedEmpIds = new Set<number>();
-                rowsByWeek.forEach(({ rows }) => {
-                    rows.forEach((r) => {
-                        if (r.allocatedHours > 0 && !existingEmpIds.has(r.employeeId)) {
-                            allocatedEmpIds.add(r.employeeId);
-                        }
-                    });
-                });
-
-                if (allocatedEmpIds.size > 0 && allEmployees.length > 0) {
-                    allocatedEmpIds.forEach((empId) => {
-                        const empObj = allEmployees.find(
-                            (e) => (e.employeeId || Number(e.id.replace('u-', ''))) === empId
-                        );
-                        if (empObj) {
-                            const weeklyHours: Record<string, number> = {};
-                            let allocRoleId = empObj.projectRoleId;
-                            rowsByWeek.forEach(({ key, rows }) => {
-                                const matchingRows = rows.filter((row) => row.employeeId === empId);
-                                weeklyHours[key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
-                                if (!allocRoleId) {
-                                    const found = matchingRows.find((r) => r.projectRoleId);
-                                    if (found?.projectRoleId) allocRoleId = found.projectRoleId;
-                                }
-                            });
-                            updated.push({ ...empObj, weeklyHours, projectRoleId: allocRoleId });
-                        }
-                    });
+                    updated.push({ ...empObj, weeklyHours, projectRoleId: allocRoleId });
                 }
+            });
+        }
 
-                return updated;
+        return updated;
+    }, []);
+
+    const loadProjectAllocations = useCallback(async () => {
+        if (!canReadAllocations || !selectedProjectId) return;
+        const requestId = ++allocationRequestRef.current;
+        const month = months[selectedMonthIdx];
+        if (!month || month.weeks.length === 0) return;
+        try {
+            // 1 request duy nhất cho toàn bộ range của tháng (P0-3 / P1 single owner)
+            const allAllocations = await fetchMonthProjectAllocations(
+                selectedProjectId,
+                month.weeks
+            );
+
+            // Bỏ qua response cũ nếu đã có request mới hơn
+            if (requestId !== allocationRequestRef.current) {
+                return;
+            }
+
+            latestAllocationsRef.current = {
+                projectId: selectedProjectId,
+                monthId: month.id,
+                allocations: allAllocations,
+            };
+
+            setMembers((previous) => {
+                const currentBase = baseProjectMembersRef.current.length > 0
+                    ? baseProjectMembersRef.current
+                    : previous;
+                return applyAllocationsToMembers(currentBase, allAllocations, month.weeks, allEmployees);
             });
             setAllocationError(null);
         } catch (error) {
+            if (requestId !== allocationRequestRef.current) {
+                return;
+            }
+
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
             setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
         }
-    }, [canReadAllocations, getDisplayedIsoWeek, months, selectedMonthIdx, selectedProjectId, allEmployees]);
+    }, [canReadAllocations, months, selectedMonthIdx, selectedProjectId, allEmployees, applyAllocationsToMembers]);
 
+    // Single owner cho việc fetch allocation theo tháng & dự án
     useEffect(() => {
         if (canReadAllocations && selectedProjectId) {
             void loadProjectAllocations();
@@ -679,7 +715,23 @@ export default function ProjectView() {
                     return projectRole ? { ...emp, role: projectRole } : emp;
                 });
 
+            baseProjectMembersRef.current = projectMembers;
+
             setMembers((prevMembers) => {
+                const month = months[selectedMonthIdx];
+                if (
+                    latestAllocationsRef.current &&
+                    latestAllocationsRef.current.projectId === projId &&
+                    latestAllocationsRef.current.monthId === month?.id &&
+                    latestAllocationsRef.current.allocations.length > 0
+                ) {
+                    return applyAllocationsToMembers(
+                        projectMembers,
+                        latestAllocationsRef.current.allocations,
+                        month.weeks,
+                        allEmployees
+                    );
+                }
                 const prevHoursMap = new Map(prevMembers.map((m) => [m.id, m.weeklyHours]));
                 return projectMembers.map((emp) => {
                     const existingHours = prevHoursMap.get(emp.id);
@@ -693,10 +745,6 @@ export default function ProjectView() {
             getTaskDependencies(projId)
                 .then((res) => setTaskDependenciesList(res.dependencies || []))
                 .catch(() => setTaskDependenciesList([]));
-
-            if (canReadAllocations) {
-                void loadProjectAllocations(projectMembers);
-            }
         } catch (err) {
             if (request !== wbsRequest.current) return;
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
@@ -706,9 +754,15 @@ export default function ProjectView() {
         } finally {
             if (request === wbsRequest.current) setIsLoadingWbs(false);
         }
-    }, [allEmployees, canReadAllocations, loadProjectAllocations]);
+    }, [allEmployees, applyAllocationsToMembers, months, selectedMonthIdx]);
 
     useEffect(() => {
+        // Hủy bất kỳ request allocation đang bay của project cũ và reset cache
+        allocationRequestRef.current++;
+        latestAllocationsRef.current = null;
+        baseProjectMembersRef.current = [];
+        setMembers([]);
+
         if (selectedProjectId) {
             loadWbsForProject(selectedProjectId);
         }
@@ -1161,7 +1215,7 @@ export default function ProjectView() {
         <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
             {/* Top Navigation / Header Bar */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                <div className="flex flex-col gap-3.5 2xl:flex-row 2xl:items-center 2xl:justify-between">
+                <div className="flex flex-col gap-3.5 md:flex-row md:items-center md:justify-between">
                     {/* Logo & Identity */}
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-100 font-bold text-lg shrink-0">
@@ -1643,20 +1697,6 @@ export default function ProjectView() {
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs xl:flex-row xl:items-center">
                 {/* View Segmented Tabs */}
                 <div className="flex flex-wrap w-full max-w-full gap-1 rounded-xl border border-slate-200/80 bg-slate-100 p-1 xl:w-auto shrink-0">
-                    {canReadAllocations && (
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('split')}
-                            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                                viewMode === 'split'
-                                    ? 'bg-white text-indigo-700 shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900 font-medium'
-                            }`}
-                        >
-                            <Columns className="h-3.5 w-3.5" />
-                            <span>Xem kết hợp (Split View)</span>
-                        </button>
-                    )}
                     <button
                         type="button"
                         onClick={() => setViewMode('wbs')}
@@ -1780,8 +1820,8 @@ export default function ProjectView() {
             {/* Main Views Container Grid */}
             <div className="grid grid-cols-1 gap-6 items-start transition-all duration-300 lg:grid-cols-12">
                 {/* Section 1: WBS Hierarchy */}
-                {(viewMode === 'split' || viewMode === 'wbs') && (
-                    <div className={(viewMode === 'split' && canReadAllocations) ? 'lg:col-span-5' : 'lg:col-span-12'}>
+                {viewMode === 'wbs' && (
+                    <div className="lg:col-span-12">
                         <ProjectWbsView
                             categories={categories}
                             members={assignableProjectMembers}
@@ -1802,8 +1842,8 @@ export default function ProjectView() {
                 )}
 
                 {/* Section 2: Weekly Matrix */}
-                {canReadAllocations && (viewMode === 'split' || viewMode === 'workload') && (
-                    <div className={viewMode === 'split' ? 'lg:col-span-7' : 'lg:col-span-12'}>
+                {canReadAllocations && viewMode === 'workload' && (
+                    <div className="lg:col-span-12">
                         <ProjectWeeklyMatrix
                             month={selectedMonth}
                             members={members}

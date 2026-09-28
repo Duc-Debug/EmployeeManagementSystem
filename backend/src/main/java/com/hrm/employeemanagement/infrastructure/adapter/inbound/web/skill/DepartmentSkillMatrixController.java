@@ -36,8 +36,7 @@ public class DepartmentSkillMatrixController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06', 'ROLE_VT-01', 'ROLE_VT-02', 'ROLE_VT-03', 'ROLE_VT-05', 'ROLE_VT-06', 'EMPLOYEE_SKILL_READ', 'SKILL_READ')")
     public ResponseEntity<ApiResponse<DepartmentSkillMatrixResponse>> getDepartmentSkillMatrix(
-            @RequestParam @NotNull(message = "ID bộ phận (orgUnitId) không được để trống")
-            @Positive(message = "ID bộ phận phải là số dương") Long orgUnitId
+            @RequestParam(required = false) Long orgUnitId
     ) {
         DepartmentSkillMatrixResult result = getDepartmentSkillMatrixUseCase.execute(orgUnitId);
         DepartmentSkillMatrixResponse response = DepartmentSkillMatrixResponse.fromResult(result);
