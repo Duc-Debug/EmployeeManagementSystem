@@ -4,6 +4,10 @@
 .env
 .env.local
 .env.prod
+
 ### Postman ###
 docs/postman/
 docs/plans/
+
+### IntelliJ IDEA ###
+.idea/
