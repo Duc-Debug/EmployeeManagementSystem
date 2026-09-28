@@ -64,7 +64,7 @@ public class BackupController {
 
         if (principal instanceof User user) {
             info.id = user.getIdValue();
-            info.email = user.getEmail();
+            info.email = (user.getEmail() != null && !user.getEmail().isBlank()) ? user.getEmail() : user.getUsername();
             info.name = (user.getUsername() != null && !user.getUsername().isBlank()) ? user.getUsername() : user.getEmail();
             String roleCode = user.getRole() != null && user.getRole().getCode() != null ? user.getRole().getCode().getCode() : "";
             isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
@@ -72,12 +72,15 @@ public class BackupController {
                     || "ADMIN".equalsIgnoreCase(roleCode);
         } else if (principal instanceof UserPrincipal up) {
             info.id = up.getId();
-            info.email = up.getUsername();
-            info.name = (up.getDomainUser() != null && up.getDomainUser().getUsername() != null && !up.getDomainUser().getUsername().isBlank())
-                    ? up.getDomainUser().getUsername()
+            User du = up.getDomainUser();
+            info.email = (du != null && du.getEmail() != null && !du.getEmail().isBlank())
+                    ? du.getEmail()
                     : up.getUsername();
-            String roleCode = up.getDomainUser() != null && up.getDomainUser().getRole() != null && up.getDomainUser().getRole().getCode() != null
-                    ? up.getDomainUser().getRole().getCode().getCode() : "";
+            info.name = (du != null && du.getUsername() != null && !du.getUsername().isBlank())
+                    ? du.getUsername()
+                    : up.getUsername();
+            String roleCode = du != null && du.getRole() != null && du.getRole().getCode() != null
+                    ? du.getRole().getCode().getCode() : "";
             isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
                     || "ROLE_ADMIN".equalsIgnoreCase(roleCode)
                     || "ADMIN".equalsIgnoreCase(roleCode)
@@ -184,7 +187,7 @@ public class BackupController {
     ) {
         CurrentUserInfo user = checkPermissionAndGetUserInfo(request, "CREATE_BACKUP");
         String ip = resolveClientIp(request);
-        Backup created = backupService.createBackup(body, user.id, user.name, ip);
+        Backup created = backupService.createBackup(body, user.id, user.email, user.name, ip);
         return ResponseEntity.ok(ApiResponse.success("Tạo bản sao lưu thành công", BackupResponse.fromDomain(created)));
     }
 
@@ -277,6 +280,7 @@ public class BackupController {
                     is,
                     file.getSize(),
                     user.id,
+                    user.email,
                     user.name,
                     ip
             );

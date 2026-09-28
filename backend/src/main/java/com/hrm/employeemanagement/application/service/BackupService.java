@@ -58,7 +58,7 @@ public class BackupService implements
     }
 
     @Override
-    public Backup createBackup(CreateBackupRequest request, Long currentUserId, String currentUserEmail, String clientIp) {
+    public Backup createBackup(CreateBackupRequest request, Long currentUserId, String currentUserEmail, String createdByName, String clientIp) {
         String timestamp = LocalDateTime.now().format(CODE_DATE_FORMAT);
         String randomSuffix = UUID.randomUUID().toString().substring(0, 4).toUpperCase(Locale.ROOT);
         String backupCode = "BCK-" + timestamp + "-" + randomSuffix;
@@ -71,6 +71,10 @@ public class BackupService implements
         String description = (request != null) ? request.getDescription() : null;
         BackupType backupType = (request != null && request.getBackupType() != null) ? request.getBackupType() : BackupType.FULL;
 
+        String effectiveCreatedByName = (createdByName != null && !createdByName.trim().isEmpty())
+                ? createdByName.trim()
+                : ((currentUserEmail != null && !currentUserEmail.trim().isEmpty()) ? currentUserEmail.trim() : "Quản trị viên");
+
         Backup backup = Backup.createNew(
                 backupCode,
                 title,
@@ -80,7 +84,7 @@ public class BackupService implements
                 resolvedPath.toString(),
                 false,
                 currentUserId,
-                currentUserEmail
+                effectiveCreatedByName
         );
         backup = backupRepositoryPort.save(backup);
 
@@ -441,6 +445,7 @@ public class BackupService implements
             long fileSizeBytes,
             Long currentUserId,
             String currentUserEmail,
+            String createdByName,
             String clientIp
     ) {
         // 1. Kiểm tra phần mở rộng tệp - chỉ chấp nhận .json
@@ -514,6 +519,10 @@ public class BackupService implements
                     ? description.trim() + " (Tệp gốc: " + Paths.get(originalFileName).getFileName().toString() + ")"
                     : "Tệp gốc: " + Paths.get(originalFileName).getFileName().toString();
 
+            String effectiveCreatedByName = (createdByName != null && !createdByName.trim().isEmpty())
+                    ? createdByName.trim()
+                    : ((currentUserEmail != null && !currentUserEmail.trim().isEmpty()) ? currentUserEmail.trim() : "Quản trị viên");
+
             Backup backup = new Backup(
                     null,
                     backupCode,
@@ -527,7 +536,7 @@ public class BackupService implements
                     BackupStatus.COMPLETED,
                     false,
                     currentUserId,
-                    currentUserEmail,
+                    effectiveCreatedByName,
                     LocalDateTime.now(),
                     LocalDateTime.now(),
                     null

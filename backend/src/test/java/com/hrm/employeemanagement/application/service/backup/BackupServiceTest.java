@@ -88,6 +88,31 @@ class BackupServiceTest {
         }
 
         @Test
+        @DisplayName("Tạo bản sao lưu thủ công lưu đúng email trong audit log và đúng display name trong bản ghi backup")
+        void testCreateBackup_SeparatesEmailForAuditAndDisplayNameForBackupRecord() throws Exception {
+                CreateBackupRequest req = new CreateBackupRequest("Sao lưu test", "Mô tả", BackupType.FULL);
+                Path mockPath = Paths.get("uploads/backups/test.json");
+
+                when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(mockPath);
+                when(backupRepositoryPort.save(any(Backup.class))).thenAnswer(inv -> {
+                        Backup b = inv.getArgument(0);
+                        b.setId(101L);
+                        return b;
+                });
+                when(backupStoragePort.getFileSize(anyString())).thenReturn(1024L);
+                when(backupStoragePort.calculateChecksum(anyString())).thenReturn("abc123sha256");
+
+                Backup result = backupService.createBackup(req, 1L, "admin@company.com", "Nguyen Van A", "127.0.0.1");
+
+                assertThat(result).isNotNull();
+                assertThat(result.getCreatedByName()).isEqualTo("Nguyen Van A");
+
+                org.mockito.ArgumentCaptor<BackupAuditLog> auditCaptor = org.mockito.ArgumentCaptor.forClass(BackupAuditLog.class);
+                verify(backupAuditLogPort).save(auditCaptor.capture());
+                assertThat(auditCaptor.getValue().getUserEmail()).isEqualTo("admin@company.com");
+        }
+
+        @Test
         @DisplayName("Thực thi sao lưu tự động theo lịch định kỳ thành công")
         void testExecuteAutomaticBackup_Success() throws Exception {
                 Path mockPath = Paths.get("uploads/backups/auto.json");
@@ -351,6 +376,39 @@ class BackupServiceTest {
                 verify(backupStoragePort, times(1)).storeBackupFile(anyString(), any());
                 verify(backupAuditLogPort, times(1)).save(argThat(log -> log.getAction() == BackupAction.BACKUP_UPLOAD
                                 && "SUCCESS".equals(log.getStatus())));
+        }
+
+        @Test
+        @DisplayName("Tải lên bản sao lưu lưu đúng email trong audit log và đúng display name trong bản ghi backup")
+        void testUploadBackup_SeparatesEmailForAuditAndDisplayNameForBackupRecord() {
+                byte[] content = "{\"version\":\"1.0\",\"backupType\":\"FULL\",\"tables\":{\"users\":[]}}".getBytes();
+                ByteArrayInputStream is = new ByteArrayInputStream(content);
+                Path mockPath = Paths.get("uploads/backups/upload_test.json");
+
+                when(backupStoragePort.resolveBackupPath(anyString())).thenReturn(mockPath);
+                when(backupStoragePort.readBackupFile(anyString())).thenAnswer(inv -> new ByteArrayInputStream(content));
+                when(backupRestoreEnginePort.isSupportedTable("users")).thenReturn(true);
+                when(backupStoragePort.getFileSize(anyString())).thenReturn((long) content.length);
+                when(backupStoragePort.calculateChecksum(anyString())).thenReturn("upload-sha256");
+                when(backupRepositoryPort.save(any(Backup.class))).thenAnswer(inv -> inv.getArgument(0));
+
+                Backup uploaded = backupService.uploadBackup(
+                                "custom_backup.json",
+                                "Upload Title",
+                                "Upload Desc",
+                                is,
+                                content.length,
+                                1L,
+                                "admin@company.com",
+                                "Nguyen Van A",
+                                "127.0.0.1");
+
+                assertThat(uploaded).isNotNull();
+                assertThat(uploaded.getCreatedByName()).isEqualTo("Nguyen Van A");
+
+                org.mockito.ArgumentCaptor<BackupAuditLog> auditCaptor = org.mockito.ArgumentCaptor.forClass(BackupAuditLog.class);
+                verify(backupAuditLogPort).save(auditCaptor.capture());
+                assertThat(auditCaptor.getValue().getUserEmail()).isEqualTo("admin@company.com");
         }
 
         @Test
