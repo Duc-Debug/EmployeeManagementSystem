@@ -88,6 +88,7 @@ class AuthLogoutIntegrationTest {
                     true
             );
             u.setDataScope(DataScope.COMPANY.name());
+            u.setPasswordChangedAt(java.time.Instant.now());
             u = userRepository.save(u);
 
             employeeRepository.save(new EmployeeJpaEntity(
@@ -102,6 +103,8 @@ class AuthLogoutIntegrationTest {
             ));
             return u;
         });
+        user.setPasswordChangedAt(java.time.Instant.now());
+        user = userRepository.save(user);
         testUserId = user.getId();
         auditLogRepository.deleteAll();
     }

@@ -315,6 +315,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
         user.setDataScope(dataScope.name());
         user.setScopeOrgUnitId(scopeOrgUnitId);
         user.setTokenVersion(1);
+        user.setPasswordChangedAt(java.time.Instant.now());
         return userRepository.saveAndFlush(user);
     }
 

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
  * Offloads token revocation state to Redis TTL keys, preventing JVM heap memory growth and OOM risk.
  */
 @Component
-@Profile("redis")
+@Profile({"redis", "prod"})
 public class RedisTokenBlacklistAdapter implements TokenBlacklistPort {
 
     private static final String BLACKLIST_KEY_PREFIX = "token:blacklist:";

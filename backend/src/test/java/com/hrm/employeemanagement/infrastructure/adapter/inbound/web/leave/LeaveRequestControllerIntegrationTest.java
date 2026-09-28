@@ -187,6 +187,7 @@ class LeaveRequestControllerIntegrationTest {
                 null, username, passwordEncoder.encode(PASSWORD), role, true);
         user.setDataScope(dataScope.name());
         user.setScopeOrgUnitId(scopeOrgUnitId);
+        user.setPasswordChangedAt(java.time.Instant.now());
         return userRepository.saveAndFlush(user);
     }
 

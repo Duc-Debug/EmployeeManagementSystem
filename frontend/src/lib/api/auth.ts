@@ -3,6 +3,7 @@
 import { apiRequest } from "../api-client";
 import {
   clearAuthSession,
+  getStoredUser,
   setAuthToken,
   setStoredUser,
   type AuthUser,
@@ -20,6 +21,7 @@ export interface AuthTokenResponse {
   tokenType: string;
   userId: number;
   username: string;
+  requiresPasswordChange?: boolean;
 }
 
 export interface ChangePasswordPayload {
@@ -41,6 +43,7 @@ export interface UserResultDto {
   status: UserStatus;
   username: string;
   permissions?: string[];
+  requiresPasswordChange?: boolean;
 }
 
 export async function login(payload: LoginPayload): Promise<AuthUser> {
@@ -61,6 +64,10 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
       method: "GET",
     });
 
+    const requiresPasswordChange = Boolean(
+      userRes.requiresPasswordChange ?? loginRes.requiresPasswordChange
+    );
+
     const authUser: AuthUser = {
       dataScope: userRes.dataScope,
       email: null,
@@ -75,6 +82,7 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
       status: userRes.status,
       username: userRes.username,
       permissions: userRes.permissions || [],
+      requiresPasswordChange,
     };
 
     setStoredUser(authUser);
@@ -104,6 +112,7 @@ export async function getCurrentUser(): Promise<AuthUser> {
     status: userRes.status,
     username: userRes.username,
     permissions: userRes.permissions || [],
+    requiresPasswordChange: Boolean(userRes.requiresPasswordChange),
   };
 
   setStoredUser(authUser);
@@ -115,6 +124,13 @@ export async function changePassword(payload: ChangePasswordPayload): Promise<vo
     body: JSON.stringify(payload),
     method: "POST",
   });
+  const stored = getStoredUser();
+  if (stored) {
+    setStoredUser({
+      ...stored,
+      requiresPasswordChange: false,
+    });
+  }
 }
 
 export interface ForgotPasswordPayload {

@@ -121,6 +121,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                    if (user.getPasswordChangedAt() == null && !isPasswordChangeAllowedUri(request)) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+                        response.setCharacterEncoding("UTF-8");
+                        response.getWriter().write(
+                                "{\"success\":false,\"code\":\"PASSWORD_CHANGE_REQUIRED\",\"errorCode\":\"PASSWORD_CHANGE_REQUIRED\",\"message\":\"Vui lòng đổi mật khẩu trước khi tiếp tục\",\"data\":null,\"status\":403}"
+                        );
+                        return;
+                    }
                 }
             }
         } catch (Exception ex) {
@@ -128,6 +138,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPasswordChangeAllowedUri(HttpServletRequest request) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        String uri = request.getRequestURI();
+        if (uri == null) {
+            return false;
+        }
+        if (uri.endsWith("/")) {
+            uri = uri.substring(0, uri.length() - 1);
+        }
+        return uri.endsWith("/auth/me")
+                || uri.endsWith("/auth/change-password")
+                || uri.endsWith("/auth/logout");
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
