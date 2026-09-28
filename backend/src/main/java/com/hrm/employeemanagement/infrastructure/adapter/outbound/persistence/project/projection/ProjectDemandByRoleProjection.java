@@ -5,4 +5,7 @@ import java.math.BigDecimal;
 public interface ProjectDemandByRoleProjection {
     Long getRoleId();
     BigDecimal getRequiredHours();
+    String getProjectCode();
+    String getProjectName();
 }
+

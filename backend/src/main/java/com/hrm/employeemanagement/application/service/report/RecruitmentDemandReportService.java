@@ -115,6 +115,7 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
                 effectiveOrgUnitId);
         Map<Long, BigDecimal> demandHoursMap = demandMetrics == null ? Map.of() : demandMetrics.demandHoursBySkill();
         Map<Long, BigDecimal> capacityHoursMap = capacityMetrics == null ? Map.of() : capacityMetrics.capacityHoursBySkill();
+        Map<Long, List<String>> projectNamesMap = demandMetrics == null ? Map.of() : (demandMetrics.projectNamesBySkill() != null ? demandMetrics.projectNamesBySkill() : Map.of());
 
         List<RecruitmentSkillDemand> skillDemands = new ArrayList<>();
         BigDecimal totalDeficitHours = BigDecimal.ZERO;
@@ -124,6 +125,7 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
             Long skillId = skill.getId();
             BigDecimal demand = demandHoursMap.getOrDefault(skillId, BigDecimal.ZERO);
             BigDecimal capacity = capacityHoursMap.getOrDefault(skillId, BigDecimal.ZERO);
+            List<String> demandingProjects = projectNamesMap.getOrDefault(skillId, List.of());
 
             RecruitmentSkillDemand item = new RecruitmentSkillDemand(
                     skillId,
@@ -131,7 +133,8 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
                     skill.getName(),
                     skill.getCategory(),
                     demand,
-                    capacity
+                    capacity,
+                    demandingProjects
             );
 
             skillDemands.add(item);
@@ -172,12 +175,13 @@ public class RecruitmentDemandReportService implements GetRecruitmentDemandRepor
                 "EXPORT", "RECRUITMENT_DEMAND_REPORT", null, null,
                 "Export recruitment demand report: " + buildTimeRangeText(query)));
         StringBuilder csv = new StringBuilder("\uFEFF");
-        csv.append("Skill code,Skill name,Category,Demand hours,Available capacity hours,Shortfall hours,Status\n");
+        csv.append("Skill code,Skill name,Category,Demand hours,Available capacity hours,Shortfall hours,Status,Demanding projects\n");
         for (RecruitmentSkillDemand item : report.skills()) {
+            String projectsStr = item.getDemandingProjects() != null ? String.join("; ", item.getDemandingProjects()) : "";
             csv.append(csvValue(item.getSkillCode())).append(',').append(csvValue(item.getSkillName())).append(',')
                     .append(csvValue(item.getCategory())).append(',').append(item.getRequiredDemandHours()).append(',')
                     .append(item.getAvailableCapacityHours()).append(',').append(item.getShortfallHours()).append(',')
-                    .append(item.getStatus()).append('\n');
+                    .append(item.getStatus()).append(',').append(csvValue(projectsStr)).append('\n');
         }
         return new RecruitmentDemandReportExport("recruitment-demand-" + report.generatedAt().toLocalDate() + ".csv",
                 csv.toString().getBytes(StandardCharsets.UTF_8));

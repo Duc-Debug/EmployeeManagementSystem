@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.application.dto.report;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -10,6 +11,14 @@ import java.util.Map;
 public record RecruitmentDemandMetrics(
         Map<Long, BigDecimal> demandHoursBySkill,
         BigDecimal unmappedDemandHours,
-        int unmappedRoleCount
+        int unmappedRoleCount,
+        Map<Long, List<String>> projectNamesBySkill
 ) {
+    public RecruitmentDemandMetrics(
+            Map<Long, BigDecimal> demandHoursBySkill,
+            BigDecimal unmappedDemandHours,
+            int unmappedRoleCount
+    ) {
+        this(demandHoursBySkill, unmappedDemandHours, unmappedRoleCount, Map.of());
+    }
 }
