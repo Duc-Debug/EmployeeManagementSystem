@@ -20,6 +20,7 @@ export interface AuthTokenResponse {
   tokenType: string;
   userId: number;
   username: string;
+  requiresPasswordChange?: boolean;
 }
 
 export interface ChangePasswordPayload {
@@ -82,6 +83,9 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
     });
 
     const authUser = mapAuthUser(userRes);
+    if (loginRes.requiresPasswordChange !== undefined) {
+      authUser.requiresPasswordChange = Boolean(loginRes.requiresPasswordChange);
+    }
 
     setStoredUser(authUser);
     return authUser;
@@ -107,6 +111,11 @@ export async function changePassword(payload: ChangePasswordPayload): Promise<vo
     body: JSON.stringify(payload),
     method: "POST",
   });
+  const current = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("nexushrm_auth_user") || "null") : null;
+  if (current) {
+    current.requiresPasswordChange = false;
+    setStoredUser(current);
+  }
 }
 
 export interface ForgotPasswordPayload {

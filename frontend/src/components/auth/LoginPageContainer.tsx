@@ -12,7 +12,12 @@ export default function LoginPageContainer() {
             const token = localStorage.getItem("nexushrm_auth_token") || "jwt-token";
             localStorage.setItem("accessToken", token);
             localStorage.setItem("currentUser", JSON.stringify(user));
-            navigate("/");
+
+            if (user.requiresPasswordChange) {
+                navigate("/change-password", { replace: true });
+            } else {
+                navigate("/dashboard/overview", { replace: true });
+            }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu!";
             throw new Error(message);
