@@ -52,7 +52,7 @@ export function mapAuthUser(userRes: UserResultDto, requiresPasswordChange?: boo
   return {
     dataScope: userRes.dataScope,
     email: userRes.email ?? null,
-    employeeCode: userRes.employeeCode ?? (userRes.employeeId ? `EMP-${userRes.employeeId}` : null),
+    employeeCode: userRes.employeeCode ?? null,
     fullName: userRes.fullName,
     id: userRes.id,
     orgUnitId: userRes.orgUnitId,
