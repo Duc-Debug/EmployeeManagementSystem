@@ -494,17 +494,37 @@ export interface AllocationNotificationPageResult {
   totalPages: number;
 }
 
-export async function getAllocationNotifications(params?: {
+export function buildNotificationQuery(params?: {
   projectId?: number;
   page?: number;
   size?: number;
-}): Promise<AllocationNotificationPageResult> {
+}): string {
   const searchParams = new URLSearchParams();
   if (params?.projectId != null) searchParams.append("projectId", String(params.projectId));
   if (params?.page != null) searchParams.append("page", String(params.page));
   if (params?.size != null) searchParams.append("size", String(params.size));
   const queryStr = searchParams.toString();
-  return apiRequest<AllocationNotificationPageResult>(
-    `/allocations/notifications${queryStr ? `?${queryStr}` : ""}`
-  );
+  return `/allocations/notifications${queryStr ? `?${queryStr}` : ""}`;
+}
+
+export function checkCanAccessAllocationNotifications(roleCode?: string | null): boolean {
+  if (!roleCode) return false;
+  const normalized = roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "");
+  return normalized === "VT-02" || normalized === "VT-03";
+}
+
+export function formatConsecutiveWeekRange(startYear: number, startWeek: number, endYear: number, endWeek: number): string {
+  if (startYear === endYear && startWeek === endWeek) {
+    return `tuần ${startWeek}/${startYear}`;
+  }
+  return `từ tuần ${startWeek}/${startYear} đến tuần ${endWeek}/${endYear}`;
+}
+
+export async function getAllocationNotifications(params?: {
+  projectId?: number;
+  page?: number;
+  size?: number;
+}): Promise<AllocationNotificationPageResult> {
+  const url = buildNotificationQuery(params);
+  return apiRequest<AllocationNotificationPageResult>(url);
 }
