@@ -34,6 +34,7 @@ import { getUsers } from '@/lib/api/users';
 import { cn } from '@/lib/utils';
 import type { OrgUnitTreeNode, OrgUnitMember, User } from '@/types/hrm';
 import { useAuthUser } from '@/lib/auth-session';
+import { can } from '@/lib/permissions';
 
 export interface OrgTreeNode extends CardData {
     id: string;
@@ -295,9 +296,10 @@ export default function OrgChart() {
         let isMounted = true;
         async function loadBackendData() {
             try {
+                const canReadUsers = can('USER_READ', currentUser) || isAdmin;
                 const [treeRes, usersRes] = await Promise.all([
                     getOrgTree(),
-                    getUsers(0, 100).catch(() => null),
+                    canReadUsers ? getUsers(0, 100).catch(() => null) : Promise.resolve(null),
                 ]);
                 if (!isMounted) return;
                 const userMap = new Map<number, string>();
@@ -311,6 +313,24 @@ export default function OrgChart() {
                             position: u.roleName || (u.employeeId ? `Mã NV: ${u.employeeId}` : undefined),
                         }))
                     );
+                } else if (treeRes && treeRes.length > 0) {
+                    const allMembers: Employee[] = [];
+                    const collectMembers = (node: OrgUnitTreeNode) => {
+                        if (node.members) {
+                            node.members.forEach((m) => {
+                                allMembers.push({
+                                    id: String(m.id),
+                                    name: m.fullName,
+                                    position: m.professionalRole || `Mã NV: ${m.employeeCode}`,
+                                });
+                            });
+                        }
+                        if (node.children) {
+                            node.children.forEach(collectMembers);
+                        }
+                    };
+                    treeRes.forEach(collectMembers);
+                    setRealEmployees(allMembers);
                 }
                 if (treeRes && treeRes.length > 0) {
                     const converted = convertBackendNodeToOrgChartNode(treeRes[0], userMap, null, usersRes?.content);
@@ -324,7 +344,7 @@ export default function OrgChart() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [currentUser, isAdmin]);
 
     // Pan and Zoom
     const [zoom, setZoom] = useState(1);
