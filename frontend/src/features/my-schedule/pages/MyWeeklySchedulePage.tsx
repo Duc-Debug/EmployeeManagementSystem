@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight, RotateCcw, CalendarDays, CalendarX, Loader2, AlertCircle, CheckCircle2, MessageSquare, Info, X } from "lucide-react";
 import type { WeeklySchedule } from "../types";
-import { myScheduleApi } from "../api/myScheduleApi";
+import { myScheduleApi, validateFeedbackReason } from "../api/myScheduleApi";
 import { WeeklyScheduleCard } from "../components/WeeklyScheduleCard";
 import { useAuthUser } from "@/lib/auth-session";
 import { getEmployeeProfileByUserId, type EmployeeProfile } from "@/lib/api/employees";
@@ -126,8 +126,9 @@ export const MyWeeklySchedulePage: React.FC = () => {
     e.preventDefault();
     if (!feedbackModalWeek) return;
 
-    if (!feedbackReason || !feedbackReason.trim()) {
-      setFeedbackError("Vui lòng nhập lý do hoặc ý kiến phản hồi.");
+    const validation = validateFeedbackReason(feedbackReason);
+    if (!validation.valid) {
+      setFeedbackError(validation.error);
       return;
     }
 
