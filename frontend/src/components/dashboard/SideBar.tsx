@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
     LayoutDashboard,
     Activity,
@@ -275,18 +276,32 @@ export function canAccessTab(
 }
 
 interface SideBarProps {
-    activeTab: string;
-    setActiveTab: (tab: string) => void;
+    activeTab?: string;
+    setActiveTab?: (tab: string) => void;
     isOpen: boolean;
 }
 
 export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProps) {
     const user = useAuthUser();
+    const location = useLocation();
     const roleCode = user?.roleCode;
     const dataScope = user?.dataScope;
 
     const normalizedRole = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
     const isEmployeeOnly = normalizedRole === "VT-04";
+
+    // Helper to determine if a sidebar item is active based on current location
+    const isItemActive = (itemId: string) => {
+        if (activeTab && activeTab === itemId) return true;
+        const itemPath = itemId === "overview" ? "/dashboard/overview" : `/dashboard/${itemId}`;
+        if (location.pathname === itemPath) return true;
+        if (itemId === "overview" && (location.pathname === "/dashboard" || location.pathname === "/dashboard/")) return true;
+        if (itemId === "project" && (location.pathname.startsWith("/dashboard/projects") || location.pathname.startsWith("/dashboard/project"))) return true;
+        if (itemId === "attendance" && location.pathname.startsWith("/dashboard/timesheet")) return true;
+        if (itemId === "hrprofile" && location.pathname.startsWith("/dashboard/employees")) return true;
+        if (itemId === "project-allocation-report" && location.pathname.startsWith("/dashboard/project-allocation")) return true;
+        return false;
+    };
 
     // Filter groups and items based strictly on role permissions
     const visibleGroups = SIDEBAR_GROUPS.map((group) => {
@@ -325,11 +340,11 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
 
     // Automatically expand the group containing the active tab
     useEffect(() => {
-        const activeGroup = visibleGroups.find((g) => g.items.some((i) => i.id === activeTab));
+        const activeGroup = visibleGroups.find((g) => g.items.some((i) => isItemActive(i.id)));
         if (activeGroup && !openGroups[activeGroup.id]) {
             setOpenGroups((prev) => ({ ...prev, [activeGroup.id]: true }));
         }
-    }, [activeTab, visibleGroups]);
+    }, [location.pathname, activeTab, visibleGroups]);
 
     const toggleGroup = (groupId: string) => {
         setOpenGroups((prev) => ({
@@ -351,7 +366,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
             <div className="w-[214px] flex-1 overflow-y-auto pr-1 space-y-4 select-none scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                 {visibleGroups.map((group) => {
                     const isExpanded = openGroups[group.id] ?? true;
-                    const hasActiveChild = group.items.some((item) => item.id === activeTab);
+                    const hasActiveChild = group.items.some((item) => isItemActive(item.id));
 
                     return (
                         <div key={group.id} className="space-y-1">
@@ -384,25 +399,33 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                                 <nav className="space-y-0.5 pt-0.5 animate-in fade-in-50 duration-200">
                                     {group.items.map((item) => {
                                         const Icon = item.icon;
-                                        const isActive = activeTab === item.id;
+                                        const active = isItemActive(item.id);
+                                        const targetPath = item.id === "overview" ? "/dashboard/overview" : `/dashboard/${item.id}`;
+
                                         return (
-                                            <button
+                                            <NavLink
                                                 key={item.id}
-                                                type="button"
-                                                onClick={() => setActiveTab(item.id)}
-                                                className={cn(
-                                                    "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all",
-                                                    isActive
-                                                        ? "bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold shadow-xs translate-x-0.5"
-                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
-                                                )}
+                                                to={targetPath}
+                                                onClick={() => setActiveTab?.(item.id)}
+                                                className={({ isActive }) =>
+                                                    cn(
+                                                        "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all",
+                                                        isActive || active
+                                                            ? "bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold shadow-xs translate-x-0.5"
+                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                                                    )
+                                                }
                                             >
-                                                <div className="flex min-w-0 items-center gap-2.5">
-                                                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-indigo-600" : "text-slate-400")} />
-                                                    <span className="whitespace-normal break-words text-left text-[13px] leading-snug">{item.name}</span>
-                                                </div>
-                                                {isActive && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-indigo-600" />}
-                                            </button>
+                                                {({ isActive }) => (
+                                                    <>
+                                                        <div className="flex min-w-0 items-center gap-2.5">
+                                                            <Icon className={cn("h-4 w-4 shrink-0", isActive || active ? "text-indigo-600" : "text-slate-400")} />
+                                                            <span className="whitespace-normal break-words text-left text-[13px] leading-snug">{item.name}</span>
+                                                        </div>
+                                                        {(isActive || active) && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-indigo-600" />}
+                                                    </>
+                                                )}
+                                            </NavLink>
                                         );
                                     })}
                                 </nav>
