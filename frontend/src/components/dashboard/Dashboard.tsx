@@ -44,10 +44,6 @@ import { getUsers } from "@/lib/api/users";
 
 const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [];
 
-// Mã nhân viên đang thao tác ở "Trạm chấm công nhanh" — tạm gán cứng cho tới
-// khi màn hình này đọc được người dùng đang đăng nhập từ auth thật.
-const CURRENT_EMPLOYEE_ID = "NV001";
-
 export default function Dashboard() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -134,7 +130,7 @@ export default function Dashboard() {
             hour: "2-digit",
             minute: "2-digit",
         });
-        const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
+        const currentIdStr = user?.employeeCode || (user?.id != null ? String(user.id) : "—");
         const currentName = user?.fullName || user?.username || "Tôi ";
         const currentDept = user?.orgUnitName || "Phòng chuyên môn";
 
@@ -152,7 +148,7 @@ export default function Dashboard() {
             }
             return [
                 {
-                    id: user?.employeeCode || currentIdStr,
+                    id: currentIdStr,
                     name: currentName,
                     dept: currentDept,
                     inTime: time,
@@ -173,7 +169,7 @@ export default function Dashboard() {
             hour: "2-digit",
             minute: "2-digit",
         });
-        const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
+        const currentIdStr = user?.employeeCode || (user?.id != null ? String(user.id) : "—");
         const currentName = user?.fullName || user?.username || "Tôi ";
 
         setAttendanceRecords((prev) =>

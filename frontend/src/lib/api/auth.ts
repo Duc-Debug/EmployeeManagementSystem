@@ -30,6 +30,8 @@ export interface ChangePasswordPayload {
 
 export interface UserResultDto {
   dataScope: DataScope;
+  email?: string | null;
+  employeeCode?: string | null;
   employeeId: number | null;
   fullName: string;
   id: number;
@@ -41,6 +43,24 @@ export interface UserResultDto {
   status: UserStatus;
   username: string;
   permissions?: string[];
+}
+
+export function mapAuthUser(userRes: UserResultDto): AuthUser {
+  return {
+    dataScope: userRes.dataScope,
+    email: userRes.email ?? null,
+    employeeCode: userRes.employeeCode ?? null,
+    fullName: userRes.fullName,
+    id: userRes.id,
+    orgUnitId: userRes.orgUnitId,
+    orgUnitName: userRes.orgUnitName,
+    roleCode: userRes.roleCode,
+    roleName: userRes.roleName,
+    scopeOrgUnitId: userRes.scopeOrgUnitId,
+    status: userRes.status,
+    username: userRes.username,
+    permissions: userRes.permissions || [],
+  };
 }
 
 export async function login(payload: LoginPayload): Promise<AuthUser> {
@@ -61,21 +81,7 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
       method: "GET",
     });
 
-    const authUser: AuthUser = {
-      dataScope: userRes.dataScope,
-      email: null,
-      employeeCode: userRes.employeeId ? `EMP-${userRes.employeeId}` : null,
-      fullName: userRes.fullName,
-      id: userRes.id,
-      orgUnitId: userRes.orgUnitId,
-      orgUnitName: userRes.orgUnitName,
-      roleCode: userRes.roleCode,
-      roleName: userRes.roleName,
-      scopeOrgUnitId: userRes.scopeOrgUnitId,
-      status: userRes.status,
-      username: userRes.username,
-      permissions: userRes.permissions || [],
-    };
+    const authUser = mapAuthUser(userRes);
 
     setStoredUser(authUser);
     return authUser;
@@ -90,21 +96,7 @@ export async function getCurrentUser(): Promise<AuthUser> {
     method: "GET",
   });
 
-  const authUser: AuthUser = {
-    dataScope: userRes.dataScope,
-    email: null,
-    employeeCode: userRes.employeeId ? `EMP-${userRes.employeeId}` : null,
-    fullName: userRes.fullName,
-    id: userRes.id,
-    orgUnitId: userRes.orgUnitId,
-    orgUnitName: userRes.orgUnitName,
-    roleCode: userRes.roleCode,
-    roleName: userRes.roleName,
-    scopeOrgUnitId: userRes.scopeOrgUnitId,
-    status: userRes.status,
-    username: userRes.username,
-    permissions: userRes.permissions || [],
-  };
+  const authUser = mapAuthUser(userRes);
 
   setStoredUser(authUser);
   return authUser;

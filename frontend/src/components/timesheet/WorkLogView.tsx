@@ -448,7 +448,7 @@ export default function WorkLogView() {
             {weeklyData?.employeeName || user?.fullName || user?.username || "Nhân viên"}
           </div>
           <p className="mt-0.5 text-[10px] text-slate-500 font-mono">
-            Mã: {user?.employeeCode || `#${user?.id || ""}`}
+            Mã: {user?.employeeCode || "—"}
           </p>
         </div>
       </div>
