@@ -6,6 +6,7 @@ export interface LeaveRequestDto {
   id: number;
   employeeId: number;
   employeeName?: string;
+  orgUnitName?: string;
   department?: string;
   leaveType: "ANNUAL" | "UNPAID" | "SICK" | "PERSONAL";
   startDate: string;

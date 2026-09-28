@@ -134,8 +134,8 @@ export default function LeaveManagementView() {
                     const mapped: LeaveRequest[] = requestsData.value.map((item) => ({
                         id: `LV-${item.id}`,
                         employeeId: String(item.employeeId),
-                        employeeName: user?.fullName || user?.username || "Tôi (Nhân viên)",
-                        department: user?.orgUnitName || "Phòng chuyên môn",
+                        employeeName: item.employeeName || user?.fullName || user?.username || "",
+                        department: item.orgUnitName || item.department || user?.orgUnitName || "",
                         leaveType: item.leaveType,
                         startDate: item.startDate,
                         endDate: item.endDate,
@@ -159,8 +159,8 @@ export default function LeaveManagementView() {
                     const mapped: LeaveRequest[] = data.map((item) => ({
                         id: `LV-${item.id}`,
                         employeeId: String(item.employeeId),
-                        employeeName: item.employeeName || `Nhân viên #${item.employeeId}`,
-                        department: item.department || "Phòng ban",
+                        employeeName: item.employeeName || "",
+                        department: item.orgUnitName || item.department || "",
                         leaveType: item.leaveType,
                         startDate: item.startDate,
                         endDate: item.endDate,

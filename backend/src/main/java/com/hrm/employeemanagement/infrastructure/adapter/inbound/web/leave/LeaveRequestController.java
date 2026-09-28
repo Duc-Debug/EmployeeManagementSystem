@@ -107,7 +107,7 @@ public class LeaveRequestController {
 
         List<LeaveRequestResult> results = loadLeaveRequestPort.findByEmployeeId(employee.getIdValue())
                 .stream()
-                .map(LeaveRequestResult::fromDomain)
+                .map(r -> LeaveRequestResult.fromDomain(r, employee.getFullName(), null))
                 .toList();
 
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn nghỉ phép thành công", results));
