@@ -19,7 +19,7 @@ import { useAuthUser } from "@/lib/auth-session";
 import { getEmployees, type EmployeeProfile } from "@/lib/api/employees";
 import { getPendingLeaveRequests, approveLeaveRequest, type LeaveRequestDto } from "@/lib/api/leave";
 import { getOrgTree } from "@/lib/api/org-units";
-import { getPendingSkills, type PendingEmployeeSkillItem } from "@/lib/api/skills";
+import { getSkills, type SkillResponse } from "@/lib/api/skills";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 import MiniCalendar from "../calendar/MiniCalendar";
 
@@ -32,7 +32,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
     const [loading, setLoading] = useState(true);
     const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
     const [pendingLeaves, setPendingLeaves] = useState<LeaveRequestDto[]>([]);
-    const [pendingSkills, setPendingSkills] = useState<PendingEmployeeSkillItem[]>([]);
+    const [skillsList, setSkillsList] = useState<SkillResponse[]>([]);
     const [orgTree, setOrgTree] = useState<readonly OrgUnitTreeNode[]>([]);
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [miniCalMonth, setMiniCalMonth] = useState<Date>(new Date());
@@ -61,7 +61,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
             const [empRes, leavesRes, skillsRes, orgRes] = await Promise.allSettled([
                 getEmployees(1, 100),
                 getPendingLeaveRequests(),
-                getPendingSkills(),
+                getSkills(),
                 getOrgTree(),
             ]);
 
@@ -72,7 +72,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                 setPendingLeaves(leavesRes.value || []);
             }
             if (skillsRes.status === "fulfilled" && skillsRes.value) {
-                setPendingSkills(skillsRes.value || []);
+                setSkillsList(skillsRes.value || []);
             }
             if (orgRes.status === "fulfilled" && orgRes.value) {
                 setOrgTree(orgRes.value || []);
@@ -242,7 +242,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                     </div>
                 </div>
 
-                {/* 4. Khai báo kỹ năng chờ duyệt */}
+                {/* 4. Danh mục Kỹ năng */}
                 <div
                     onClick={() => onNavigate("skills")}
                     className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs transition hover:border-indigo-300 hover:shadow-xs"
@@ -257,11 +257,11 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                     </div>
                     <div className="mt-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Kỹ năng chờ chuẩn hóa
+                            Danh mục Kỹ năng
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-lg font-bold text-slate-900">{pendingSkills.length}</span>
-                            <span className="text-[10px] text-slate-400">yêu cầu thẩm định</span>
+                            <span className="text-lg font-bold text-slate-900">{skillsList.length}</span>
+                            <span className="text-[10px] text-slate-400">kỹ năng chuẩn hóa</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-indigo-700">
                             Ma trận năng lực chuyên môn

@@ -143,9 +143,9 @@ export function canAccessTab(
 
         case "capacity-dashboard":
         case "dashboard-capacity":
-            // NCL-10-CN-001: Bảng điều khiển năng lực: Chỉ Ban Giám Đốc (VT-01). Admin VT-06 bị ẩn theo đặc tả
+            // NCL-10-CN-001: Bảng điều khiển năng lực: VT-01, VT-02, VT-03. Admin VT-06 bị ẩn theo đặc tả
             if (["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
-            return permissions?.includes("CAPACITY_DASHBOARD_READ") === true || normalized === "VT-01";
+            return permissions?.includes("CAPACITY_DASHBOARD_READ") === true || ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
         case "capacity":
         case "weekly-capacity":
