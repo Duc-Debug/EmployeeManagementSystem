@@ -7,13 +7,22 @@ import com.hrm.employeemanagement.application.port.outbound.DatabaseBackupRestor
 import com.hrm.employeemanagement.domain.backup.BackupType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.sql.ResultSetMetaData;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,12 +32,18 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseBackupRestoreEngineAdapter.class);
 
+    private static final byte[] MAGIC_HEADER = "ENC_BACKUP_GCM_V1:".getBytes(StandardCharsets.UTF_8);
+    private static final int GCM_IV_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH_BITS = 128;
+
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final String encryptionKey;
 
     private static final java.util.regex.Pattern IDENTIFIER_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z0-9_]+$");
 
     // Ordered list of tables to backup/restore (dependencies handled)
+    // Sensitive token and outbox tables are excluded
     public static final List<String> FULL_BACKUP_TABLES = List.of(
             // Core Identity & Organization
             "roles",
@@ -39,8 +54,6 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             "users",
             "employees",
             "audit_logs",
-            "password_reset_tokens",
-            "password_reset_email_outbox",
             // Skills & Qualifications
             "skill_groups",
             "skills",
@@ -106,9 +119,7 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             "notification_recipients",
             "notifications",
             "notification_audit_logs",
-            "notification_digest_items",
-            "notification_email_outbox",
-            "notification_email_digest_items"
+            "notification_digest_items"
     );
 
     public static final List<String> RESOURCE_PLAN_TABLES = List.of(
@@ -154,8 +165,12 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             "scenario_shares"
     );
 
-    public DatabaseBackupRestoreEngineAdapter(JdbcTemplate jdbcTemplate) {
+    public DatabaseBackupRestoreEngineAdapter(
+            JdbcTemplate jdbcTemplate,
+            @Value("${app.backup.encryption-key:${APP_BACKUP_ENCRYPTION_KEY:${BACKUP_ENCRYPTION_KEY:${jwt.secret:${JWT_SECRET:local-development-backup-aes-key-32-chars-minimum}}}}}") String encryptionKey
+    ) {
         this.jdbcTemplate = jdbcTemplate;
+        this.encryptionKey = encryptionKey;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -201,8 +216,11 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             targetFile.getParentFile().mkdirs();
         }
 
+        byte[] jsonBytes = objectMapper.writeValueAsBytes(backupData);
+        byte[] encryptedBytes = encrypt(jsonBytes);
+
         try (FileOutputStream fos = new FileOutputStream(targetFile)) {
-            objectMapper.writeValue(fos, backupData);
+            fos.write(encryptedBytes);
         }
 
         return targetFile;
@@ -215,10 +233,15 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             throw new IllegalArgumentException("File sao lưu không tồn tại: " + backupFile.getAbsolutePath());
         }
 
-        Map<String, Object> backupData;
+        byte[] fileBytes;
         try (FileInputStream fis = new FileInputStream(backupFile)) {
-            backupData = objectMapper.readValue(fis, Map.class);
+            fileBytes = fis.readAllBytes();
         }
+
+        byte[] decryptedBytes = decrypt(fileBytes);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> backupData = objectMapper.readValue(decryptedBytes, Map.class);
 
         Object rawType = backupData.get("backupType");
         if (!(rawType instanceof String typeValue)) {
@@ -265,6 +288,65 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             // Luôn bật lại kiểm tra khóa ngoại
             setForeignKeyChecks(true);
         }
+    }
+
+    private byte[] getDerivedKey() {
+        String key = (encryptionKey != null && !encryptionKey.isBlank())
+                ? encryptionKey
+                : "default-fallback-backup-encryption-key-32b";
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(key.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
+    }
+
+    private byte[] encrypt(byte[] plaintext) throws Exception {
+        byte[] iv = new byte[GCM_IV_LENGTH];
+        new SecureRandom().nextBytes(iv);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        SecretKeySpec keySpec = new SecretKeySpec(getDerivedKey(), "AES");
+        GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, gcmSpec);
+
+        byte[] ciphertext = cipher.doFinal(plaintext);
+
+        ByteBuffer byteBuffer = ByteBuffer.allocate(MAGIC_HEADER.length + iv.length + ciphertext.length);
+        byteBuffer.put(MAGIC_HEADER);
+        byteBuffer.put(iv);
+        byteBuffer.put(ciphertext);
+        return byteBuffer.array();
+    }
+
+    private byte[] decrypt(byte[] encryptedData) throws Exception {
+        if (isEncrypted(encryptedData)) {
+            int ivStart = MAGIC_HEADER.length;
+            byte[] iv = Arrays.copyOfRange(encryptedData, ivStart, ivStart + GCM_IV_LENGTH);
+            byte[] ciphertext = Arrays.copyOfRange(encryptedData, ivStart + GCM_IV_LENGTH, encryptedData.length);
+
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            SecretKeySpec keySpec = new SecretKeySpec(getDerivedKey(), "AES");
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, gcmSpec);
+
+            return cipher.doFinal(ciphertext);
+        }
+        // Fallback for unencrypted legacy JSON data
+        return encryptedData;
+    }
+
+    private boolean isEncrypted(byte[] data) {
+        if (data == null || data.length < MAGIC_HEADER.length + GCM_IV_LENGTH) {
+            return false;
+        }
+        for (int i = 0; i < MAGIC_HEADER.length; i++) {
+            if (data[i] != MAGIC_HEADER[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean tableExists(String tableName) {
