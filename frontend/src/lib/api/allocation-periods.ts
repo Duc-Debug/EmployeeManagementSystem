@@ -168,3 +168,109 @@ export async function checkWeekLock(
     `/allocations/periods/check-lock?${query.toString()}`
   );
 }
+
+export function isWeekWithinPeriod(
+  period?: { year: number; startWeek: number; endWeek: number } | null,
+  year?: number,
+  weekNumber?: number
+): boolean {
+  if (!period || year == null || weekNumber == null) return false;
+  return (
+    period.year === year &&
+    weekNumber >= period.startWeek &&
+    weekNumber <= period.endWeek
+  );
+}
+
+export function validateCreatePeriodForm({
+  name,
+  periodType,
+  year,
+  startWeek,
+  endWeek,
+}: {
+  name?: string;
+  periodType?: string;
+  year?: number;
+  startWeek?: number;
+  endWeek?: number;
+}) {
+  const errors: string[] = [];
+  const trimmedName = name ? name.trim() : "";
+
+  if (!trimmedName) {
+    errors.push("Tên kỳ kế hoạch không được để trống.");
+  }
+  if (!year || year < 2020 || year > 2050) {
+    errors.push("Năm áp dụng không hợp lệ.");
+  }
+  if (!startWeek || startWeek < 1 || startWeek > 53) {
+    errors.push("Tuần bắt đầu phải từ 1 đến 53.");
+  }
+  if (!endWeek || endWeek < 1 || endWeek > 53) {
+    errors.push("Tuần kết thúc phải từ 1 đến 53.");
+  }
+  if (startWeek && endWeek && startWeek > endWeek) {
+    errors.push("Tuần bắt đầu không được lớn hơn tuần kết thúc.");
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+export function validateUnlockPeriodForm(reason?: string | null) {
+  const trimmed = reason ? reason.trim() : "";
+  if (!trimmed) {
+    return {
+      isValid: false,
+      error: "Lý do mở lại kỳ là bắt buộc.",
+    };
+  }
+  if (trimmed.length < 10) {
+    return {
+      isValid: false,
+      error: "Lý do mở lại kỳ phải có ít nhất 10 ký tự.",
+    };
+  }
+  return {
+    isValid: true,
+    error: null,
+  };
+}
+
+export function checkPeriodPermissions(roleCode?: string | null) {
+  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const canManage = normalized === "VT-03";
+  const canView = ["VT-01", "VT-02", "VT-03"].includes(normalized);
+  return {
+    canManage,
+    canView,
+  };
+}
+
+export function generateSnapshotCSV(snapshot?: { items?: AllocationPlanSnapshotItemResult[] } | null, periodName?: string): string {
+  if (!snapshot || !snapshot.items) return "";
+  const headers = [
+    "Mã Nhân Viên",
+    "Họ Và Tên",
+    "Mã Dự Án",
+    "Tên Dự Án",
+    "Năm",
+    "Tuần Phân Bổ",
+    "Số Giờ Phân Bổ",
+  ];
+
+  const rows = snapshot.items.map((it) => [
+    `"${it.employeeCode}"`,
+    `"${it.employeeFullName}"`,
+    `"${it.projectCode}"`,
+    `"${(it.projectName || "").replace(/"/g, '""')}"`,
+    it.year,
+    it.weekNumber,
+    it.allocatedHours,
+  ]);
+
+  return "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+}
