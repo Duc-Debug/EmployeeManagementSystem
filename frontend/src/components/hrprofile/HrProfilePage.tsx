@@ -88,7 +88,7 @@ export default function HrProfilePage() {
 
                 const mapped: HrProfileData[] = nonAdminEmps.map((p) => {
                     const u = (p.userId && userMap.get(p.userId)) || userMap.get(p.id);
-                    const empCode = p.employeeCode || (p.id ? `EMP-${String(p.id).padStart(3, "0")}` : "");
+                    const empCode = p.employeeCode || (p.id ? String(p.id) : "—");
                     const dates = getStoredDates(p.id) || (p.userId ? getStoredDates(p.userId) : undefined) || getStoredDates(empCode);
                     const deptName = (p.orgUnitId && orgUnitMap.get(p.orgUnitId)) || u?.orgUnitName || "Chưa phân bổ";
 
@@ -97,7 +97,7 @@ export default function HrProfilePage() {
                         employeeId: p.id,
                         employeeCode: empCode,
                         fullName: p.fullName || u?.fullName || "",
-                        email: p.email || u?.email || (p.isOutsourced ? "" : (empCode ? `${empCode.toLowerCase().replace(/[^a-z0-9]/g, "")}@company.com` : "")),
+                        email: p.email || u?.email || "",
                         username: u?.username || "",
                         orgUnitId: p.orgUnitId ? String(p.orgUnitId) : undefined,
                         department: deptName,
@@ -139,9 +139,9 @@ export default function HrProfilePage() {
         if (currentUser) {
             return [{
                 id: `self-${currentUser.id}`,
-                employeeCode: currentUser.employeeCode || `EMP-${currentUser.id}`,
+                employeeCode: currentUser.employeeCode || "—",
                 fullName: currentUser.fullName || currentUser.username,
-                email: currentUser.email || "",
+                email: currentUser.email || "—",
                 username: currentUser.username,
                 department: currentUser.orgUnitName || "Chưa phân bổ",
                 professionalRole: currentUser.roleName || "Nhân viên chuyên môn",

@@ -64,7 +64,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    @DisplayName("Token hợp lệ và chưa bị blacklist: thiết lập SecurityContext thành công")
+    @DisplayName("Token hợp lệ và chưa bị blacklist: thiết lập SecurityContext thành công khi đã đổi mật khẩu")
     void testDoFilter_ValidToken_NotBlacklisted() throws Exception {
         String token = "valid.jwt.token";
         when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
@@ -74,13 +74,101 @@ class JwtAuthenticationFilterTest {
         when(tokenProvider.getTokenVersionFromToken(token)).thenReturn(1);
 
         Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Admin");
-        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L));
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L), "admin@example.com", java.time.Instant.now(), 1L);
         when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
 
         filter.doFilterInternal(request, response, filterChain);
 
         assertNotNull(SecurityContextHolder.getContext().getAuthentication());
         assertEquals("admin", ((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUsername());
+        verify(filterChain, times(1)).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Token hợp lệ nhưng user chưa đổi mật khẩu (passwordChangedAt == null): chặn API thường với 403 PASSWORD_CHANGE_REQUIRED")
+    void testDoFilter_PasswordChangeRequired_BlocksNormalApi() throws Exception {
+        String token = "valid.jwt.token";
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(false);
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getTokenVersionFromToken(token)).thenReturn(1);
+        when(request.getRequestURI()).thenReturn("/api/v1/users");
+
+        java.io.StringWriter stringWriter = new java.io.StringWriter();
+        when(response.getWriter()).thenReturn(new java.io.PrintWriter(stringWriter));
+
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Admin");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L)); // passwordChangedAt is null
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response, times(1)).setStatus(HttpServletResponse.SC_FORBIDDEN);
+        assertTrue(stringWriter.toString().contains("PASSWORD_CHANGE_REQUIRED"));
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Token hợp lệ và user chưa đổi mật khẩu: cho phép truy cập /api/v1/auth/me")
+    void testDoFilter_PasswordChangeRequired_AllowsAuthMe() throws Exception {
+        String token = "valid.jwt.token";
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(false);
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getTokenVersionFromToken(token)).thenReturn(1);
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/me");
+
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Admin");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L));
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(filterChain, times(1)).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Token hợp lệ và user chưa đổi mật khẩu: cho phép truy cập /api/v1/auth/change-password")
+    void testDoFilter_PasswordChangeRequired_AllowsChangePassword() throws Exception {
+        String token = "valid.jwt.token";
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(false);
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getTokenVersionFromToken(token)).thenReturn(1);
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/change-password");
+
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Admin");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L));
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(filterChain, times(1)).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Token hợp lệ và user chưa đổi mật khẩu: cho phép truy cập /api/v1/auth/logout")
+    void testDoFilter_PasswordChangeRequired_AllowsLogout() throws Exception {
+        String token = "valid.jwt.token";
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(false);
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getTokenVersionFromToken(token)).thenReturn(1);
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/logout");
+
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Admin");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L));
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
         verify(filterChain, times(1)).doFilter(request, response);
     }
 

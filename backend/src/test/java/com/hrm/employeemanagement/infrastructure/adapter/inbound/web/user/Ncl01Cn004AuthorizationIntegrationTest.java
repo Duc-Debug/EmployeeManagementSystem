@@ -85,16 +85,21 @@ class Ncl01Cn004AuthorizationIntegrationTest {
     @Autowired
     private JwtTokenProviderAdapter jwtTokenProvider;
 
+    @Autowired
+    private com.hrm.employeemanagement.infrastructure.security.UserStatusCache userStatusCache;
+
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
                 .webAppContextSetup(webApplicationContext)
                 .apply(springSecurity())
                 .build();
+        userStatusCache.clear();
     }
 
     @AfterEach
     void tearDown() {
+        userStatusCache.clear();
         SecurityContextHolder.clearContext();
     }
 
@@ -315,6 +320,7 @@ class Ncl01Cn004AuthorizationIntegrationTest {
         user.setDataScope(dataScope.name());
         user.setScopeOrgUnitId(scopeOrgUnitId);
         user.setTokenVersion(1);
+        user.setPasswordChangedAt(java.time.Instant.now().minusSeconds(86400));
         return userRepository.saveAndFlush(user);
     }
 

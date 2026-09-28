@@ -1020,6 +1020,9 @@ public UserResult updateUserRole(
                         ? employee.getIdValue()
                         : null,
                 employee != null
+                        ? employee.getEmployeeCode()
+                        : null,
+                employee != null
                         ? employee.getFullName()
                         : null,
                 employee != null
@@ -1028,7 +1031,8 @@ public UserResult updateUserRole(
                 orgUnitName,
                 user.getDataScope(),
                 user.getScopeOrgUnitId(),
-                permissions
+                permissions,
+                user.getPasswordChangedAt() == null
         );
     }
 
