@@ -1,5 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+    isLeaveWarning,
+    calculateDailyLeaveHours,
+    buildDepartmentMonthlyLeaveCalendarParams,
+    flattenOrgTree,
+} from "../lib/api/leave.ts";
 
 describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)", () => {
 
@@ -53,7 +59,7 @@ describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)
         const threshold = 0.5; // 50%
         const isCompanyWorkingDay = true;
 
-        const isWarning = isCompanyWorkingDay && (onLeaveCount / totalEmployees >= threshold);
+        const isWarning = isLeaveWarning(isCompanyWorkingDay, onLeaveCount, totalEmployees, threshold);
         assert.equal(isWarning, true, "4/5 người nghỉ phải kích hoạt cảnh báo");
     });
 
@@ -64,7 +70,7 @@ describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)
 
         // Ngày Chủ Nhật hoặc Ngày Lễ 2/9
         const isCompanyWorkingDay = false;
-        const isWarning = isCompanyWorkingDay && (onLeaveCount / totalEmployees >= threshold);
+        const isWarning = isLeaveWarning(isCompanyWorkingDay, onLeaveCount, totalEmployees, threshold);
         assert.equal(isWarning, false, "Ngày nghỉ công ty không được phép báo động giả");
     });
 
@@ -75,7 +81,7 @@ describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)
             { hoursDeducted: 8.0 },
             { hoursDeducted: 8.0 },
         ];
-        const totalLeaveHours = leaveItems.reduce((sum, item) => sum + item.hoursDeducted, 0);
+        const totalLeaveHours = calculateDailyLeaveHours(leaveItems);
         assert.equal(totalLeaveHours, 28.0, "Tổng giờ nghỉ là 28.0");
     });
 
@@ -88,12 +94,7 @@ describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)
             includeSubUnits: true,
         };
 
-        const searchParams = new URLSearchParams();
-        searchParams.set("orgUnitId", String(params.orgUnitId));
-        searchParams.set("year", String(params.year));
-        searchParams.set("month", String(params.month));
-        searchParams.set("warningThreshold", String(params.warningThreshold));
-        searchParams.set("includeSubUnits", String(params.includeSubUnits));
+        const searchParams = buildDepartmentMonthlyLeaveCalendarParams(params);
 
         assert.equal(
             searchParams.toString(),
@@ -102,22 +103,6 @@ describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)
     });
 
     test("Cây tổ chức: Hàm làm phẳng danh sách cây đơn vị phòng ban (flattenOrgTree)", () => {
-        function flattenOrgTree(nodes, depth = 0) {
-            const result = [];
-            for (const node of nodes) {
-                result.push({
-                    id: node.id,
-                    unitCode: node.unitCode,
-                    unitName: node.unitName,
-                    depth,
-                });
-                if (node.children && node.children.length > 0) {
-                    result.push(...flattenOrgTree(node.children, depth + 1));
-                }
-            }
-            return result;
-        }
-
         const tree = [
             {
                 id: 1,

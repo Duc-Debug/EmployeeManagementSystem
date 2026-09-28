@@ -45,6 +45,7 @@ export interface BackupSummary {
   totalBackups: number;
   totalFileSizeBytes: number;
   formattedTotalSize: string;
+  storageLocation?: string;
   latestCompletedBackup?: BackupItem;
   schedule?: BackupSchedule;
 }
@@ -87,8 +88,8 @@ export function formatBackupFileSize(bytes: number): string {
 }
 
 export function validateRestoreConfirmation(code: string, reason: string): { valid: boolean; error?: string } {
-  if (!code || code.trim().toUpperCase() !== "RESTORE") {
-    return { valid: false, error: "Mã xác nhận phải là RESTORE" };
+  if (!code || code.trim() !== "RESTORE") {
+    return { valid: false, error: "Mã xác nhận phải là RESTORE (viết hoa chính xác)" };
   }
   if (!reason || reason.trim().length < 10) {
     return { valid: false, error: "Lý do phải từ 10 ký tự trở lên" };
@@ -121,12 +122,12 @@ export function validateBackupUploadFileName(fileName?: string | null): boolean 
   return lower.endsWith(".json");
 }
 
-export function filterBackups(
-  items: BackupItem[] | { backupType?: string; status?: string; backupCode?: string }[],
+export function filterBackups<T extends { backupType?: string; status?: string; backupCode?: string }>(
+  items: T[],
   type?: string,
   status?: string,
   search?: string
-) {
+): T[] {
   return items.filter((b) => {
     if (type && type !== "ALL" && b.backupType !== type) return false;
     if (status && status !== "ALL" && b.status !== status) return false;

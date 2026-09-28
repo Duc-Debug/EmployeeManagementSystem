@@ -43,7 +43,9 @@ public class BackupResponse {
         res.statusDescription = backup.getStatus() != null ? backup.getStatus().getDescription() : "";
         res.isAutomatic = backup.isAutomatic();
         res.createdBy = backup.getCreatedBy();
-        res.createdByName = backup.getCreatedByName();
+        res.createdByName = (backup.getCreatedByName() != null && !backup.getCreatedByName().trim().isEmpty())
+                ? backup.getCreatedByName().trim()
+                : (backup.isAutomatic() ? "Hệ thống (Auto Scheduler)" : "Quản trị viên");
         res.createdAt = backup.getCreatedAt();
         res.completedAt = backup.getCompletedAt();
         res.errorMessage = backup.getErrorMessage();

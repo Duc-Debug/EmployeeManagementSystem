@@ -2,6 +2,7 @@ import React from "react";
 import { Calendar, Briefcase, Clock, AlertCircle, MessageSquareQuote } from "lucide-react";
 import type { WeeklySchedule } from "../types";
 import { ConfirmationStatusBadge } from "./ConfirmationStatusBadge";
+import { formatWeeklyDateRange, getProjectStatusBadge } from "../api/myScheduleApi";
 
 interface WeeklyScheduleCardProps {
   schedule: WeeklySchedule;
@@ -18,21 +19,6 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 }) => {
   const { week_start_date, total_hours, confirmation_status, confirmed_at, feedback_note, feedback_at, allocations } = schedule;
 
-  const formatDateRange = (mondayStr: string) => {
-    try {
-      const monday = new Date(mondayStr);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-
-      const dFormat = (d: Date) =>
-        d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-
-      return `${dFormat(monday)} — ${dFormat(sunday)}`;
-    } catch {
-      return mondayStr;
-    }
-  };
-
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden transition hover:shadow-md">
       {/* Header card tuần */}
@@ -48,7 +34,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               </h3>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Thời gian: {formatDateRange(week_start_date)}
+              Thời gian: {formatWeeklyDateRange(week_start_date)}
             </p>
           </div>
         </div>
@@ -116,7 +102,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {allocations.map((alloc) => {
-                const isClosed = alloc.project_status?.toUpperCase() === "CLOSED";
+                const statusBadge = getProjectStatusBadge(alloc.project_status);
                 return (
                   <div
                     key={alloc.allocation_id}
@@ -131,9 +117,9 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
                           <span className="font-medium text-slate-800 text-sm truncate">
                             {alloc.project_name}
                           </span>
-                          {isClosed && (
+                          {statusBadge && (
                             <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 text-slate-600 border border-slate-300">
-                              Dự án đã đóng
+                              {statusBadge}
                             </span>
                           )}
                         </div>

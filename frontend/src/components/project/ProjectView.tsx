@@ -1084,7 +1084,7 @@ export default function ProjectView() {
 
     const handleProjectCreated = async (newProjectId: number) => {
         await loadProjects();
-        navigate(`/projects?projectId=${newProjectId}`);
+        navigate(`/dashboard/projects?projectId=${newProjectId}`);
         showToast('Dự án đã được tạo thành công trong Database!', 'success');
     };
 
@@ -1252,7 +1252,7 @@ export default function ProjectView() {
                                         <div className="relative inline-block">
                                             <select
                                                 value={selectedProjectId || ''}
-                                                onChange={(e) => navigate(`/projects?projectId=${e.target.value}`)}
+                                                onChange={(e) => navigate(`/dashboard/projects?projectId=${e.target.value}`)}
                                                 className="appearance-none rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
                                             >
                                                 {projectsList.map((p) => (

@@ -11,4 +11,5 @@ public interface BackupStoragePort {
     void deleteBackupFile(String filePath);
     String calculateChecksum(String filePath);
     long getFileSize(String filePath);
+    String getStorageDirectory();
 }
