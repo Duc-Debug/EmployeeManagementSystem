@@ -331,5 +331,66 @@ test("P0-3: Quy đổi tuần ISO lưới phân bổ dự án & tối ưu API re
 
     assert.equal(fetchCount, 1, "Khi mở project và load WBS đồng thời, chỉ được phát sinh ĐÚNG 1 request allocation");
   });
+
+  await t.test("G. Race Condition & Consistency: Sequence counter và Project Switch Cache Isolation", async () => {
+    // Mô phỏng logic chống race condition trong ProjectView.tsx:
+    // 1) allocationRequestRef đếm sequence để loại bỏ response cũ về muộn
+    // 2) latestAllocationsRef lưu { projectId, monthId, allocations } để bảo vệ 2 lớp
+    // 3) Đổi project thì reset allocationRequestRef.current++, latestAllocationsRef.current = null, setMembers([])
+
+    let allocationRequestRef = 0;
+    let latestAllocationsRef = null;
+    let displayedMembers = [];
+
+    const monthSep = buildProjectMonth(2026, 9);
+    const monthOct = buildProjectMonth(2026, 10);
+
+    const simulateLoadAllocations = async (projId, month, latencyMs, resultData) => {
+      const requestId = ++allocationRequestRef;
+      await new Promise((resolve) => setTimeout(resolve, latencyMs));
+      // Guard race condition
+      if (requestId !== allocationRequestRef) {
+        return "DISCARDED";
+      }
+      latestAllocationsRef = {
+        projectId: projId,
+        monthId: month.id,
+        allocations: resultData,
+      };
+      displayedMembers = resultData;
+      return "APPLIED";
+    };
+
+    const simulateProjectSwitch = (newProjId) => {
+      allocationRequestRef++;
+      latestAllocationsRef = null;
+      displayedMembers = [];
+    };
+
+    // Scenario 1: Request 1 (chậm, 50ms) bị Request 2 (nhanh, 10ms) đè lên -> Request 1 phải bị DISCARDED
+    const req1 = simulateLoadAllocations(1, monthSep, 50, [{ id: "alloc-old", employeeId: 10 }]);
+    const req2 = simulateLoadAllocations(1, monthOct, 10, [{ id: "alloc-new", employeeId: 10 }]);
+
+    const [res1, res2] = await Promise.all([req1, req2]);
+    assert.equal(res1, "DISCARDED", "Response cũ về muộn phải bị bỏ qua (discarded)");
+    assert.equal(res2, "APPLIED", "Response mới nhất phải được áp dụng");
+    assert.equal(latestAllocationsRef.monthId, monthOct.id, "Cache phải lưu đúng tháng mới");
+    assert.equal(displayedMembers[0].id, "alloc-new");
+
+    // Scenario 2: Đang fetch Project A thì user đổi sang Project B -> Không được để Project B dính allocation A
+    const reqProjA = simulateLoadAllocations(100, monthSep, 30, [{ id: "alloc-proj-A", employeeId: 10 }]);
+    // Ngay lập tức đổi sang project 200
+    simulateProjectSwitch(200);
+    assert.equal(latestAllocationsRef, null, "Khi đổi project, cache phải lập tức bị xóa (null)");
+    assert.deepEqual(displayedMembers, [], "Danh sách members phải được reset rỗng");
+
+    const reqProjB = simulateLoadAllocations(200, monthSep, 10, [{ id: "alloc-proj-B", employeeId: 20 }]);
+    const [resA, resB] = await Promise.all([reqProjA, reqProjB]);
+
+    assert.equal(resA, "DISCARDED", "Request của Project A phải bị bỏ qua vì project đã đổi");
+    assert.equal(resB, "APPLIED", "Request của Project B được áp dụng bình thường");
+    assert.equal(latestAllocationsRef.projectId, 200, "Cache phải là của Project B (200)");
+    assert.equal(displayedMembers[0].id, "alloc-proj-B");
+  });
 });
 

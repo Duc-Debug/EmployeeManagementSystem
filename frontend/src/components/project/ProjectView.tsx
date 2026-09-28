@@ -547,8 +547,13 @@ export default function ProjectView() {
         return idx >= 0 ? idx : 0;
     });
 
+    const allocationRequestRef = useRef(0);
     const baseProjectMembersRef = useRef<ProjectMember[]>([]);
-    const latestAllocationsRef = useRef<ProjectWeeklyAllocationResult[]>([]);
+    const latestAllocationsRef = useRef<{
+        projectId: number;
+        monthId: string;
+        allocations: ProjectWeeklyAllocationResult[];
+    } | null>(null);
 
     const getDisplayedIsoWeek = useCallback((weekKey: string) => {
         const month = months[selectedMonthIdx];
@@ -624,6 +629,7 @@ export default function ProjectView() {
 
     const loadProjectAllocations = useCallback(async () => {
         if (!canReadAllocations || !selectedProjectId) return;
+        const requestId = ++allocationRequestRef.current;
         const month = months[selectedMonthIdx];
         if (!month || month.weeks.length === 0) return;
         try {
@@ -632,7 +638,17 @@ export default function ProjectView() {
                 selectedProjectId,
                 month.weeks
             );
-            latestAllocationsRef.current = allAllocations;
+
+            // Bỏ qua response cũ nếu đã có request mới hơn
+            if (requestId !== allocationRequestRef.current) {
+                return;
+            }
+
+            latestAllocationsRef.current = {
+                projectId: selectedProjectId,
+                monthId: month.id,
+                allocations: allAllocations,
+            };
 
             setMembers((previous) => {
                 const currentBase = baseProjectMembersRef.current.length > 0
@@ -642,6 +658,10 @@ export default function ProjectView() {
             });
             setAllocationError(null);
         } catch (error) {
+            if (requestId !== allocationRequestRef.current) {
+                return;
+            }
+
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
             setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
         }
@@ -698,11 +718,16 @@ export default function ProjectView() {
             baseProjectMembersRef.current = projectMembers;
 
             setMembers((prevMembers) => {
-                if (latestAllocationsRef.current.length > 0) {
-                    const month = months[selectedMonthIdx];
+                const month = months[selectedMonthIdx];
+                if (
+                    latestAllocationsRef.current &&
+                    latestAllocationsRef.current.projectId === projId &&
+                    latestAllocationsRef.current.monthId === month?.id &&
+                    latestAllocationsRef.current.allocations.length > 0
+                ) {
                     return applyAllocationsToMembers(
                         projectMembers,
-                        latestAllocationsRef.current,
+                        latestAllocationsRef.current.allocations,
                         month.weeks,
                         allEmployees
                     );
@@ -732,6 +757,12 @@ export default function ProjectView() {
     }, [allEmployees, applyAllocationsToMembers, months, selectedMonthIdx]);
 
     useEffect(() => {
+        // Hủy bất kỳ request allocation đang bay của project cũ và reset cache
+        allocationRequestRef.current++;
+        latestAllocationsRef.current = null;
+        baseProjectMembersRef.current = [];
+        setMembers([]);
+
         if (selectedProjectId) {
             loadWbsForProject(selectedProjectId);
         }
