@@ -1,6 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.migration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -302,7 +303,7 @@ class FlywayEmployeeOrgUnitMigrationTest {
                 );
             }
 
-            migrateToLatest(url);
+            migrateTo(url, "93");
 
             try (Connection connection = connect(url)) {
                 long count = queryLong(
@@ -407,6 +408,140 @@ class FlywayEmployeeOrgUnitMigrationTest {
                 );
             }
         }
+    }
+
+    @Test
+    void v128DropsRedundantScheduleConflictUniqueIndex()
+            throws Exception {
+        String url = jdbcUrl("v128_conflict_uk_cleanup");
+
+        try (Connection keepAlive = connect(url)) {
+            migrateTo(url, "127");
+
+            try (Connection connection = connect(url)) {
+                // Verify that both indexes existed at V127
+                assertTrue(
+                        hasIndexOnTable(connection, "schedule_conflict_warnings", "uk_conflict_emp_year_week_type"),
+                        "uk_conflict_emp_year_week_type must exist before V128"
+                );
+                assertTrue(
+                        hasIndexOnTable(connection, "schedule_conflict_warnings", "uk_schedule_conflict_existing"),
+                        "uk_schedule_conflict_existing must exist before V128"
+                );
+
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate(
+                            """
+                                    INSERT INTO employees (
+                                        employee_code,
+                                        full_name,
+                                        standard_hours_per_week
+                                    ) VALUES (
+                                        'EMP-V128-CLEANUP',
+                                        'V128 Test Employee',
+                                        40
+                                    )
+                                    """
+                    );
+                }
+            }
+
+            // Execute migration V128
+            migrateToLatest(url);
+
+            try (Connection connection = connect(url)) {
+                // 1. Verify uk_conflict_emp_year_week_type is actually removed
+                assertFalse(
+                        hasIndexOnTable(connection, "schedule_conflict_warnings", "uk_conflict_emp_year_week_type"),
+                        "uk_conflict_emp_year_week_type must be removed by V128"
+                );
+
+                // 2. Verify uk_schedule_conflict_existing remains
+                assertTrue(
+                        hasIndexOnTable(connection, "schedule_conflict_warnings", "uk_schedule_conflict_existing"),
+                        "uk_schedule_conflict_existing must remain after V128"
+                );
+
+                long empId = queryLong(
+                        connection,
+                        "SELECT id FROM employees WHERE employee_code = ?",
+                        "EMP-V128-CLEANUP"
+                );
+
+                try (PreparedStatement statement = connection.prepareStatement(
+                        """
+                                INSERT INTO schedule_conflict_warnings (
+                                    employee_id, year_number, week_number, conflict_type,
+                                    total_allocated_hours, net_available_hours, excess_hours, status
+                                ) VALUES (?, 2026, 38, 'MULTI_PROJECT_ALLOCATION', 60.00, 40.00, 20.00, 'OPEN')
+                                """
+                )) {
+                    statement.setLong(1, empId);
+                    assertEquals(1, statement.executeUpdate());
+                }
+
+                // 3. Verify that the canonical unique constraint still rejects duplicate values
+                assertThrows(
+                        SQLException.class,
+                        () -> {
+                            try (PreparedStatement statement = connection.prepareStatement(
+                                    """
+                                            INSERT INTO schedule_conflict_warnings (
+                                                employee_id, year_number, week_number, conflict_type,
+                                                total_allocated_hours, net_available_hours, excess_hours, status
+                                            ) VALUES (?, 2026, 38, 'MULTI_PROJECT_ALLOCATION', 70.00, 40.00, 30.00, 'OPEN')
+                                            """
+                            )) {
+                                statement.setLong(1, empId);
+                                statement.executeUpdate();
+                            }
+                        }
+                );
+            }
+        }
+    }
+
+    private static boolean hasIndexOnTable(Connection connection, String tableName, String indexName)
+            throws SQLException {
+        for (String tbl : new String[]{tableName, tableName.toUpperCase(), tableName.toLowerCase()}) {
+            try (ResultSet rs = connection.getMetaData().getIndexInfo(null, null, tbl, false, false)) {
+                while (rs.next()) {
+                    String actualIndexName = rs.getString("INDEX_NAME");
+                    if (actualIndexName != null && indexName.equalsIgnoreCase(actualIndexName)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.INDEXES WHERE TABLE_NAME = ? OR TABLE_NAME = ?"
+        )) {
+            ps.setString(1, tableName.toUpperCase());
+            ps.setString(2, tableName.toLowerCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String actualIndexName = rs.getString(1);
+                    if (actualIndexName != null && indexName.equalsIgnoreCase(actualIndexName)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = ? OR TABLE_NAME = ?"
+        )) {
+            ps.setString(1, tableName.toUpperCase());
+            ps.setString(2, tableName.toLowerCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String actualConstraintName = rs.getString(1);
+                    if (actualConstraintName != null && indexName.equalsIgnoreCase(actualConstraintName)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private static void migrateTo(String url, String target) {
