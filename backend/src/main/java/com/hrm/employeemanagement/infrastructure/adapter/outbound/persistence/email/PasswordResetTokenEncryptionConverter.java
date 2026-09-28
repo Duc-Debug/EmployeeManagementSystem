@@ -19,7 +19,7 @@ import java.util.Base64;
 
 /**
  * JPA AttributeConverter that encrypts reset tokens at rest in the database using AES-256 GCM.
- * Tokens are stored as ciphertext (prefixed with "ENC:") and decrypted when read by the entity.
+ * Managed by Spring via BeanContainer, injecting 'app.outbox.encryption-key'.
  */
 @Component
 @Converter
@@ -32,55 +32,24 @@ public class PasswordResetTokenEncryptionConverter implements AttributeConverter
     private static final int GCM_TAG_LENGTH_BITS = 128;
     private static final String ALGORITHM = "AES/GCM/NoPadding";
 
-    private static volatile String staticEncryptionKey;
-
-    private final String instanceEncryptionKey;
+    private final String encryptionKey;
 
     public PasswordResetTokenEncryptionConverter(
-            @Value("${app.outbox.encryption-key:${app.backup.encryption-key:${APP_OUTBOX_ENCRYPTION_KEY:${APP_BACKUP_ENCRYPTION_KEY:${jwt.secret:${JWT_SECRET:local-dev-outbox-aes-key-32-chars-minimum}}}}}}")
-            String encryptionKey
+            @Value("${app.outbox.encryption-key:${APP_OUTBOX_ENCRYPTION_KEY:}}") String encryptionKey
     ) {
-        this.instanceEncryptionKey = encryptionKey;
-        if (encryptionKey != null && !encryptionKey.isBlank()) {
-            staticEncryptionKey = encryptionKey;
-        }
-    }
-
-    public PasswordResetTokenEncryptionConverter() {
-        this.instanceEncryptionKey = null;
-    }
-
-    public static void setStaticEncryptionKey(String key) {
-        staticEncryptionKey = key;
-    }
-
-    private String getEffectiveKey() {
-        if (instanceEncryptionKey != null && !instanceEncryptionKey.isBlank()) {
-            return instanceEncryptionKey;
-        }
-        if (staticEncryptionKey != null && !staticEncryptionKey.isBlank()) {
-            return staticEncryptionKey;
-        }
-        String envKey = System.getenv("APP_OUTBOX_ENCRYPTION_KEY");
-        if (envKey != null && !envKey.isBlank()) {
-            return envKey;
-        }
-        String backupEnvKey = System.getenv("APP_BACKUP_ENCRYPTION_KEY");
-        if (backupEnvKey != null && !backupEnvKey.isBlank()) {
-            return backupEnvKey;
-        }
-        String jwtEnv = System.getenv("JWT_SECRET");
-        if (jwtEnv != null && !jwtEnv.isBlank()) {
-            return jwtEnv;
-        }
-        return "local-dev-outbox-aes-key-32-chars-minimum";
+        this.encryptionKey = encryptionKey;
     }
 
     private byte[] getDerivedKey() {
-        String key = getEffectiveKey();
+        if (encryptionKey == null || encryptionKey.trim().isBlank()) {
+            throw new IllegalStateException(
+                    "Outbox token encryption key is missing or not configured. " +
+                    "Please configure 'app.outbox.encryption-key' or 'APP_OUTBOX_ENCRYPTION_KEY'."
+            );
+        }
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return digest.digest(key.getBytes(StandardCharsets.UTF_8));
+            return digest.digest(encryptionKey.trim().getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
@@ -89,7 +58,7 @@ public class PasswordResetTokenEncryptionConverter implements AttributeConverter
     @Override
     public String convertToDatabaseColumn(String attribute) {
         if (attribute == null || attribute.isEmpty()) {
-            return attribute;
+            return "";
         }
         if (attribute.startsWith(ENC_PREFIX)) {
             return attribute;
@@ -121,11 +90,13 @@ public class PasswordResetTokenEncryptionConverter implements AttributeConverter
     @Override
     public String convertToEntityAttribute(String dbData) {
         if (dbData == null || dbData.isEmpty()) {
-            return dbData;
+            return "";
         }
         if (!dbData.startsWith(ENC_PREFIX)) {
-            // Backward compatibility for unencrypted legacy rows
-            return dbData;
+            throw new IllegalStateException(
+                    "Security Violation: Detected unencrypted reset token at rest in database. " +
+                    "All reset tokens must be encrypted (with prefix 'ENC:') or cleared."
+            );
         }
 
         try {
