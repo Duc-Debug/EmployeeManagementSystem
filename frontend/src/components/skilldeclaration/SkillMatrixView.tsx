@@ -199,15 +199,31 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
             })
             .catch((err) => {
                 console.error('Failed to load org tree for skill matrix:', err);
+                // Branch scope phải fail-closed:
+                // nếu không lấy được org tree thì không fallback sang
+                // danh sách phòng ban chưa được lọc theo scope.
+                if (isBranchScope) {
+                    setDeptList([]);
+                    setSelectedDeptId(0);
+                    return;
+                }
+                // COMPANY scope vẫn có thể fallback về departments.
                 if (departments && departments.length > 0) {
                     const parsed = departments.map((d) => ({
                         id: Number(d.id),
                         name: d.name,
                     }));
-                    const allLabel = isBranchScope ? 'Toàn bộ nhánh' : 'Toàn bộ';
-                    const listWithAll = [{ id: 0, name: allLabel }, ...parsed];
+                    const listWithAll = [
+                        { id: 0, name: 'Toàn bộ' },
+                        ...parsed,
+                    ];
                     setDeptList(listWithAll);
-                    setSelectedDeptId((prev) => prev ?? (parsed[0]?.id || 0));
+                    setSelectedDeptId(
+                        (prev) => prev ?? (parsed[0]?.id || 0)
+                    );
+                } else {
+                    setDeptList([{ id: 0, name: 'Toàn bộ' }]);
+                    setSelectedDeptId(0);
                 }
             });
     }, [departments, isBranchScope, currentUser?.scopeOrgUnitId]);
