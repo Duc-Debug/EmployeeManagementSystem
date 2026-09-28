@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import type { OrgUnitType } from "@/types/hrm";
 
 export interface LeaveRequestDto {
   id: number;
@@ -164,19 +165,74 @@ export interface GetDepartmentMonthlyLeaveCalendarParams {
   includeSubUnits?: boolean;
 }
 
-/**
- * Tra cứu lịch nghỉ của bộ phận theo tháng (NCL-05-CN-006 & TC-01, TC-02, TC-03)
- */
-export async function getDepartmentMonthlyLeaveCalendar(
+export interface OrgUnitTreeNodeLike {
+  id: number;
+  unitCode: string;
+  unitName: string;
+  unitType?: OrgUnitType;
+  children?: readonly OrgUnitTreeNodeLike[];
+}
+
+export interface FlatOrgUnitOption {
+  id: number;
+  unitCode: string;
+  unitName: string;
+  unitType?: OrgUnitType;
+  depth: number;
+}
+
+export function flattenOrgTree(nodes: readonly OrgUnitTreeNodeLike[], depth = 0): FlatOrgUnitOption[] {
+  const result: FlatOrgUnitOption[] = [];
+  for (const node of nodes) {
+    result.push({
+      id: node.id,
+      unitCode: node.unitCode,
+      unitName: node.unitName,
+      unitType: node.unitType,
+      depth,
+    });
+    if (node.children && node.children.length > 0) {
+      result.push(...flattenOrgTree(node.children, depth + 1));
+    }
+  }
+  return result;
+}
+
+export function isLeaveWarning(
+  isCompanyWorkingDay: boolean,
+  onLeaveCount: number,
+  totalEmployees: number,
+  threshold: number
+): boolean {
+  if (!isCompanyWorkingDay || totalEmployees <= 0) return false;
+  return onLeaveCount / totalEmployees >= threshold;
+}
+
+export function calculateDailyLeaveHours(
+  items: readonly { hoursDeducted?: number }[]
+): number {
+  return items.reduce((sum, item) => sum + (item.hoursDeducted || 0), 0);
+}
+
+export function buildDepartmentMonthlyLeaveCalendarParams(
   params: GetDepartmentMonthlyLeaveCalendarParams
-): Promise<DepartmentMonthlyLeaveCalendarDto> {
+): URLSearchParams {
   const searchParams = new URLSearchParams();
   searchParams.set("orgUnitId", String(params.orgUnitId));
   if (params.year != null) searchParams.set("year", String(params.year));
   if (params.month != null) searchParams.set("month", String(params.month));
   if (params.warningThreshold != null) searchParams.set("warningThreshold", String(params.warningThreshold));
   if (params.includeSubUnits != null) searchParams.set("includeSubUnits", String(params.includeSubUnits));
+  return searchParams;
+}
 
+/**
+ * Tra cứu lịch nghỉ của bộ phận theo tháng (NCL-05-CN-006 & TC-01, TC-02, TC-03)
+ */
+export async function getDepartmentMonthlyLeaveCalendar(
+  params: GetDepartmentMonthlyLeaveCalendarParams
+): Promise<DepartmentMonthlyLeaveCalendarDto> {
+  const searchParams = buildDepartmentMonthlyLeaveCalendarParams(params);
   return apiRequest<DepartmentMonthlyLeaveCalendarDto>(
     `/leave-requests/department-calendar?${searchParams.toString()}`
   );

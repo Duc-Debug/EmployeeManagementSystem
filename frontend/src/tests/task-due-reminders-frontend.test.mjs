@@ -1,74 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  formatDaysRemaining,
+  formatDueDateVietnamese,
+  checkIsSpecialist,
+  filterDueTasks,
+  buildScanUrl,
+  buildDirectUrl,
+  parseApiResponse,
+} from "../lib/api/task-due-reminders.ts";
 
 test("NCL-11-CN-004: Nhắc việc sắp đến hạn Frontend Logic & Formatting Tests", async (t) => {
-  // 1. Logic formatDaysRemaining
-  const formatDaysRemaining = (days) => {
-    if (days <= 0) {
-      return {
-        text: "Hôm nay",
-        badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
-        level: "TODAY",
-        iconType: "ALERT",
-      };
-    }
-    if (days === 1) {
-      return {
-        text: "Còn 1 ngày",
-        badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
-        level: "CRITICAL",
-        iconType: "ALERT",
-      };
-    }
-    if (days === 2) {
-      return {
-        text: "Còn 2 ngày",
-        badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
-        level: "WARNING",
-        iconType: "CLOCK",
-      };
-    }
-    return {
-      text: `Còn ${days} ngày`,
-      badgeClass: "bg-sky-50 text-sky-700 border-sky-200",
-      level: "UPCOMING",
-      iconType: "CALENDAR",
-    };
-  };
-
-  // 2. Logic formatDueDateVietnamese
-  const formatDueDateVietnamese = (dateStr) => {
-    if (!dateStr) return "";
-    try {
-      const parts = dateStr.split("T")[0].split("-");
-      if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-      }
-      return dateStr;
-    } catch {
-      return dateStr;
-    }
-  };
-
-  // 3. Logic role check VT-04
-  const checkIsSpecialist = (currentUser) => {
-    if (!currentUser) return false;
-    const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
-    return ["VT-04", "ROLE-EMPLOYEE", "EMPLOYEE", "MEMBER", "DEVELOPER"].includes(normalizedRole) ||
-      (currentUser.roleName ? currentUser.roleName.toLowerCase().includes("chuyên môn") || currentUser.roleName.toLowerCase().includes("nhân viên") : false);
-  };
-
-  // 4. Logic filter tasks
-  const filterDueTasks = (tasks, filter) => {
-    if (filter === "CRITICAL") {
-      return tasks.filter((t) => t.daysRemaining <= 1);
-    }
-    if (filter === "UPCOMING_DAYS") {
-      return tasks.filter((t) => t.daysRemaining >= 2);
-    }
-    return tasks;
-  };
-
   await t.test("TC-01: Định dạng số ngày còn lại (Hôm nay / Còn 1 ngày / Còn 2 ngày / Còn 3 ngày)", () => {
     // 0 ngày (đến hạn hôm nay) hoặc quá hạn
     const today = formatDaysRemaining(0);
@@ -104,11 +46,6 @@ test("NCL-11-CN-004: Nhắc việc sắp đến hạn Frontend Logic & Formattin
   });
 
   await t.test("TC-02: Xây dựng URL Endpoint cho API Rà soát thủ công", () => {
-    const buildScanUrl = (scanDate) => {
-      const query = scanDate ? `?scanDate=${encodeURIComponent(scanDate)}` : "";
-      return `/tasks/due-reminders/scan${query}`;
-    };
-
     assert.equal(buildScanUrl(), "/tasks/due-reminders/scan");
     assert.equal(buildScanUrl("2026-09-18"), "/tasks/due-reminders/scan?scanDate=2026-09-18");
     assert.equal(buildScanUrl("2026-10-01"), "/tasks/due-reminders/scan?scanDate=2026-10-01");
@@ -130,19 +67,11 @@ test("NCL-11-CN-004: Nhắc việc sắp đến hạn Frontend Logic & Formattin
   });
 
   await t.test("TC-04: Xử lý Deep Link mở trực tiếp công việc", () => {
-    const buildDirectUrl = (projectId, taskId) => {
-      return `/projects/${projectId}/tasks/${taskId}`;
-    };
-
     assert.equal(buildDirectUrl(10, 101), "/projects/10/tasks/101");
     assert.equal(buildDirectUrl(5, 202), "/projects/5/tasks/202");
   });
 
   await t.test("TC-05: Xử lý an toàn khi danh sách trả về rỗng hoặc null", () => {
-    const parseApiResponse = (data) => {
-      return Array.isArray(data) ? data : [];
-    };
-
     assert.deepEqual(parseApiResponse(null), []);
     assert.deepEqual(parseApiResponse(undefined), []);
     assert.deepEqual(parseApiResponse({}), []);

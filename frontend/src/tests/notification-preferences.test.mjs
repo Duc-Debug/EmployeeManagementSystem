@@ -1,18 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  validateCriticalChannels,
+  isValidReminderDays,
+  isInQuietHours,
+  createDefaultNotificationPreferenceForm as createDefaultForm,
+  prepareNotificationPreferencePayload as preparePayload,
+} from "../lib/api/notification-preferences.ts";
 
 test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic Tests", async (t) => {
   await t.test("TC-01: Ràng buộc kênh thông báo trọng yếu (BR-03: Không được tắt cả 2 kênh)", () => {
-    const validateCriticalChannels = (scheduleConflictChannel, allocationChangedChannel) => {
-      if (scheduleConflictChannel === "NONE") {
-        return { valid: false, error: "Cảnh báo xung đột lịch bắt buộc phải bật ít nhất 1 kênh" };
-      }
-      if (allocationChangedChannel === "NONE") {
-        return { valid: false, error: "Cảnh báo thay đổi phân bổ bắt buộc phải bật ít nhất 1 kênh" };
-      }
-      return { valid: true };
-    };
-
     assert.equal(validateCriticalChannels("ALL", "ALL").valid, true);
     assert.equal(validateCriticalChannels("IN_APP_ONLY", "EMAIL_ONLY").valid, true);
     assert.equal(validateCriticalChannels("NONE", "ALL").valid, false);
@@ -21,10 +18,6 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
   });
 
   await t.test("TC-02: Kiểm tra số ngày nhắc việc sắp đến hạn hợp lệ [1..14] ngày", () => {
-    const isValidReminderDays = (days) => {
-      return Number.isInteger(days) && days >= 1 && days <= 14;
-    };
-
     assert.equal(isValidReminderDays(1), true);
     assert.equal(isValidReminderDays(3), true);
     assert.equal(isValidReminderDays(7), true);
@@ -35,24 +28,6 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
   });
 
   await t.test("TC-03: Kiểm tra tính năng khung giờ yên tĩnh (Quiet Hours)", () => {
-    const isInQuietHours = (enabled, startStr, endStr, targetStr) => {
-      if (!enabled || !startStr || !endStr || !targetStr) return false;
-      const [sh, sm] = startStr.split(":").map(Number);
-      const [eh, em] = endStr.split(":").map(Number);
-      const [th, tm] = targetStr.split(":").map(Number);
-
-      const start = sh * 60 + sm;
-      const end = eh * 60 + em;
-      const target = th * 60 + tm;
-
-      if (start < end) {
-        return target >= start && target < end;
-      } else {
-        // Qua đêm (ví dụ 22:00 -> 07:00)
-        return target >= start || target < end;
-      }
-    };
-
     // Khi disabled
     assert.equal(isInQuietHours(false, "22:00", "07:00", "23:00"), false);
 
@@ -68,22 +43,6 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
   });
 
   await t.test("TC-04: Khởi tạo giá trị mặc định cho cấu hình mới (Default Preference)", () => {
-    const createDefaultForm = () => ({
-      inAppEnabled: true,
-      emailEnabled: true,
-      taskAssignedChannel: "ALL",
-      taskDueReminderChannel: "ALL",
-      taskCommentChannel: "IN_APP_ONLY",
-      timesheetReminderChannel: "ALL",
-      allocationChangedChannel: "ALL",
-      scheduleConflictChannel: "ALL",
-      frequency: "IMMEDIATE",
-      taskDueReminderDays: 3,
-      quietHoursEnabled: false,
-      quietHoursStart: "22:00",
-      quietHoursEnd: "07:00",
-    });
-
     const defaultForm = createDefaultForm();
     assert.equal(defaultForm.inAppEnabled, true);
     assert.equal(defaultForm.emailEnabled, true);
@@ -94,18 +53,6 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
   });
 
   await t.test("TC-05: Chuẩn hóa payload gửi lên API cập nhật", () => {
-    const preparePayload = (form) => {
-      return {
-        ...form,
-        quietHoursStart: form.quietHoursEnabled && form.quietHoursStart
-          ? (form.quietHoursStart.length === 5 ? `${form.quietHoursStart}:00` : form.quietHoursStart)
-          : null,
-        quietHoursEnd: form.quietHoursEnabled && form.quietHoursEnd
-          ? (form.quietHoursEnd.length === 5 ? `${form.quietHoursEnd}:00` : form.quietHoursEnd)
-          : null,
-      };
-    };
-
     const formWithQuiet = {
       inAppEnabled: true,
       emailEnabled: false,

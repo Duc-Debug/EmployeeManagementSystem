@@ -12,7 +12,6 @@ import {
 } from "../lib/api/backup.ts";
 
 describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
-
   test("TC-01: formatBackupFileSize helper converts bytes to human-readable string correctly", () => {
     assert.equal(formatBackupFileSize(0), "0 B");
     assert.equal(formatBackupFileSize(-10), "0 B");

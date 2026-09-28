@@ -6,109 +6,14 @@ import assert from "node:assert/strict";
  * Thực thi quy tắc nghiệp vụ QTN-18: Khóa kế hoạch phân bổ của kỳ
  */
 
-// 1. Helper kiểm tra tuần thuộc kỳ kế hoạch
-function isWeekWithinPeriod(period, year, weekNumber) {
-  if (!period) return false;
-  return (
-    period.year === year &&
-    weekNumber >= period.startWeek &&
-    weekNumber <= period.endWeek
-  );
-}
-
-// 2. Helper tính số tuần ISO-8601 tối đa trong năm (52 hoặc 53 tuần)
-function getMaxIsoWeeks(year) {
-  const dec28 = new Date(Date.UTC(year, 11, 28));
-  const day = dec28.getUTCDay() || 7;
-  dec28.setUTCDate(dec28.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
-  return Math.ceil(((dec28.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
-
-// 3. Helper validation form tạo kỳ kế hoạch mới
-function validateCreatePeriodForm({ name, periodType, year, startWeek, endWeek }) {
-  const errors = [];
-  const trimmedName = name ? name.trim() : "";
-
-  if (!trimmedName) {
-    errors.push("Tên kỳ kế hoạch không được để trống.");
-  }
-  if (!year || year < 2020 || year > 2050) {
-    errors.push("Năm áp dụng không hợp lệ.");
-  }
-  if (!startWeek || startWeek < 1 || startWeek > 53) {
-    errors.push("Tuần bắt đầu phải từ 1 đến 53.");
-  }
-  if (!endWeek || endWeek < 1 || endWeek > 53) {
-    errors.push("Tuần kết thúc phải từ 1 đến 53.");
-  }
-  if (startWeek && endWeek && startWeek > endWeek) {
-    errors.push("Tuần bắt đầu không được lớn hơn tuần kết thúc.");
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-}
-
-// 4. Helper validation mở lại kỳ kế hoạch phân bổ (TC-04)
-function validateUnlockPeriodForm(reason) {
-  const trimmed = reason ? reason.trim() : "";
-  if (!trimmed) {
-    return {
-      isValid: false,
-      error: "Lý do mở lại kỳ là bắt buộc.",
-    };
-  }
-  if (trimmed.length < 10) {
-    return {
-      isValid: false,
-      error: "Lý do mở lại kỳ phải có ít nhất 10 ký tự.",
-    };
-  }
-  return {
-    isValid: true,
-    error: null,
-  };
-}
-
-// 5. Helper kiểm tra phân quyền người dùng theo vai trò (RBAC)
-function checkPeriodPermissions(roleCode) {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const canManage = normalized === "VT-03"; // Quản lý nguồn lực
-  const canView = ["VT-01", "VT-02", "VT-03"].includes(normalized); // Ban Giám Đốc, PM, Quản lý nguồn lực
-  return {
-    canManage,
-    canView,
-  };
-}
-
-// 6. Helper chuyển đổi bản chụp snapshot sang CSV format
-function generateSnapshotCSV(snapshot, periodName) {
-  if (!snapshot || !snapshot.items) return "";
-  const headers = [
-    "Mã Nhân Viên",
-    "Họ Và Tên",
-    "Mã Dự Án",
-    "Tên Dự Án",
-    "Năm",
-    "Tuần Phân Bổ",
-    "Số Giờ Phân Bổ",
-  ];
-
-  const rows = snapshot.items.map((it) => [
-    `"${it.employeeCode}"`,
-    `"${it.employeeFullName}"`,
-    `"${it.projectCode}"`,
-    `"${it.projectName.replace(/"/g, '""')}"`,
-    it.year,
-    it.weekNumber,
-    it.allocatedHours,
-  ]);
-
-  return "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
-}
+import {
+  isWeekWithinPeriod,
+  validateCreatePeriodForm,
+  validateUnlockPeriodForm,
+  checkPeriodPermissions,
+  generateSnapshotCSV,
+} from "../lib/api/allocation-periods.ts";
+import { getMaxIsoWeeks } from "../lib/iso-week.ts";
 
 test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-06-CN-009)", async (t) => {
   await t.test("TC-01: Kiểm tra tuần thuộc kỳ kế hoạch (isWeekWithinPeriod)", () => {

@@ -21,6 +21,7 @@ import {
   confirmEmployeeImport,
   downloadEmployeeTemplate,
   exportErrorRowsToCsv,
+  canAccessDataImport,
 } from "@/lib/api/employee-import";
 import { useAuthUser } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
@@ -46,10 +47,7 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const hasImportPermission =
-    user?.permissions?.includes("DATA_IMPORT") === true ||
-    ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole);
+  const hasImportPermission = canAccessDataImport(user?.roleCode, user?.permissions);
 
   if (!hasImportPermission) {
     return (

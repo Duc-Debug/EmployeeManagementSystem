@@ -96,12 +96,15 @@ export async function downloadEmployeeTemplate(format: "xlsx" = "xlsx"): Promise
   document.body.removeChild(a);
 }
 
-/**
- * Xuất danh sách các dòng lỗi ra tệp CSV để người dùng dễ dàng đối soát và chỉnh sửa
- */
-export function exportErrorRowsToCsv(rows: ImportEmployeeRowDto[]): void {
+export function escapeCsv(val: unknown): string {
+  if (val === null || val === undefined) return '""';
+  const str = String(val).replace(/"/g, '""');
+  return `"${str}"`;
+}
+
+export function generateErrorRowsCsvContent(rows: ImportEmployeeRowDto[]): string {
   const invalidRows = rows.filter((r) => !r.valid);
-  if (invalidRows.length === 0) return;
+  if (invalidRows.length === 0) return "";
 
   const headers = [
     "Dòng",
@@ -118,12 +121,6 @@ export function exportErrorRowsToCsv(rows: ImportEmployeeRowDto[]): void {
     "Thuê ngoài",
     "Chi tiết lỗi",
   ];
-
-  const escapeCsv = (val: unknown): string => {
-    if (val === null || val === undefined) return '""';
-    const str = String(val).replace(/"/g, '""');
-    return `"${str}"`;
-  };
 
   const csvRows = [
     headers.map(escapeCsv).join(","),
@@ -148,7 +145,27 @@ export function exportErrorRowsToCsv(rows: ImportEmployeeRowDto[]): void {
     ),
   ];
 
-  const csvContent = "\uFEFF" + csvRows.join("\r\n");
+  return "\uFEFF" + csvRows.join("\r\n");
+}
+
+export function canAccessDataImport(
+  roleCode?: string | null,
+  permissions?: readonly string[] | null
+): boolean {
+  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+  return (
+    permissions?.includes("DATA_IMPORT") === true ||
+    ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)
+  );
+}
+
+/**
+ * Xuất danh sách các dòng lỗi ra tệp CSV để người dùng dễ dàng đối soát và chỉnh sửa
+ */
+export function exportErrorRowsToCsv(rows: ImportEmployeeRowDto[]): void {
+  const csvContent = generateErrorRowsCsvContent(rows);
+  if (!csvContent) return;
+
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const downloadUrl = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
