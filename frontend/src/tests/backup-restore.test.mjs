@@ -8,6 +8,7 @@ import {
   extractData,
   validateBackupUploadFileName,
   filterBackups,
+  uploadBackupFile,
 } from "../lib/api/backup.ts";
 
 describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
@@ -80,5 +81,18 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
     assert.equal(validateBackupUploadFileName("exploit.exe"), false);
     assert.equal(validateBackupUploadFileName(""), false);
     assert.equal(validateBackupUploadFileName(null), false);
+  });
+
+  test("TC-08: uploadBackupFile rejects invalid non-json file before dispatching request", async () => {
+    const invalidFile = { name: "malicious_script.sh", size: 1024 };
+    await assert.rejects(
+      async () => {
+        await uploadBackupFile(invalidFile);
+      },
+      {
+        name: "Error",
+        message: "Định dạng tệp không hợp lệ. Hệ thống chỉ hỗ trợ tệp .json",
+      }
+    );
   });
 });

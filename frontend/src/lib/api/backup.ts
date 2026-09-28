@@ -110,6 +110,11 @@ export function canRestoreBackup(status: BackupStatus): boolean {
   return status === "COMPLETED";
 }
 
+/**
+ * Client-side file extension validator for backup upload.
+ * NOTE: This is a client-side UX guard for immediate feedback.
+ * Backend independently validates content-type, magic bytes, and JSON snapshot schema.
+ */
 export function validateBackupUploadFileName(fileName?: string | null): boolean {
   if (!fileName || typeof fileName !== "string") return false;
   const lower = fileName.trim().toLowerCase();
@@ -208,6 +213,9 @@ export async function uploadBackupFile(
   title?: string,
   description?: string
 ): Promise<BackupItem> {
+  if (!validateBackupUploadFileName(file?.name)) {
+    throw new Error("Định dạng tệp không hợp lệ. Hệ thống chỉ hỗ trợ tệp .json");
+  }
   const formData = new FormData();
   formData.append("file", file);
   if (title) formData.append("title", title);
