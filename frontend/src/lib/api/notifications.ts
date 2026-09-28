@@ -108,3 +108,51 @@ export async function deleteNotification(id: number): Promise<void> {
     method: "DELETE",
   });
 }
+
+export function formatBadge(count: number): string | null {
+  if (count <= 0) return null;
+  if (count > 99) return "99+";
+  return count.toString();
+}
+
+export function getLevelStyle(level?: string): { color: string; label: string } {
+  switch (level) {
+    case "CAO":
+      return { color: "rose", label: "Cao" };
+    case "TRUNG_BINH":
+      return { color: "amber", label: "Trung bình" };
+    case "THAP":
+    default:
+      return { color: "sky", label: "Thấp" };
+  }
+}
+
+export function buildNotificationQueryParams(params: NotificationQueryParams): string {
+  const query = new URLSearchParams();
+  if (params.status && params.status !== "ALL") query.append("status", params.status);
+  if (params.eventType && params.eventType !== "ALL") query.append("eventType", params.eventType);
+  if (params.level && params.level !== "ALL") query.append("level", params.level);
+  if (params.page !== undefined) query.append("page", params.page.toString());
+  if (params.size !== undefined) query.append("size", params.size.toString());
+  return query.toString();
+}
+
+export function resolveDeepLink(entityType?: string | null, entityId?: string | null): string | null {
+  if (!entityType || !entityId) return null;
+  switch (entityType.toUpperCase()) {
+    case "CAPACITY_WEEK":
+      return `/capacity?week=${encodeURIComponent(entityId)}`;
+    case "PROJECT":
+    case "PROJECT_ALLOCATION":
+    case "ALLOCATION":
+      return `/projects/${encodeURIComponent(entityId)}`;
+    case "LEAVE_REQUEST":
+      return `/leave?requestId=${encodeURIComponent(entityId)}`;
+    default:
+      return null;
+  }
+}
+
+export function deleteNotificationFromList<T extends { id: number }>(items: T[], idToDelete: number): T[] {
+  return items.filter((n) => n.id !== idToDelete);
+}
