@@ -4,7 +4,6 @@ import type { DepartmentItem } from './SkillresourceSearch.tsx';
 import { getDepartmentSkillMatrix, type DepartmentSkillMatrixResponse } from '@/lib/api/skills';
 import { getOrgTree } from '@/lib/api/org-units';
 import type { OrgUnitTreeNode } from '@/types/hrm';
-
 import { useAuthUser } from '@/lib/auth-session';
 
 export interface SkillMatrixViewProps {
@@ -148,13 +147,26 @@ function flattenOrgTree(data: OrgUnitTreeNode | OrgUnitTreeNode[] | null | undef
     return list;
 }
 
+function findOrgNode(nodes: OrgUnitTreeNode | OrgUnitTreeNode[], targetId: number): OrgUnitTreeNode | null {
+    const list = Array.isArray(nodes) ? nodes : [nodes];
+    for (const node of list) {
+        if (!node) continue;
+        if (Number(node.id) === targetId) return node;
+        if (Array.isArray(node.children) && node.children.length > 0) {
+            const found = findOrgNode(node.children, targetId);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
 const EMPTY_DEPT_LIST: DepartmentItem[] = [];
 
 export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenCatalog }: SkillMatrixViewProps) {
     const currentUser = useAuthUser();
     const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
-    const isAllowed = ['VT-01', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode);
-    const isBranchScope = currentUser?.dataScope === 'ORGANIZATION_BRANCH' || roleCode === 'VT-03';
+    const isAllowed = ['VT-01', 'VT-05', 'VT-06'].includes(roleCode);
+    const isBranchScope = currentUser?.dataScope === 'ORGANIZATION_BRANCH' && Boolean(currentUser?.scopeOrgUnitId);
 
     const [deptList, setDeptList] = useState<{ id: number; name: string }[]>([]);
     const [selectedDeptId, setSelectedDeptId] = useState<number | null>(() => {
@@ -168,40 +180,62 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
     const [loading, setLoading] = useState(false);
     const [matrixData, setMatrixData] = useState<DepartmentSkillMatrixResponse | null>(null);
 
-    // 1. Tải danh sách phòng ban thật từ API hoặc props
+    // 1. Tải danh sách phòng ban thật từ API, lọc theo phạm vi DataScope của user
     useEffect(() => {
         if (!isAllowed) return;
 
-        if (departments && departments.length > 0) {
-            const parsed = departments.map((d) => ({
-                id: Number(d.id),
-                name: d.name,
-            }));
-            const listWithAll = [{ id: 0, name: isBranchScope ? 'Toàn bộ nhánh' : 'Toàn bộ' }, ...parsed];
-            setDeptList(listWithAll);
-            setSelectedDeptId((prev) => {
-                if (prev != null && listWithAll.some((d) => d.id === prev)) return prev;
-                if (isBranchScope) return currentUser?.scopeOrgUnitId || currentUser?.orgUnitId || 0;
-                return 0;
-            });
-            return;
-        }
-
         getOrgTree()
             .then((tree) => {
-                const flat = flattenOrgTree(tree);
-                const listWithAll = [{ id: 0, name: isBranchScope ? 'Toàn bộ nhánh' : 'Toàn bộ' }, ...flat];
+                const nodes = Array.isArray(tree) ? tree : [tree];
+                let effectiveNodes = nodes;
+                if (isBranchScope && currentUser?.scopeOrgUnitId) {
+                    const branchRoot = findOrgNode(nodes, Number(currentUser.scopeOrgUnitId));
+                    effectiveNodes = branchRoot ? [branchRoot] : [];
+                }
+                const flat = flattenOrgTree(effectiveNodes);
+                const allLabel = isBranchScope ? 'Toàn bộ nhánh' : 'Toàn bộ';
+                const listWithAll = [{ id: 0, name: allLabel }, ...flat];
                 setDeptList(listWithAll);
-                setSelectedDeptId((prev) => {
-                    if (prev != null && listWithAll.some((d) => d.id === prev)) return prev;
-                    if (isBranchScope) return currentUser?.scopeOrgUnitId || currentUser?.orgUnitId || 0;
-                    return 0;
-                });
+                if (flat.length > 0) {
+                    // Nếu là branch scope, ưu tiên chọn nút gốc của branch; nếu COMPANY, ưu tiên chọn phòng ban chuyên trách (khác nút gốc công ty)
+                    const preferred = isBranchScope
+                        ? flat[0]
+                        : (flat.find((d) => d.id !== 1) || flat[0]);
+                    setSelectedDeptId((prev) => (prev != null && listWithAll.some((d) => d.id === prev) ? prev : preferred.id));
+                } else {
+                    setSelectedDeptId(0);
+                }
             })
             .catch((err) => {
                 console.error('Failed to load org tree for skill matrix:', err);
+                // Branch scope phải fail-closed:
+                // nếu không lấy được org tree thì không fallback sang
+                // danh sách phòng ban chưa được lọc theo scope.
+                if (isBranchScope) {
+                    setDeptList([]);
+                    setSelectedDeptId(0);
+                    return;
+                }
+                // COMPANY scope vẫn có thể fallback về departments.
+                if (departments && departments.length > 0) {
+                    const parsed = departments.map((d) => ({
+                        id: Number(d.id),
+                        name: d.name,
+                    }));
+                    const listWithAll = [
+                        { id: 0, name: 'Toàn bộ' },
+                        ...parsed,
+                    ];
+                    setDeptList(listWithAll);
+                    setSelectedDeptId(
+                        (prev) => prev ?? (parsed[0]?.id || 0)
+                    );
+                } else {
+                    setDeptList([{ id: 0, name: 'Toàn bộ' }]);
+                    setSelectedDeptId(0);
+                }
             });
-    }, [departments, isAllowed, isBranchScope, currentUser?.scopeOrgUnitId, currentUser?.orgUnitId]);
+    }, [departments, isAllowed, isBranchScope, currentUser?.scopeOrgUnitId]);
 
     // 2. Tải ma trận kỹ năng khi phòng ban được chọn thay đổi
     useEffect(() => {
@@ -228,8 +262,9 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
     const deptOptions = useMemo(() => deptList.map((d) => d.name), [deptList]);
     const currentDeptName = useMemo(() => {
         const d = deptList.find((item) => item.id === selectedDeptId);
-        return d ? d.name : deptOptions[0] || 'Toàn bộ';
-    }, [deptList, selectedDeptId, deptOptions]);
+        const fallback = isBranchScope ? 'Toàn bộ nhánh' : 'Toàn bộ';
+        return d ? d.name : deptOptions[0] || fallback;
+    }, [deptList, selectedDeptId, deptOptions, isBranchScope]);
 
     const handleDeptChange = (name: string) => {
         const found = deptList.find((d) => d.name === name);
