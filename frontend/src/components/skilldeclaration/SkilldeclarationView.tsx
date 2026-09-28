@@ -31,10 +31,10 @@ export type ModuleTab = 'declare' | 'matrix' | 'catalog' | 'approve' | 'search';
 
 const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allowedRoles: string[] }[] = [
     { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04'] },
-    { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-03', 'VT-05', 'VT-06'] },
+    { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-05', 'VT-06'] },
     { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05', 'VT-06'] },
     { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03'] },
-    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
+    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-03', 'VT-06'] },
 ];
 
 interface SkillCampaign {
@@ -469,8 +469,8 @@ export default function SkilldeclarationView({
                     </div>
                 )}
 
-                {/* Tab Ma trận kỹ năng (Dành cho Quản lý & Lãnh đạo có phạm vi bộ phận/công ty) */}
-                {activeTab === 'matrix' && ['VT-01', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode) && (
+                {/* Tab Ma trận kỹ năng (Dành cho Lãnh đạo VT-01, HR VT-05, Admin VT-06) */}
+                {activeTab === 'matrix' && ['VT-01', 'VT-05', 'VT-06'].includes(roleCode) && (
                     <SkillMatrixView
                         departments={departments}
                         onOpenCatalog={() => setActiveTab('catalog')}
@@ -494,8 +494,8 @@ export default function SkilldeclarationView({
                     />
                 )}
 
-                {/* Tab Tra cứu nhân lực theo kỹ năng & độ rảnh (Dành cho VT-01, VT-02, VT-03, VT-05, VT-06 - User Story 15) */}
-                {activeTab === 'search' && ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode) && (
+                {/* Tab Tra cứu nhân lực theo kỹ năng & độ rảnh (Dành cho Quản lý nguồn lực VT-03 & Admin VT-06) */}
+                {activeTab === 'search' && ['VT-03', 'VT-06'].includes(roleCode) && (
                     <SkillresourceSearch
                         embedded
                         departments={departments}
