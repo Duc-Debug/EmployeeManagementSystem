@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  */
 @Component
-@Profile({"dev", "local", "test"})
+@Profile("!redis")
 public class CaffeineTokenBlacklistAdapter implements TokenBlacklistPort {
 
     private final Cache<String, Long> blacklistCache;
