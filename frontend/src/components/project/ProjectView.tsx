@@ -3,7 +3,11 @@ import { getUsers } from '@/lib/api/users';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getEmployees, getEmployeeProfileByUserId } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
-import { allocateProjectHours, fetchMonthProjectAllocations } from '@/lib/api/allocations';
+import {
+    allocateProjectHours,
+    fetchMonthProjectAllocations,
+    type ProjectWeeklyAllocationResult,
+} from '@/lib/api/allocations';
 import {
     getProjects,
     getProjectById,
@@ -67,6 +71,7 @@ import {
 import {
     generateProjectMonthsAroundCurrent,
     type ProjectMonth,
+    type MonthWeek,
     type TaskCategoryGroup,
     type ProjectMember,
     type TaskItem,
@@ -543,6 +548,7 @@ export default function ProjectView() {
     });
 
     const baseProjectMembersRef = useRef<ProjectMember[]>([]);
+    const latestAllocationsRef = useRef<ProjectWeeklyAllocationResult[]>([]);
 
     const getDisplayedIsoWeek = useCallback((weekKey: string) => {
         const month = months[selectedMonthIdx];
@@ -555,32 +561,52 @@ export default function ProjectView() {
         return { year: year || new Date().getFullYear(), week: weekNum || 1 };
     }, [months, selectedMonthIdx]);
 
-    const loadProjectAllocations = useCallback(async (baseMembersInput?: ProjectMember[]) => {
-        if (!canReadAllocations || !selectedProjectId) return;
-        const month = months[selectedMonthIdx];
-        if (!month || month.weeks.length === 0) return;
-        try {
-            // 1 request duy nhất cho toàn bộ range của tháng (P0-3)
-            const allAllocations = await fetchMonthProjectAllocations(
-                selectedProjectId,
-                month.weeks
-            );
+    const applyAllocationsToMembers = useCallback((
+        baseMembers: ProjectMember[],
+        allocations: ProjectWeeklyAllocationResult[],
+        monthWeeks: MonthWeek[],
+        employeesList: ProjectMember[]
+    ): ProjectMember[] => {
+        const existingEmpIds = new Set(
+            baseMembers.map((m) => m.employeeId || Number(m.id.replace('u-', '')))
+        );
 
-            setMembers((previous) => {
-                const currentBase = baseMembersInput && baseMembersInput.length > 0
-                    ? baseMembersInput
-                    : (baseProjectMembersRef.current.length > 0 ? baseProjectMembersRef.current : previous);
-                const existingEmpIds = new Set(
-                    currentBase.map((m) => m.employeeId || Number(m.id.replace('u-', '')))
+        const updated = baseMembers.map((member) => {
+            const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+            const weeklyHours: Record<string, number> = {};
+            let allocRoleId = member.projectRoleId;
+            monthWeeks.forEach((week) => {
+                const matchingRows = allocations.filter(
+                    (row) => row.employeeId === employeeId && row.year === week.year && row.weekNumber === week.weekNumber
                 );
+                weeklyHours[week.key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
+                if (!allocRoleId) {
+                    const found = matchingRows.find((r) => r.projectRoleId);
+                    if (found?.projectRoleId) allocRoleId = found.projectRoleId;
+                }
+            });
+            return { ...member, weeklyHours, projectRoleId: allocRoleId };
+        });
 
-                const updated = currentBase.map((member) => {
-                    const employeeId = member.employeeId || Number(member.id.replace('u-', ''));
+        // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
+        const allocatedEmpIds = new Set<number>();
+        allocations.forEach((r) => {
+            if (Number(r.allocatedHours) > 0 && !existingEmpIds.has(r.employeeId)) {
+                allocatedEmpIds.add(r.employeeId);
+            }
+        });
+
+        if (allocatedEmpIds.size > 0 && employeesList.length > 0) {
+            allocatedEmpIds.forEach((empId) => {
+                const empObj = employeesList.find(
+                    (e) => (e.employeeId || Number(e.id.replace('u-', ''))) === empId
+                );
+                if (empObj) {
                     const weeklyHours: Record<string, number> = {};
-                    let allocRoleId = member.projectRoleId;
-                    month.weeks.forEach((week) => {
-                        const matchingRows = allAllocations.filter(
-                            (row) => row.employeeId === employeeId && row.year === week.year && row.weekNumber === week.weekNumber
+                    let allocRoleId = empObj.projectRoleId;
+                    monthWeeks.forEach((week) => {
+                        const matchingRows = allocations.filter(
+                            (row) => row.employeeId === empId && row.year === week.year && row.weekNumber === week.weekNumber
                         );
                         weeklyHours[week.key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
                         if (!allocRoleId) {
@@ -588,49 +614,40 @@ export default function ProjectView() {
                             if (found?.projectRoleId) allocRoleId = found.projectRoleId;
                         }
                     });
-                    return { ...member, weeklyHours, projectRoleId: allocRoleId };
-                });
-
-                // Tự động bổ sung nhân sự đã có phân bổ giờ vào danh sách nếu chưa có trong WBS
-                const allocatedEmpIds = new Set<number>();
-                allAllocations.forEach((r) => {
-                    if (Number(r.allocatedHours) > 0 && !existingEmpIds.has(r.employeeId)) {
-                        allocatedEmpIds.add(r.employeeId);
-                    }
-                });
-
-                if (allocatedEmpIds.size > 0 && allEmployees.length > 0) {
-                    allocatedEmpIds.forEach((empId) => {
-                        const empObj = allEmployees.find(
-                            (e) => (e.employeeId || Number(e.id.replace('u-', ''))) === empId
-                        );
-                        if (empObj) {
-                            const weeklyHours: Record<string, number> = {};
-                            let allocRoleId = empObj.projectRoleId;
-                            month.weeks.forEach((week) => {
-                                const matchingRows = allAllocations.filter(
-                                    (row) => row.employeeId === empId && row.year === week.year && row.weekNumber === week.weekNumber
-                                );
-                                weeklyHours[week.key] = matchingRows.reduce((sum, row) => sum + Number(row.allocatedHours), 0);
-                                if (!allocRoleId) {
-                                    const found = matchingRows.find((r) => r.projectRoleId);
-                                    if (found?.projectRoleId) allocRoleId = found.projectRoleId;
-                                }
-                            });
-                            updated.push({ ...empObj, weeklyHours, projectRoleId: allocRoleId });
-                        }
-                    });
+                    updated.push({ ...empObj, weeklyHours, projectRoleId: allocRoleId });
                 }
+            });
+        }
 
-                return updated;
+        return updated;
+    }, []);
+
+    const loadProjectAllocations = useCallback(async () => {
+        if (!canReadAllocations || !selectedProjectId) return;
+        const month = months[selectedMonthIdx];
+        if (!month || month.weeks.length === 0) return;
+        try {
+            // 1 request duy nhất cho toàn bộ range của tháng (P0-3 / P1 single owner)
+            const allAllocations = await fetchMonthProjectAllocations(
+                selectedProjectId,
+                month.weeks
+            );
+            latestAllocationsRef.current = allAllocations;
+
+            setMembers((previous) => {
+                const currentBase = baseProjectMembersRef.current.length > 0
+                    ? baseProjectMembersRef.current
+                    : previous;
+                return applyAllocationsToMembers(currentBase, allAllocations, month.weeks, allEmployees);
             });
             setAllocationError(null);
         } catch (error) {
             setMembers((previous) => previous.map((member) => ({ ...member, weeklyHours: {} })));
             setAllocationError(error instanceof Error ? error.message : 'Không thể tải dữ liệu phân bổ nguồn lực.');
         }
-    }, [canReadAllocations, months, selectedMonthIdx, selectedProjectId, allEmployees]);
+    }, [canReadAllocations, months, selectedMonthIdx, selectedProjectId, allEmployees, applyAllocationsToMembers]);
 
+    // Single owner cho việc fetch allocation theo tháng & dự án
     useEffect(() => {
         if (canReadAllocations && selectedProjectId) {
             void loadProjectAllocations();
@@ -681,6 +698,15 @@ export default function ProjectView() {
             baseProjectMembersRef.current = projectMembers;
 
             setMembers((prevMembers) => {
+                if (latestAllocationsRef.current.length > 0) {
+                    const month = months[selectedMonthIdx];
+                    return applyAllocationsToMembers(
+                        projectMembers,
+                        latestAllocationsRef.current,
+                        month.weeks,
+                        allEmployees
+                    );
+                }
                 const prevHoursMap = new Map(prevMembers.map((m) => [m.id, m.weeklyHours]));
                 return projectMembers.map((emp) => {
                     const existingHours = prevHoursMap.get(emp.id);
@@ -694,10 +720,6 @@ export default function ProjectView() {
             getTaskDependencies(projId)
                 .then((res) => setTaskDependenciesList(res.dependencies || []))
                 .catch(() => setTaskDependenciesList([]));
-
-            if (canReadAllocations) {
-                void loadProjectAllocations(projectMembers);
-            }
         } catch (err) {
             if (request !== wbsRequest.current) return;
             console.warn(`Failed to fetch WBS for project ${projId}:`, err);
@@ -707,7 +729,7 @@ export default function ProjectView() {
         } finally {
             if (request === wbsRequest.current) setIsLoadingWbs(false);
         }
-    }, [allEmployees, canReadAllocations, loadProjectAllocations]);
+    }, [allEmployees, applyAllocationsToMembers, months, selectedMonthIdx]);
 
     useEffect(() => {
         if (selectedProjectId) {

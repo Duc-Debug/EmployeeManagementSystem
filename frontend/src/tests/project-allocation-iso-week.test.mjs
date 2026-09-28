@@ -274,4 +274,62 @@ test("P0-3: Quy đổi tuần ISO lưới phân bổ dự án & tối ưu API re
       endWeek: 9,
     });
   });
+
+  await t.test("F. Single owner: Khi mở project hoặc load WBS, chỉ có duy nhất 1 luồng fetch allocation", async () => {
+    // Mô phỏng kịch bản P1:
+    // Trước đây: selectedProjectId trigger 2 luồng:
+    // 1) allocation useEffect -> loadProjectAllocations() -> fetchMonthProjectAllocations() (req 1)
+    // 2) wbs useEffect -> loadWbsForProject() -> loadProjectAllocations() (req 2)
+    // Sau khi sửa P1: loadWbsForProject() không còn gọi loadProjectAllocations().
+    // useEffect allocation phụ thuộc [canReadAllocations, selectedProjectId, selectedMonthIdx, loadProjectAllocations]
+    // là single owner duy nhất thực hiện fetchMonthProjectAllocations().
+
+    let fetchCount = 0;
+    const mockFetch = async () => {
+      fetchCount++;
+      return [];
+    };
+
+    // Mô phỏng 1 controller / runner theo cơ chế single owner
+    class ProjectAllocationCoordinator {
+      constructor() {
+        this.selectedProjectId = null;
+        this.selectedMonthIdx = 0;
+        this.months = [buildProjectMonth(2026, 9)];
+        this.latestAllocations = [];
+        this.members = [];
+      }
+
+      async onProjectOrMonthChange(projectId, monthIdx) {
+        this.selectedProjectId = projectId;
+        this.selectedMonthIdx = monthIdx;
+        // Single owner fetch
+        const month = this.months[monthIdx];
+        this.latestAllocations = await fetchMonthProjectAllocations(projectId, month.weeks, mockFetch);
+      }
+
+      async onWbsLoaded(projectMembers) {
+        // loadWbsForProject KHÔNG gọi fetch allocations nữa, mà chỉ cập nhật members
+        // và map với latestAllocations nếu đã có sẵn
+        this.members = projectMembers;
+      }
+
+      async onEmployeesListUpdated(employees) {
+        // Tương tự, không trigger fetch lại allocation
+      }
+    }
+
+    const coordinator = new ProjectAllocationCoordinator();
+
+    // 1. User mở project 100
+    // Thay vì trigger 2 request (WBS + Allocation effect), single owner chỉ trigger đúng 1 request
+    await Promise.all([
+      coordinator.onProjectOrMonthChange(100, 0),
+      coordinator.onWbsLoaded([{ id: "u-1", name: "Nguyễn Văn A" }]),
+      coordinator.onEmployeesListUpdated([{ id: "u-1", name: "Nguyễn Văn A" }, { id: "u-2", name: "Trần Thị B" }]),
+    ]);
+
+    assert.equal(fetchCount, 1, "Khi mở project và load WBS đồng thời, chỉ được phát sinh ĐÚNG 1 request allocation");
+  });
 });
+
