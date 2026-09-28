@@ -1,4 +1,4 @@
-function getIsoWeekPartsFromYMD(year: number, month: number, dayOfMonth: number): { year: number; week: number } {
+export function getIsoWeekPartsFromYMD(year: number, month: number, dayOfMonth: number): { year: number; week: number } {
   const target = new Date(Date.UTC(year, month, dayOfMonth));
   const dayOfWeek = target.getUTCDay() || 7;
   target.setUTCDate(target.getUTCDate() + 4 - dayOfWeek);
@@ -9,6 +9,8 @@ function getIsoWeekPartsFromYMD(year: number, month: number, dayOfMonth: number)
     week: Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7),
   };
 }
+
+export const getMaxIsoWeeks = (year: number): number => getIsoWeeksInYear(year);
 
 export function getIsoWeeksInYear(year: number): number {
   return getIsoWeekPartsFromYMD(year, 11, 28).week;
@@ -23,6 +25,13 @@ export function addIsoWeeks(year: number, week: number, weeksToAdd: number): { y
     targetDate.getUTCMonth(),
     targetDate.getUTCDate()
   );
+}
+
+export function addIsoWeeksPreset(startYear: number, startWeek: number, count: number): { year: number; week: number } {
+  if (count <= 1) {
+    return { year: startYear, week: startWeek };
+  }
+  return addIsoWeeks(startYear, startWeek, count - 1);
 }
 
 export function getIsoWeekDetails(date: Date): { year: number; week: number } {
