@@ -409,6 +409,73 @@ class FlywayEmployeeOrgUnitMigrationTest {
         }
     }
 
+    @Test
+    void v128DropsRedundantScheduleConflictUniqueIndex()
+            throws Exception {
+        String url = jdbcUrl("v128_conflict_uk_cleanup");
+
+        try (Connection keepAlive = connect(url)) {
+            migrateTo(url, "127");
+
+            try (Connection connection = connect(url);
+                 Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        """
+                                INSERT INTO employees (
+                                    employee_code,
+                                    full_name,
+                                    standard_hours_per_week
+                                ) VALUES (
+                                    'EMP-V128-CLEANUP',
+                                    'V128 Test Employee',
+                                    40
+                                )
+                                """
+                );
+            }
+
+            migrateToLatest(url);
+
+            try (Connection connection = connect(url)) {
+                long empId = queryLong(
+                        connection,
+                        "SELECT id FROM employees WHERE employee_code = ?",
+                        "EMP-V128-CLEANUP"
+                );
+
+                try (PreparedStatement statement = connection.prepareStatement(
+                        """
+                                INSERT INTO schedule_conflict_warnings (
+                                    employee_id, year_number, week_number, conflict_type,
+                                    total_allocated_hours, net_available_hours, excess_hours, status
+                                ) VALUES (?, 2026, 38, 'MULTI_PROJECT_ALLOCATION', 60.00, 40.00, 20.00, 'OPEN')
+                                """
+                )) {
+                    statement.setLong(1, empId);
+                    assertEquals(1, statement.executeUpdate());
+                }
+
+                // Verify that uk_schedule_conflict_existing still enforces uniqueness
+                assertThrows(
+                        SQLException.class,
+                        () -> {
+                            try (PreparedStatement statement = connection.prepareStatement(
+                                    """
+                                            INSERT INTO schedule_conflict_warnings (
+                                                employee_id, year_number, week_number, conflict_type,
+                                                total_allocated_hours, net_available_hours, excess_hours, status
+                                            ) VALUES (?, 2026, 38, 'MULTI_PROJECT_ALLOCATION', 70.00, 40.00, 30.00, 'OPEN')
+                                            """
+                            )) {
+                                statement.setLong(1, empId);
+                                statement.executeUpdate();
+                            }
+                        }
+                );
+            }
+        }
+    }
+
     private static void migrateTo(String url, String target) {
         Flyway.configure()
                 .dataSource(url, "sa", "")
