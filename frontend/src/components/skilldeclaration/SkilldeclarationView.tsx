@@ -31,10 +31,10 @@ export type ModuleTab = 'declare' | 'matrix' | 'catalog' | 'approve' | 'search';
 
 const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allowedRoles: string[] }[] = [
     { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04'] },
-    { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
+    { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-03', 'VT-05', 'VT-06'] },
     { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05', 'VT-06'] },
     { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03'] },
-    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-03', 'VT-06'] },
+    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
 ];
 
 interface SkillCampaign {
@@ -160,7 +160,7 @@ export default function SkilldeclarationView({
 
     // 2. Tải danh sách kỹ năng cá nhân đã khai báo (cho VT-04)
     const loadPersonalSkills = async () => {
-        if (roleCode !== 'VT-04' && roleCode !== 'VT-06') return;
+        if (roleCode !== 'VT-04') return;
         try {
             const data = await getMySkills();
             const mapped: DeclaredSkill[] = data.map((es) => ({
@@ -184,9 +184,9 @@ export default function SkilldeclarationView({
         }
     };
 
-    // 3. Tải danh sách yêu cầu chờ duyệt (cho VT-03 và VT-06)
+    // 3. Tải danh sách yêu cầu chờ duyệt (Chỉ dành cho Quản lý nguồn lực VT-03)
     const loadApprovals = async () => {
-        if (roleCode !== 'VT-03' && roleCode !== 'VT-06') return;
+        if (roleCode !== 'VT-03') return;
         try {
             const data = await getPendingSkills();
             const mapped: PendingApprovalSkill[] = data.map((p) => ({
@@ -210,8 +210,12 @@ export default function SkilldeclarationView({
 
     useEffect(() => {
         loadCatalog();
-        loadPersonalSkills();
-        loadApprovals();
+        if (roleCode === 'VT-04') {
+            loadPersonalSkills();
+        }
+        if (roleCode === 'VT-03') {
+            loadApprovals();
+        }
     }, [roleCode]);
 
     async function handleApproveRequest(id: number, adjustedLevel?: number, notes?: string) {
@@ -465,8 +469,8 @@ export default function SkilldeclarationView({
                     </div>
                 )}
 
-                {/* Tab Ma trận kỹ năng (Dành cho Quản lý & Lãnh đạo) */}
-                {activeTab === 'matrix' && ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode) && (
+                {/* Tab Ma trận kỹ năng (Dành cho Quản lý & Lãnh đạo có phạm vi bộ phận/công ty) */}
+                {activeTab === 'matrix' && ['VT-01', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode) && (
                     <SkillMatrixView
                         departments={departments}
                         onOpenCatalog={() => setActiveTab('catalog')}
@@ -481,8 +485,8 @@ export default function SkilldeclarationView({
                     />
                 )}
 
-                {/* Tab Duyệt kỹ năng (Dành cho VT-03 & VT-06) */}
-                {activeTab === 'approve' && (roleCode === 'VT-03' || roleCode === 'VT-06') && (
+                {/* Tab Duyệt kỹ năng (Dành riêng cho Quản lý nguồn lực VT-03) */}
+                {activeTab === 'approve' && roleCode === 'VT-03' && (
                     <SkillApproveTable
                         requests={approvalRequests}
                         onApprove={handleApproveRequest}
