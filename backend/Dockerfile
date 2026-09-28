@@ -1,19 +1,31 @@
-# Build stage
+# ==========================================
+# 1. Build Stage
+# ==========================================
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /app
 
-# Copy source code and build tools
+# Sao chép mã nguồn và công cụ Maven Wrapper
 COPY . .
 RUN chmod +x ./mvnw
 RUN ./mvnw clean package -DskipTests
 
-# Runtime stage
+# ==========================================
+# 2. Runtime Stage (Hardened Non-Root)
+# ==========================================
 FROM eclipse-temurin:21-jre-alpine
+
+# Tạo group và user non-root an toàn
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 WORKDIR /app
 
-# Copy the built jar from the builder stage
-COPY --from=builder /app/target/employeemanagement-0.0.1-SNAPSHOT.jar app.jar
+# Sao chép file jar đã build và gán quyền sở hữu trực tiếp cho appuser
+COPY --from=builder --chown=appuser:appgroup /app/target/employeemanagement-0.0.1-SNAPSHOT.jar app.jar
+
+# Chuyển quyền thực thi sang user non-root
+USER appuser:appgroup
 
 ENV SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080
+
 ENTRYPOINT ["java", "-jar", "app.jar"]
