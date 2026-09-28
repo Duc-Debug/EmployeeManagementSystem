@@ -101,3 +101,14 @@ export function isSpecialistRole(role?: string | null): boolean {
     const normalized = String(role).toUpperCase().trim();
     return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
 }
+
+/**
+ * Checks if current user can access the target employee workload.
+ */
+export function canAccessEmployeeWorkload(
+    currentUser?: { roleCode?: string; employeeId?: number | string } | null,
+    targetEmployee?: { id?: number | string } | null
+): boolean {
+    if (!currentUser || !isSpecialistRole(currentUser.roleCode) || !targetEmployee) return false;
+    return String(currentUser.employeeId) === String(targetEmployee.id);
+}
