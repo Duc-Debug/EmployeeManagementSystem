@@ -3,9 +3,6 @@
 -- ============================================================
 
 -- 1. Bảng cấu hình tuần làm việc chuẩn và đơn vị tính năng lực
-DROP TABLE IF EXISTS standard_work_week_days;
-DROP TABLE IF EXISTS standard_work_week_configs;
-
 CREATE TABLE IF NOT EXISTS standard_work_week_configs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     scope_type VARCHAR(30) NOT NULL DEFAULT 'COMPANY',

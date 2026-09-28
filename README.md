@@ -27,16 +27,20 @@ Hệ thống được thiết kế theo chuẩn **14 Epics (`NCL-01` $\rightarro
 
 ## 👥 2. Ma trận 6 Vai trò Nghiệp vụ (RBAC & Demo Accounts)
 
-Hệ thống kiểm soát truy cập nghiêm ngặt dựa trên **Role-Based Access Control (RBAC)** và **Data Scope** (Toàn công ty, Phòng ban cấp dưới, Chỉ phòng ban, hoặc Cá nhân). Dưới đây là danh sách tài khoản demo có sẵn dữ liệu mẫu để đánh giá:
+Hệ thống kiểm soát truy cập nghiêm ngặt dựa trên **Role-Based Access Control (RBAC)** và **Data Scope** (Toàn công ty, Phòng ban cấp dưới, Chỉ phòng ban, hoặc Cá nhân).
 
-| Mã vai trò | Tên vai trò | Trách nhiệm chính | Tài khoản Demo | Mật khẩu |
-| :---: | :--- | :--- | :---: | :---: |
-| **`VT-01`** | **Ban Giám Đốc (BOD)** | Xem dashboard năng lực toàn công ty, báo cáo tỷ lệ giờ tính phí, mô phỏng kịch bản tiếp nhận dự án | `giapduc` | `Admin@12345` |
-| **`VT-02`** | **Quản lý Dự án (PM)** | Khởi tạo dự án, lập kế hoạch công việc (WBS), đặt ngân sách giờ công, theo dõi tiến độ Kanban/Gantt | `pm_user` | `Admin@12345` |
-| **`VT-03`** | **Quản lý Nguồn lực (RM)** | Tìm kiếm nhân sự theo kỹ năng & độ rảnh, phân bổ dự án tuần, giải quyết cảnh báo xung đột lịch | `rm_user` | `Admin@12345` |
-| **`VT-04`** | **Nhân viên Chuyên môn (Dev/QA/BA)** | Xem lịch tuần cá nhân, khai báo giờ bận/trống, gửi đơn nghỉ phép, cập nhật tiến độ công việc | `dev_user` | `Admin@12345` |
-| **`VT-05`** | **Nhân sự (HR)** | Quản lý hồ sơ nhân sự, lịch làm việc chuẩn, ngày lễ, theo dõi hợp đồng nhân sự thuê ngoài | `hr_user` | `Admin@12345` |
-| **`VT-06`** | **Quản trị viên (Admin)** | Quản trị tài khoản, phân quyền RBAC & Data Scope, quản lý cây sơ đồ tổ chức, sao lưu & phục hồi dữ liệu | `admin` | `Admin@12345` |
+> 🔒 **LƯU Ý BẢO MẬT & MÔI TRƯỜNG:**
+> - Tài khoản demo mẫu dưới đây **chỉ áp dụng cho môi trường phát triển nội bộ (Local Development)** khi chạy database thử nghiệm ban đầu. Mật khẩu khởi tạo được cấu hình qua file `.env` cá nhân.
+> - Thông tin đăng nhập trên môi trường **Production Cloud** được quản lý tách biệt bằng biến môi trường/secret bí mật và **tuyệt đối không được lưu hoặc commit vào repository**.
+
+| Mã vai trò | Tên vai trò | Trách nhiệm chính trong hệ thống | Tài khoản Demo (Local Dev) |
+| :---: | :--- | :--- | :--- |
+| **`VT-01`** | **Ban Giám Đốc (BOD)** | Xem dashboard năng lực toàn công ty, báo cáo tỷ lệ giờ tính phí, mô phỏng kịch bản tiếp nhận dự án | *Demo account configured locally* (`giapduc`) |
+| **`VT-02`** | **Quản lý Dự án (PM)** | Khởi tạo dự án, lập kế hoạch công việc (WBS), đặt ngân sách giờ công, theo dõi tiến độ Kanban/Gantt | *Demo account configured locally* (`pm_user`) |
+| **`VT-03`** | **Quản lý Nguồn lực (RM)** | Tìm kiếm nhân sự theo kỹ năng & độ rảnh, phân bổ dự án tuần, giải quyết cảnh báo xung đột lịch | *Demo account configured locally* (`rm_user`) |
+| **`VT-04`** | **Nhân viên Chuyên môn (Dev/QA/BA)** | Xem lịch tuần cá nhân, khai báo giờ bận/trống, gửi đơn nghỉ phép, cập nhật tiến độ công việc | *Demo account configured locally* (`dev_user`) |
+| **`VT-05`** | **Nhân sự (HR)** | Quản lý hồ sơ nhân sự, lịch làm việc chuẩn, ngày lễ, theo dõi hợp đồng nhân sự thuê ngoài | *Demo account configured locally* (`hr_user`) |
+| **`VT-06`** | **Quản trị viên (Admin)** | Quản trị tài khoản, phân quyền RBAC & Data Scope, quản lý cây sơ đồ tổ chức, sao lưu & phục hồi dữ liệu | *Demo account configured locally* (`admin`) |
 
 
 ---
@@ -77,7 +81,7 @@ CREATE DATABASE IF NOT EXISTS hrm_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unico
    # Tùy chọn: Tự động khởi tạo tài khoản Admin ban đầu nếu database hoàn toàn mới
    # APP_SECURITY_INITIAL_ADMIN_ENABLED=true
    # INITIAL_ADMIN_USERNAME=admin
-   # INITIAL_ADMIN_PASSWORD=Admin@12345
+   # INITIAL_ADMIN_PASSWORD=your_secure_admin_password_here
    ```
 3. Khởi chạy Backend với Maven Wrapper:
    - **Windows:**
