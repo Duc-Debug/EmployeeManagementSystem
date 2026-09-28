@@ -30,8 +30,20 @@ export interface PageResult<T> {
   totalPages: number;
 }
 
+export interface UserStatsResult {
+  totalUsers: number;
+  activeUsers: number;
+  lockedUsers: number;
+}
+
 export async function getUsers(page = 0, size = 100): Promise<PageResult<User>> {
   return await apiRequest<PageResult<User>>(`/users?page=${page}&size=${size}`, {
+    method: "GET",
+  });
+}
+
+export async function getUserStats(): Promise<UserStatsResult> {
+  return await apiRequest<UserStatsResult>("/users/stats", {
     method: "GET",
   });
 }
@@ -46,6 +58,23 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
   return await apiRequest<User>("/users", {
     body: JSON.stringify(payload),
     method: "POST",
+  });
+}
+
+export interface UpdateUserPayload {
+  dataScope?: DataScope;
+  email?: string;
+  employeeCode?: string;
+  fullName: string;
+  orgUnitId?: number | null;
+  roleCode: RoleCode;
+  scopeOrgUnitId?: number | null;
+}
+
+export async function updateUser(id: number, payload: UpdateUserPayload): Promise<User> {
+  return await apiRequest<User>(`/users/${id}`, {
+    body: JSON.stringify(payload),
+    method: "PUT",
   });
 }
 

@@ -4,15 +4,18 @@ import { apiRequest } from "../api-client";
 
 export interface EmployeeProfile {
   id: number;
-  userId: number;
+  userId?: number;
   orgUnitId: number;
   orgUnitName: string;
   employeeCode: string;
   fullName: string;
+  email?: string;
   professionalRole?: string;
   startDate?: string;
   contractEndDate?: string;
   standardHoursPerWeek: number;
+  isOutsourced?: boolean;
+  providerName?: string;
   version: number;
 }
 
@@ -81,4 +84,40 @@ export async function createEmployeeProfile(
     body: JSON.stringify(payload),
   });
 }
+
+export interface DeclareOutsourcedEmployeePayload {
+  orgUnitId: number;
+  employeeCode?: string;
+  fullName: string;
+  providerName: string;
+  professionalRole?: string;
+  startDate: string;
+  contractEndDate: string;
+  standardHoursPerWeek?: number;
+  skillIds?: number[];
+}
+
+export interface OutsourcedEmployeeResult {
+  id: number;
+  orgUnitId: number;
+  employeeCode: string;
+  fullName: string;
+  providerName: string;
+  professionalRole?: string;
+  startDate: string;
+  contractEndDate: string;
+  standardHoursPerWeek: number;
+  isOutsourced: boolean;
+  version: number;
+}
+
+export async function declareOutsourcedEmployee(
+  payload: DeclareOutsourcedEmployeePayload
+): Promise<OutsourcedEmployeeResult> {
+  return await apiRequest<OutsourcedEmployeeResult>(`/employees/outsourced`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 

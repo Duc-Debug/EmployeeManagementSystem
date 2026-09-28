@@ -206,7 +206,7 @@ export function EstimateDemandModal({
                         {isLoadingRoles ? (
                             <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
                                 <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                                <span>Đang tải danh sách vai trò từ máy chủ...</span>
+                                <span>Đang tải danh sách vai trò...</span>
                             </div>
                         ) : (
                             <select

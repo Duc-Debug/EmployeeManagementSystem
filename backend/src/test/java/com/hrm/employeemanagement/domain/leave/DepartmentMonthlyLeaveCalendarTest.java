@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -212,5 +211,25 @@ class DepartmentMonthlyLeaveCalendarTest {
                 .add(sep2.getTotalLeaveHours())
                 .add(sep3.getTotalLeaveHours());
         assertEquals(new BigDecimal("24.00"), totalAcrossThreeDays, "Tổng giờ nghỉ cả 3 ngày phải đúng 24.00h");
+    }
+
+    @Test
+    @DisplayName("NCL-05-CN-007: Đơn chờ duyệt hủy vẫn được thống kê là đã duyệt")
+    void cancelRequestedLeave_RemainsApprovedInDepartmentCalendar() {
+        LocalDate leaveDate = LocalDate.of(2026, 9, 1);
+        LeaveCalendarItem leave = new LeaveCalendarItem(
+                1L, 101L, "DEV-01", "Nguyễn Văn A",
+                leaveDate, leaveDate, LeaveStatus.CANCEL_REQUESTED,
+                new BigDecimal("8.00"), "ANNUAL", "Thay đổi kế hoạch"
+        );
+
+        DepartmentMonthlyLeaveCalendar calendar = DepartmentMonthlyLeaveCalendar.calculate(
+                10L, "DEV", "Phòng Phát triển", 2026, 9, 5, 0.50, List.of(leave)
+        );
+
+        DailyLeaveSummary summary = calendar.getDailySummaries().get(0);
+        assertEquals(1, summary.getApprovedCount());
+        assertEquals(0, summary.getPendingCount());
+        assertEquals(1, summary.getTotalOnLeave());
     }
 }

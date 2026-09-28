@@ -7,6 +7,7 @@ import com.hrm.employeemanagement.application.dto.allocation.CompanyWeeklyCapaci
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -66,6 +67,8 @@ class GetCompanyWeeklyCapacityServiceTest {
     private LoadApprovedLeavesPort loadApprovedLeavesPort;
     @Mock
     private LoadWorkingCalendarPort loadWorkingCalendarPort;
+    @Mock
+    private LoadCapacityThresholdPort loadCapacityThresholdPort;
 
     @Mock
     private User rmUser;
@@ -89,7 +92,8 @@ class GetCompanyWeeklyCapacityServiceTest {
                 loadWeeklyAvailabilityPort,
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
-                loadWorkingCalendarPort
+                loadWorkingCalendarPort,
+                loadCapacityThresholdPort
         );
 
         lenient().when(itDept.getId()).thenReturn(new OrgUnitId(10L));
@@ -584,5 +588,74 @@ class GetCompanyWeeklyCapacityServiceTest {
         assertThat(cell.isOverloaded()).isTrue();
         assertThat(cell.excessHours()).isEqualByComparingTo(BigDecimal.valueOf(3.0));
         assertThat(cell.status()).isEqualTo(CapacityStatus.OVERLOADED);
+    }
+
+    @Test
+    @DisplayName("QTN-23 — Trả về effective overloadThreshold & idleThreshold và áp dụng chính xác cho ma trận và summary")
+    void testConfigurableThresholdsReflectedInResultAndSummary() {
+        com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort thresholdPort =
+                mock(com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort.class);
+
+        com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig config =
+                com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig.createNew(
+                        com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope.COMPANY,
+                        null,
+                        BigDecimal.valueOf(80.0),
+                        BigDecimal.valueOf(40.0),
+                        1L
+                );
+
+        when(thresholdPort.findByScope(eq(com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope.ORG_UNIT), eq(10L)))
+                .thenReturn(Optional.empty());
+        when(thresholdPort.findByScope(eq(com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope.COMPANY), isNull()))
+                .thenReturn(Optional.of(config));
+
+        GetCompanyWeeklyCapacityService customService = new GetCompanyWeeklyCapacityService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort,
+                null,
+                null,
+                thresholdPort
+        );
+
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ)).thenReturn(100L);
+        when(loadUserPort.findById(new UserId(100L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(itDept));
+        when(loadOrgUnitPort.findSubTree("/1/10")).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.findAllByIdIn(anyList())).thenReturn(List.of(itDept));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(10L, 10L)).thenReturn(true);
+
+        Employee emp = new Employee(new EmployeeId(1L), null, 10L, "EMP001", "An Nguyen", "Developer", LocalDate.of(2025, 1, 1), null, false, 40, EmployeeStatus.ACTIVE);
+        when(loadEmployeePort.findActiveByOrgUnitIds(anyList())).thenReturn(List.of(emp));
+
+        YearWeek yw37 = new YearWeek(2026, 37);
+        // Phân bổ 32h / 40h = 80.0% utilization.
+        // Với overload = 80%, ô này đạt ngưỡng OVERLOADED!
+        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(100L, 1L, 999L, yw37, BigDecimal.valueOf(32.0));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of(alloc));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(anyList(), anyList())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(anyList(), anyList())).thenReturn(Map.of());
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+
+        CompanyWeeklyCapacityQuery query = new CompanyWeeklyCapacityQuery(10L, 2026, 37, 1);
+        CompanyWeeklyCapacityMatrixResult result = customService.getWeeklyCapacityMatrix(query);
+
+        assertThat(result.overloadThreshold()).isEqualByComparingTo(BigDecimal.valueOf(80.0));
+        assertThat(result.idleThreshold()).isEqualByComparingTo(BigDecimal.valueOf(40.0));
+
+        CapacityMatrixCellResult cell = result.rows().get(0).cells().get(0);
+        assertThat(cell.utilizationPercentage()).isEqualByComparingTo(BigDecimal.valueOf(80.0));
+        assertThat(cell.status()).isEqualTo(CapacityStatus.OVERLOADED);
+        assertThat(cell.isOverloaded()).isTrue();
+
+        // Summary phản ánh ngưỡng động
+        assertThat(result.summary().overloadedCellsCount()).isEqualTo(1);
     }
 }

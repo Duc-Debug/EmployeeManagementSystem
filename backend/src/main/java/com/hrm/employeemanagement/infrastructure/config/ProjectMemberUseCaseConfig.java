@@ -88,4 +88,17 @@ public class ProjectMemberUseCaseConfig {
                 authorizationService);
         return new TransactionalRemoveProjectMemberUseCase(pureService);
     }
+
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.project.GetAssignableEmployeesUseCase getAssignableEmployeesUseCase(
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadUserPort loadUserPort,
+            com.hrm.employeemanagement.application.service.authorization.AuthorizationService authorizationService) {
+        return new com.hrm.employeemanagement.application.service.project.GetAssignableEmployeesService(
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadUserPort,
+                authorizationService);
+    }
 }

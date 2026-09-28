@@ -121,7 +121,7 @@ export const CascadeDelayWarningModal: React.FC<CascadeDelayWarningModalProps> =
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Cảnh Báo Trễ Dây Chuyền Khi Công Việc Trượt (Cascade Delay Warning)
+                Cảnh Báo Trễ Dây Chuyền Khi Công Việc Trượt
               </h3>
               <p className="text-[11px] text-slate-500">
                 Phân tích ảnh hưởng lan truyền theo chuỗi phụ thuộc & thời gian dự phòng Slack Time
@@ -211,7 +211,7 @@ export const CascadeDelayWarningModal: React.FC<CascadeDelayWarningModalProps> =
                   <div>
                     <h5 className="text-xs font-bold">{result.summaryMessage}</h5>
                     <p className="text-[11px] text-emerald-700">
-                      Công việc trễ {result.slipDays} ngày, tuy nhiên tất cả công việc phụ thuộc phía sau đều có thời gian dự phòng (Slack time) đủ để bù đắp. Chuỗi tiến độ tổng thể không bị ảnh hưởng.
+                      Công việc trễ {result.slipDays} ngày, tuy nhiên tất cả công việc phụ thuộc phía sau đều có thời gian dự phòng đủ để bù đắp. Chuỗi tiến độ tổng thể không bị ảnh hưởng.
                     </p>
                   </div>
                 </div>
@@ -339,7 +339,7 @@ export const CascadeDelayWarningModal: React.FC<CascadeDelayWarningModalProps> =
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-3.5">
           <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-slate-400" />
-            <span>Thao tác sẽ tự động ghi lịch sử nhật ký kiểm toán (AuditLog)</span>
+            <span>Thao tác sẽ tự động ghi lịch sử nhật ký kiểm toán</span>
           </div>
 
           <div className="flex items-center gap-2">

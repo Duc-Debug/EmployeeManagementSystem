@@ -1,8 +1,6 @@
 package com.hrm.employeemanagement.domain.calendar;
 
 import java.time.DayOfWeek;
-import java.util.Objects;
-
 /**
  * Value Object biểu diễn cấu hình ngày làm việc cho một thứ trong tuần.
  */

@@ -3,6 +3,9 @@ package com.hrm.employeemanagement.application.dto.project;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
+import com.hrm.employeemanagement.domain.project.ProjectStatus;
+
 public record CreateProjectCommand(
         String projectName,
         Long orgUnitId,
@@ -10,5 +13,26 @@ public record CreateProjectCommand(
         LocalDate startDate,
         LocalDate endDate,
         BigDecimal estimatedHours,
-        String description) {
+        String description,
+        ProjectStatus status) {
+
+    public CreateProjectCommand {
+        if (status == null) {
+            throw new InvalidProjectDataException("Trạng thái khởi tạo dự án không được để trống");
+        }
+        if (status != ProjectStatus.PLANNED && status != ProjectStatus.ACTIVE) {
+            throw new InvalidProjectDataException("Trạng thái khởi tạo dự án chỉ được là PLANNED hoặc ACTIVE");
+        }
+    }
+
+    public CreateProjectCommand(
+            String projectName,
+            Long orgUnitId,
+            Long managerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal estimatedHours,
+            String description) {
+        this(projectName, orgUnitId, managerId, startDate, endDate, estimatedHours, description, ProjectStatus.ACTIVE);
+    }
 }

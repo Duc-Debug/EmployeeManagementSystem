@@ -30,7 +30,6 @@ import com.hrm.employeemanagement.domain.exception.milestone.ProjectHasNoWbsExce
 import com.hrm.employeemanagement.domain.exception.milestone.TaskNotInProjectException;
 import com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException;
 import com.hrm.employeemanagement.domain.exception.task.ProjectClosedException;
-import com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.milestone.Milestone;
 import com.hrm.employeemanagement.domain.milestone.MilestoneStatus;
@@ -175,21 +174,6 @@ public class CreateMilestoneService implements CreateMilestoneUseCase {
                         projectId,
                         null,
                         "permission=PROJECT_MILESTONE_MANAGE;dataScope=" + currentUser.getDataScope() + ";reason=" + reason));
-    }
-
-    private boolean isAllLinkedTasksCompleted(Set<TaskId> linkedTaskIds, List<Task> tasks) {
-        if (linkedTaskIds == null || linkedTaskIds.isEmpty()) {
-            return false;
-        }
-        if (tasks == null || tasks.isEmpty()) {
-            return false;
-        }
-        Set<Long> completedTaskIds = tasks.stream()
-                .filter(t -> t.getStatus() == com.hrm.employeemanagement.domain.task.TaskStatus.DONE)
-                .map(Task::getIdValue)
-                .collect(Collectors.toSet());
-        return linkedTaskIds.stream()
-                .allMatch(tid -> completedTaskIds.contains(tid.value()));
     }
 
     private MilestoneResult mapToResult(Milestone milestone, List<Task> tasks) {

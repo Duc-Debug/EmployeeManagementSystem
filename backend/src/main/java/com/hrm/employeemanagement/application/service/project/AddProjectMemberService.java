@@ -75,7 +75,12 @@ public class AddProjectMemberService implements AddProjectMemberUseCase {
             throw new InvalidProjectDataException("Mã dự án (projectId) và mã nhân viên (employeeId) không được để trống");
         }
 
-        Long currentUserId = authorizationService.require(PermissionCode.PROJECT_UPDATE);
+        Long currentUserId;
+        try {
+            currentUserId = authorizationService.require(PermissionCode.PROJECT_UPDATE);
+        } catch (PermissionDeniedException ex) {
+            currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE);
+        }
         User currentUser = loadCurrentUserOrThrow(currentUserId);
 
         Project project = loadProjectPort.findById(new ProjectId(command.projectId()))
@@ -83,7 +88,11 @@ public class AddProjectMemberService implements AddProjectMemberUseCase {
 
         if (!canUpdateProject(currentUser, currentUserId, project)) {
             saveDeniedAudit(currentUserId, currentUser, project.getIdValue(), "OUTSIDE_DATA_SCOPE_ADD_PROJECT_MEMBER");
-            throw new PermissionDeniedException(PermissionCode.PROJECT_UPDATE);
+            throw new PermissionDeniedException(
+                    authorizationService.hasPermission(PermissionCode.PROJECT_UPDATE)
+                            ? PermissionCode.PROJECT_UPDATE
+                            : PermissionCode.RESOURCE_ALLOCATION_MANAGE
+            );
         }
 
         if (project.getStatus() == ProjectStatus.CLOSED) {
@@ -137,7 +146,8 @@ public class AddProjectMemberService implements AddProjectMemberUseCase {
         return switch (currentUser.getDataScope()) {
             case COMPANY -> true;
             case ORGANIZATION_BRANCH ->
-                loadProjectPort.existsInOrgUnitBranch(project.getIdValue(), currentUser.getScopeOrgUnitId());
+                currentUser.getScopeOrgUnitId() == null
+                        || loadProjectPort.existsInOrgUnitBranch(project.getIdValue(), currentUser.getScopeOrgUnitId());
             case SELF -> {
                 Long employeeId = loadEmployeePort.findByUserId(new UserId(currentUserId))
                         .map(Employee::getIdValue)

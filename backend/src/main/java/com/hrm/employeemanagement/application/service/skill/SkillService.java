@@ -22,7 +22,6 @@ import com.hrm.employeemanagement.application.port.inbound.skill.GetSkillListUse
 import com.hrm.employeemanagement.application.port.inbound.skill.MergeSkillUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.UpdateSkillGroupUseCase;
 import com.hrm.employeemanagement.application.port.inbound.skill.UpdateSkillUseCase;
-import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillGroupPort;
 import com.hrm.employeemanagement.application.port.outbound.skill.LoadSkillPort;
 import com.hrm.employeemanagement.application.port.outbound.skill.SaveSkillGroupPort;
@@ -59,22 +58,19 @@ public class SkillService implements
     private final SaveSkillGroupPort saveSkillGroupPort;
     private final SaveAuditLogPort saveAuditLogPort;
     private final AuthorizationService authorizationService;
-    private final CurrentUserPort currentUserPort;
 
     public SkillService(LoadSkillPort loadSkillPort,
                         SaveSkillPort saveSkillPort,
                         LoadSkillGroupPort loadSkillGroupPort,
                         SaveSkillGroupPort saveSkillGroupPort,
                         SaveAuditLogPort saveAuditLogPort,
-                        AuthorizationService authorizationService,
-                        CurrentUserPort currentUserPort) {
+                        AuthorizationService authorizationService) {
         this.loadSkillPort = Objects.requireNonNull(loadSkillPort, "LoadSkillPort must not be null");
         this.saveSkillPort = Objects.requireNonNull(saveSkillPort, "SaveSkillPort must not be null");
         this.loadSkillGroupPort = Objects.requireNonNull(loadSkillGroupPort, "LoadSkillGroupPort must not be null");
         this.saveSkillGroupPort = Objects.requireNonNull(saveSkillGroupPort, "SaveSkillGroupPort must not be null");
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogPort must not be null");
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
-        this.currentUserPort = Objects.requireNonNull(currentUserPort, "CurrentUserPort must not be null");
     }
 
     @Override
@@ -205,15 +201,28 @@ public class SkillService implements
         Skill skill = loadSkillPort.findById(new SkillId(command.id()))
                 .orElseThrow(() -> new SkillNotFoundException("Không tìm thấy kỹ năng với ID: " + command.id()));
 
-        String oldValue = "name=" + skill.getName();
+        String oldValue = "name=" + skill.getName() + ";status=" + (skill.getStatus() != null ? skill.getStatus().name() : "ACTIVE");
 
-        Skill savedSkill = saveSkillPort.save(skill);
+        SkillStatus newStatus = (skill.getStatus() == SkillStatus.INACTIVE) ? SkillStatus.ACTIVE : SkillStatus.INACTIVE;
 
-        String newValue = "deactivated";
+        Skill updatedSkill = new Skill(
+                skill.getId(),
+                skill.getCode(),
+                skill.getName(),
+                skill.getCategory(),
+                skill.getDescription(),
+                skill.getGroupId(),
+                skill.getCreatedAt(),
+                newStatus
+        );
+
+        Skill savedSkill = saveSkillPort.save(updatedSkill);
+
+        String newValue = "status=" + newStatus.name();
 
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "SKILL_DEACTIVATED",
+                newStatus == SkillStatus.INACTIVE ? "SKILL_DEACTIVATED" : "SKILL_ACTIVATED",
                 "skills",
                 savedSkill.getId(),
                 oldValue,
@@ -339,11 +348,11 @@ public class SkillService implements
     private SkillResult toSkillResult(Skill s, String groupName) {
         return new SkillResult(
                 s.getId(),
-                null,
+                s.getGroupId(),
                 groupName,
                 s.getName(),
                 s.getDescription(),
-                "ACTIVE",
+                s.getStatus() != null ? s.getStatus().name() : "ACTIVE",
                 null,
                 s.getCreatedAt(),
                 null

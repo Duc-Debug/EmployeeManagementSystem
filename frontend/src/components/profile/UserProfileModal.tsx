@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Settings, Lock, Edit3, X } from "lucide-react";
+import { Settings, Lock, Edit3, X, Bell } from "lucide-react";
 import EditProfileModal from "./EditProfileModal";
 import ChangePasswordModal from "./ChangePasswordModal";
+import NotificationSettingsModal from "../notification/NotificationSettingsModal";
 import { useAuthUser } from "@/lib/auth-session";
 interface UserProfileModalProps {
     isOpen: boolean;
@@ -11,6 +12,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
     const authUser = useAuthUser();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+    const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
     const [userInfo, setUserInfo] = useState({
         name: authUser?.fullName || authUser?.username || "Chưa cập nhật",
         email: authUser?.email || (authUser?.username ? `${authUser.username}@hrm.local` : "Chưa cập nhật"),
@@ -81,13 +83,24 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                    <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-4">
+                        <button
+                            onClick={() => {
+                                setMessage(null);
+                                setIsNotifSettingsOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            type="button"
+                        >
+                            <Bell className="h-3.5 w-3.5 text-indigo-600" /> Cài đặt thông báo
+                        </button>
                         <button
                             onClick={() => {
                                 setMessage(null);
                                 setIsChangePasswordOpen(true);
                             }}
-                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                            type="button"
                         >
                             <Lock className="h-3.5 w-3.5" /> Đổi mật khẩu
                         </button>
@@ -96,13 +109,18 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                                 setMessage(null);
                                 setIsEditOpen(true);
                             }}
-                            className="flex items-center gap-1.5 rounded-xl bg-[#4338ca] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#3730a3] transition"
+                            className="flex items-center gap-1.5 rounded-xl bg-[#4338ca] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#3730a3] transition"
+                            type="button"
                         >
                             <Edit3 className="h-3.5 w-3.5" /> Sửa thông tin
                         </button>
                     </div>
                 </div>
             </div>
+            <NotificationSettingsModal
+                isOpen={isNotifSettingsOpen}
+                onClose={() => setIsNotifSettingsOpen(false)}
+            />
             <EditProfileModal
                 isOpen={isEditOpen}
                 userInfo={userInfo}

@@ -65,6 +65,12 @@ public class TaskJpaEntity {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
+    @Column(name = "planned_start_date")
+    private LocalDate plannedStartDate;
+
+    @Column(name = "planned_end_date")
+    private LocalDate plannedEndDate;
+
     @Column(name = "start_date")
     private LocalDate startDate;
 
@@ -93,6 +99,112 @@ public class TaskJpaEntity {
     public TaskJpaEntity() {
     }
 
+    /**
+     * Constructor đầy đủ tất cả các trường (kết hợp cả 2 nhánh)
+     */
+    public TaskJpaEntity(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
+            LocalDate startDate,
+            LocalDate dueDate,
+            LocalDate actualEndDate,
+            Integer slackDays,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this.id = id;
+        this.projectId = projectId;
+        this.parentId = parentId;
+        this.taskCode = taskCode;
+        this.name = name;
+        this.description = description;
+        this.taskType = taskType;
+        this.assigneeId = assigneeId;
+        this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
+        this.actualHours = actualHours != null ? actualHours : BigDecimal.ZERO;
+        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
+        this.status = status != null ? status : TaskStatus.TODO;
+        this.sortOrder = sortOrder != null ? sortOrder : 0;
+        
+        this.plannedStartDate = plannedStartDate != null ? plannedStartDate : startDate;
+        this.plannedEndDate = plannedEndDate != null ? plannedEndDate : dueDate;
+        this.startDate = startDate != null ? startDate : plannedStartDate;
+        this.dueDate = dueDate != null ? dueDate : plannedEndDate;
+        this.actualEndDate = actualEndDate;
+        this.slackDays = slackDays != null ? slackDays : 0;
+        this.createdBy = createdBy;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.version = version;
+    }
+
+    /**
+     * Constructor hỗ trợ plannedStartDate, plannedEndDate (feat/task-assignment)
+     */
+    public TaskJpaEntity(
+            Long id,
+            Long projectId,
+            Long parentId,
+            String taskCode,
+            String name,
+            String description,
+            TaskType taskType,
+            Long assigneeId,
+            BigDecimal estimatedHours,
+            BigDecimal actualHours,
+            BigDecimal budgetHours,
+            TaskStatus status,
+            Integer sortOrder,
+            LocalDate plannedStartDate,
+            LocalDate plannedEndDate,
+            Long createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            Long version) {
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                plannedStartDate,
+                plannedEndDate,
+                plannedStartDate,
+                plannedEndDate,
+                null,
+                0,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version
+        );
+    }
+
+    /**
+     * Constructor hỗ trợ startDate, dueDate, actualEndDate, slackDays (develop)
+     */
     public TaskJpaEntity(
             Long id,
             Long projectId,
@@ -115,27 +227,31 @@ public class TaskJpaEntity {
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             Long version) {
-        this.id = id;
-        this.projectId = projectId;
-        this.parentId = parentId;
-        this.taskCode = taskCode;
-        this.name = name;
-        this.description = description;
-        this.taskType = taskType;
-        this.assigneeId = assigneeId;
-        this.estimatedHours = estimatedHours != null ? estimatedHours : BigDecimal.ZERO;
-        this.actualHours = actualHours != null ? actualHours : BigDecimal.ZERO;
-        this.budgetHours = budgetHours != null ? budgetHours : BigDecimal.ZERO;
-        this.status = status != null ? status : TaskStatus.TODO;
-        this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.startDate = startDate;
-        this.dueDate = dueDate;
-        this.actualEndDate = actualEndDate;
-        this.slackDays = slackDays != null ? slackDays : 0;
-        this.createdBy = createdBy;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-        this.version = version;
+        this(
+                id,
+                projectId,
+                parentId,
+                taskCode,
+                name,
+                description,
+                taskType,
+                assigneeId,
+                estimatedHours,
+                actualHours,
+                budgetHours,
+                status,
+                sortOrder,
+                startDate,
+                dueDate,
+                startDate,
+                dueDate,
+                actualEndDate,
+                slackDays,
+                createdBy,
+                createdAt,
+                updatedAt,
+                version
+        );
     }
 
     public TaskJpaEntity(
@@ -170,6 +286,8 @@ public class TaskJpaEntity {
                 budgetHours,
                 status,
                 sortOrder,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -243,11 +361,35 @@ public class TaskJpaEntity {
         if (slackDays == null) {
             slackDays = 0;
         }
+        if (startDate == null && plannedStartDate != null) {
+            startDate = plannedStartDate;
+        }
+        if (plannedStartDate == null && startDate != null) {
+            plannedStartDate = startDate;
+        }
+        if (dueDate == null && plannedEndDate != null) {
+            dueDate = plannedEndDate;
+        }
+        if (plannedEndDate == null && dueDate != null) {
+            plannedEndDate = dueDate;
+        }
     }
 
     @PreUpdate
     void preUpdate() {
         updatedAt = LocalDateTime.now();
+        if (startDate == null && plannedStartDate != null) {
+            startDate = plannedStartDate;
+        }
+        if (plannedStartDate == null && startDate != null) {
+            plannedStartDate = startDate;
+        }
+        if (dueDate == null && plannedEndDate != null) {
+            dueDate = plannedEndDate;
+        }
+        if (plannedEndDate == null && dueDate != null) {
+            plannedEndDate = dueDate;
+        }
     }
 
     // Getters and Setters
@@ -361,6 +503,9 @@ public class TaskJpaEntity {
 
     public void setStartDate(LocalDate startDate) {
         this.startDate = startDate;
+        if (this.plannedStartDate == null) {
+            this.plannedStartDate = startDate;
+        }
     }
 
     public LocalDate getDueDate() {
@@ -369,6 +514,9 @@ public class TaskJpaEntity {
 
     public void setDueDate(LocalDate dueDate) {
         this.dueDate = dueDate;
+        if (this.plannedEndDate == null) {
+            this.plannedEndDate = dueDate;
+        }
     }
 
     public LocalDate getActualEndDate() {
@@ -409,6 +557,28 @@ public class TaskJpaEntity {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public LocalDate getPlannedStartDate() {
+        return plannedStartDate;
+    }
+
+    public void setPlannedStartDate(LocalDate plannedStartDate) {
+        this.plannedStartDate = plannedStartDate;
+        if (this.startDate == null) {
+            this.startDate = plannedStartDate;
+        }
+    }
+
+    public LocalDate getPlannedEndDate() {
+        return plannedEndDate;
+    }
+
+    public void setPlannedEndDate(LocalDate plannedEndDate) {
+        this.plannedEndDate = plannedEndDate;
+        if (this.dueDate == null) {
+            this.dueDate = plannedEndDate;
+        }
     }
 
     public Long getVersion() {

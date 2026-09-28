@@ -147,7 +147,7 @@ export default function ForgotPasswordModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
         onClick={handleClose}
       />
 
@@ -155,35 +155,35 @@ export default function ForgotPasswordModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="relative z-10 w-full max-w-[480px] rounded-[32px] border border-white/20 bg-[#1e144a]/95 p-7 text-white shadow-[0_25px_60px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+        className="relative z-10 w-full max-w-[420px] rounded-2xl border border-slate-300/80 bg-white p-6 text-slate-800 shadow-[0_15px_40px_rgba(0,0,0,0.12)] transition-all"
       >
         {/* Close button */}
         <button
           type="button"
           onClick={handleClose}
-          className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
           aria-label="Đóng"
         >
           <X className="h-4 w-4" />
         </button>
 
         {/* Modal Header */}
-        <div className="flex items-center gap-3.5 mb-6">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md text-[#63ecc8]">
-            <KeyRound className="h-5 w-5 stroke-[1.8]" />
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600">
+            <KeyRound className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="font-[Sora,sans-serif] text-[19px] font-bold tracking-tight text-white">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">
               Khôi phục mật khẩu
             </h2>
-            <p className="text-[12.5px] text-white/60">
-              Hệ thống Quản trị Nguồn lực EMS
+            <p className="text-xs text-slate-500">
+              Hệ thống Quản trị EMS
             </p>
           </div>
         </div>
 
         {/* Tabs Switcher */}
-        <div className="mb-6 flex rounded-[16px] border border-white/15 bg-white/[0.05] p-1">
+        <div className="mb-5 flex rounded-xl bg-slate-100 p-1">
           <button
             type="button"
             onClick={() => {
@@ -191,10 +191,10 @@ export default function ForgotPasswordModal({
               setError(null);
             }}
             className={cn(
-              "flex-1 rounded-[12px] py-2 text-[13px] font-medium transition",
+              "flex-1 rounded-lg py-1.5 text-xs font-medium transition",
               tab === "request"
-                ? "bg-white/15 text-white shadow-sm"
-                : "text-white/60 hover:text-white"
+                ? "bg-white text-slate-900 shadow-xs font-semibold"
+                : "text-slate-600 hover:text-slate-900"
             )}
           >
             1. Gửi mã xác nhận
@@ -206,10 +206,10 @@ export default function ForgotPasswordModal({
               setError(null);
             }}
             className={cn(
-              "flex-1 rounded-[12px] py-2 text-[13px] font-medium transition",
+              "flex-1 rounded-lg py-1.5 text-xs font-medium transition",
               tab === "reset"
-                ? "bg-white/15 text-white shadow-sm"
-                : "text-white/60 hover:text-white"
+                ? "bg-white text-slate-900 shadow-xs font-semibold"
+                : "text-slate-600 hover:text-slate-900"
             )}
           >
             2. Đặt lại mật khẩu
@@ -218,16 +218,16 @@ export default function ForgotPasswordModal({
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-[14px] border border-red-500/30 bg-red-500/15 p-3 text-[13px] text-red-100 backdrop-blur-md">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Success Alert */}
         {successMessage && (
-          <div className="mb-5 flex items-start gap-2.5 rounded-[14px] border border-emerald-500/30 bg-emerald-500/15 p-3 text-[13px] text-emerald-100 backdrop-blur-md">
-            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-400" />
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
             <span>{successMessage}</span>
           </div>
         )}
@@ -235,27 +235,27 @@ export default function ForgotPasswordModal({
         {/* Tab 1: Request Form */}
         {tab === "request" ? (
           <form onSubmit={handleRequestSubmit} className="space-y-4">
-            <p className="text-[13px] text-white/75 leading-relaxed">
-              Nhập email hoặc tên đăng nhập của bạn. Nếu thông tin khớp với hồ sơ nhân sự, hệ thống sẽ gửi liên kết và mã Token để khôi phục mật khẩu (có hiệu lực trong 15 phút).
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Nhập email hoặc tên đăng nhập. Nếu thông tin khớp hồ sơ nhân sự, hệ thống sẽ gửi mã Token khôi phục mật khẩu (hiệu lực trong 15 phút).
             </p>
 
             <div>
               <label
                 htmlFor="forgot-identity"
-                className="mb-1.5 block text-[12.5px] font-medium text-white/80"
+                className="mb-1.5 block text-xs font-semibold text-slate-700"
               >
                 Email hoặc Tên đăng nhập
               </label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-white/50" />
+              <div className="relative group">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
                 <input
                   id="forgot-identity"
                   type="text"
                   value={identity}
                   onChange={(e) => setIdentity(e.target.value)}
-                  placeholder="vd. user@company.com hoặc employee1"
+                  placeholder="user@company.com hoặc username"
                   required
-                  className="w-full rounded-[16px] border border-white/20 bg-white/[0.05] py-3 pl-10 pr-3.5 text-[14px] text-white outline-none placeholder:text-white/35 backdrop-blur-xl focus:border-white/50 focus:bg-white/[0.1] focus:ring-2 focus:ring-white/10"
+                  className="w-full h-10 rounded-xl border border-slate-300/80 bg-slate-50/70 pl-9 pr-3.5 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:bg-white focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10"
                 />
               </div>
             </div>
@@ -264,35 +264,34 @@ export default function ForgotPasswordModal({
               type="submit"
               disabled={isSubmitting || countdown > 0}
               className={cn(
-                "flex w-full items-center justify-center gap-2 rounded-[16px] border border-white/25 bg-white/10 py-3 text-[14px] font-semibold text-white shadow-sm backdrop-blur-xl transition",
-                "hover:bg-white/20 hover:border-white/40",
+                "flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:bg-indigo-800",
                 "disabled:cursor-not-allowed disabled:opacity-60"
               )}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang gửi yêu cầu...
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Đang gửi yêu cầu...</span>
                 </>
               ) : countdown > 0 ? (
                 `Vui lòng đợi ${countdown}s để gửi lại`
               ) : (
                 <>
-                  Gửi mã xác nhận qua Email
-                  <ArrowRight className="h-4 w-4" />
+                  <span>Gửi mã xác nhận qua Email</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </>
               )}
             </button>
 
             {requestSent && (
-              <div className="mt-4 pt-4 border-t border-white/10 flex justify-center">
+              <div className="mt-3 pt-3 border-t border-slate-100 flex justify-center">
                 <button
                   type="button"
                   onClick={() => {
                     setTab("reset");
                     setError(null);
                   }}
-                  className="text-[13px] text-[#63ecc8] hover:underline font-medium flex items-center gap-1.5"
+                  className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium flex items-center gap-1"
                 >
                   Đã nhận được mã? Chuyển sang Đặt lại mật khẩu &rarr;
                 </button>
@@ -301,24 +300,24 @@ export default function ForgotPasswordModal({
           </form>
         ) : (
           /* Tab 2: Reset Form */
-          <form onSubmit={handleResetSubmit} className="space-y-4">
+          <form onSubmit={handleResetSubmit} className="space-y-3.5">
             <div>
               <label
                 htmlFor="reset-token"
-                className="mb-1.5 block text-[12.5px] font-medium text-white/80"
+                className="mb-1.5 block text-xs font-semibold text-slate-700"
               >
                 Mã Token khôi phục
               </label>
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-white/50" />
+              <div className="relative group">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
                 <input
                   id="reset-token"
                   type="text"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  placeholder="Dán mã Token nhận từ email vào đây"
+                  placeholder="Dán mã Token nhận từ email"
                   required
-                  className="w-full rounded-[16px] border border-white/20 bg-white/[0.05] py-3 pl-10 pr-3.5 text-[14px] text-white font-mono outline-none placeholder:text-white/35 backdrop-blur-xl focus:border-white/50 focus:bg-white/[0.1] focus:ring-2 focus:ring-white/10"
+                  className="w-full h-10 rounded-xl border border-slate-300/80 bg-slate-50/70 pl-9 pr-3.5 text-xs text-slate-900 font-mono placeholder:text-slate-400 outline-none transition focus:bg-white focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10"
                 />
               </div>
             </div>
@@ -326,12 +325,12 @@ export default function ForgotPasswordModal({
             <div>
               <label
                 htmlFor="reset-new-password"
-                className="mb-1.5 block text-[12.5px] font-medium text-white/80"
+                className="mb-1.5 block text-xs font-semibold text-slate-700"
               >
                 Mật khẩu mới (Tối thiểu 8 ký tự)
               </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-white/50" />
+              <div className="relative group">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
                 <input
                   id="reset-new-password"
                   type={showNewPassword ? "text" : "password"}
@@ -339,12 +338,12 @@ export default function ForgotPasswordModal({
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-[16px] border border-white/20 bg-white/[0.05] py-3 pl-10 pr-10 text-[14px] text-white outline-none placeholder:text-white/35 backdrop-blur-xl focus:border-white/50 focus:bg-white/[0.1] focus:ring-2 focus:ring-white/10"
+                  className="w-full h-10 rounded-xl border border-slate-300/80 bg-slate-50/70 pl-9 pr-9 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:bg-white focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   {showNewPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -358,12 +357,12 @@ export default function ForgotPasswordModal({
             <div>
               <label
                 htmlFor="reset-confirm-password"
-                className="mb-1.5 block text-[12.5px] font-medium text-white/80"
+                className="mb-1.5 block text-xs font-semibold text-slate-700"
               >
                 Xác nhận mật khẩu mới
               </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-white/50" />
+              <div className="relative group">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
                 <input
                   id="reset-confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
@@ -371,12 +370,12 @@ export default function ForgotPasswordModal({
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-[16px] border border-white/20 bg-white/[0.05] py-3 pl-10 pr-10 text-[14px] text-white outline-none placeholder:text-white/35 backdrop-blur-xl focus:border-white/50 focus:bg-white/[0.1] focus:ring-2 focus:ring-white/10"
+                  className="w-full h-10 rounded-xl border border-slate-300/80 bg-slate-50/70 pl-9 pr-9 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:bg-white focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -391,20 +390,19 @@ export default function ForgotPasswordModal({
               type="submit"
               disabled={isSubmitting}
               className={cn(
-                "flex w-full items-center justify-center gap-2 rounded-[16px] border border-white/25 bg-white/10 py-3 text-[14px] font-semibold text-white shadow-sm backdrop-blur-xl transition",
-                "hover:bg-white/20 hover:border-white/40",
+                "flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:bg-indigo-800",
                 "disabled:cursor-not-allowed disabled:opacity-60"
               )}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang cập nhật...
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Đang cập nhật...</span>
                 </>
               ) : (
                 <>
-                  Xác nhận Đặt lại mật khẩu
-                  <ArrowRight className="h-4 w-4" />
+                  <span>Xác nhận Đặt lại mật khẩu</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </>
               )}
             </button>

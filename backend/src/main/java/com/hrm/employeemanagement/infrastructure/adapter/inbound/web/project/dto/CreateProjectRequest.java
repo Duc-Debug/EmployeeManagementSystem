@@ -22,5 +22,7 @@ public record CreateProjectRequest(
         @Digits(integer = 8, fraction = 2, message = "Tổng giờ dự kiến chỉ được có tối đa 8 chữ số phần nguyên và 2 chữ số phần thập phân")
         BigDecimal estimatedHours,
         @Size(max = 2000, message = "Mô tả dự án không được vượt quá 2000 ký tự")
-        String description) {
+        String description,
+        @NotNull(message = "Trạng thái khởi tạo dự án không được để trống")
+        com.hrm.employeemanagement.domain.project.ProjectStatus status) {
 }

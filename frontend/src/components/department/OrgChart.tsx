@@ -32,11 +32,12 @@ import {
 } from '@/lib/api/org-units';
 import { getUsers } from '@/lib/api/users';
 import { cn } from '@/lib/utils';
-import type { OrgUnitTreeNode, User } from '@/types/hrm';
+import type { OrgUnitTreeNode, OrgUnitMember, User } from '@/types/hrm';
 import { useAuthUser } from '@/lib/auth-session';
 
 export interface OrgTreeNode extends CardData {
     id: string;
+    members?: OrgUnitMember[];
     children: OrgTreeNode[];
 }
 
@@ -232,14 +233,18 @@ function convertBackendNodeToOrgChartNode(
     users?: User[]
 ): OrgTreeNode {
     const meta = getMetaForUnit(node.unitType, node.level);
-    const managerName = node.managerId
+    const managerName = node.managerName
+        ? node.managerName
+        : node.managerId
         ? userMap.get(node.managerId) || `Quản lý #${node.managerId}`
         : 'Chưa bổ nhiệm';
 
     const nodeNumId = typeof node.id === 'number' ? node.id : parseInt(String(node.id), 10);
-    const memberCount = (users || []).filter(
-        (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.unitName.toLowerCase())
-    ).length;
+    const memberCount = (node.employeeCount !== undefined && node.employeeCount !== null)
+        ? node.employeeCount
+        : (users || []).filter(
+            (u) => (!isNaN(nodeNumId) && u.orgUnitId === nodeNumId) || (u.orgUnitName && u.orgUnitName.toLowerCase() === node.unitName.toLowerCase())
+        ).length;
 
     return {
         id: String(node.id),
@@ -257,6 +262,7 @@ function convertBackendNodeToOrgChartNode(
         cardBg: 'bg-white',
         unitType: node.unitType,
         memberCount,
+        members: node.members ? [...node.members] : undefined,
         children: node.children
             ? node.children.map((c: OrgUnitTreeNode) => convertBackendNodeToOrgChartNode(c, userMap, node.unitName, users))
             : [],

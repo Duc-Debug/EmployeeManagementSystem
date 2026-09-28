@@ -46,6 +46,12 @@ public class LeaveRequestJpaEntity {
     @Column(name = "approver_comment", length = 500)
     private String approverComment;
 
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
+
+    @Column(name = "cancellation_requested_at")
+    private LocalDateTime cancellationRequestedAt;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -56,12 +62,20 @@ public class LeaveRequestJpaEntity {
 
     public LeaveRequestJpaEntity(Long id, Long employeeId, LocalDate startDate, LocalDate endDate,
                                  String status, BigDecimal hoursDeducted) {
-        this(id, employeeId, "ANNUAL", startDate, endDate, status, hoursDeducted, null, null, null, null, null);
+        this(id, employeeId, "ANNUAL", startDate, endDate, status, hoursDeducted, null, null, null, null, null, null, null);
     }
 
     public LeaveRequestJpaEntity(Long id, Long employeeId, String leaveType, LocalDate startDate, LocalDate endDate,
                                  String status, BigDecimal hoursDeducted, String reason,
                                  Long approverId, String approverComment,
+                                 LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id, employeeId, leaveType, startDate, endDate, status, hoursDeducted, reason, approverId, approverComment, null, null, createdAt, updatedAt);
+    }
+
+    public LeaveRequestJpaEntity(Long id, Long employeeId, String leaveType, LocalDate startDate, LocalDate endDate,
+                                 String status, BigDecimal hoursDeducted, String reason,
+                                 Long approverId, String approverComment,
+                                 String cancellationReason, LocalDateTime cancellationRequestedAt,
                                  LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.employeeId = employeeId;
@@ -73,6 +87,8 @@ public class LeaveRequestJpaEntity {
         this.reason = reason;
         this.approverId = approverId;
         this.approverComment = approverComment;
+        this.cancellationReason = cancellationReason;
+        this.cancellationRequestedAt = cancellationRequestedAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -155,6 +171,22 @@ public class LeaveRequestJpaEntity {
 
     public void setApproverComment(String approverComment) {
         this.approverComment = approverComment;
+    }
+
+    public String getCancellationReason() {
+        return cancellationReason;
+    }
+
+    public void setCancellationReason(String cancellationReason) {
+        this.cancellationReason = cancellationReason;
+    }
+
+    public LocalDateTime getCancellationRequestedAt() {
+        return cancellationRequestedAt;
+    }
+
+    public void setCancellationRequestedAt(LocalDateTime cancellationRequestedAt) {
+        this.cancellationRequestedAt = cancellationRequestedAt;
     }
 
     public LocalDateTime getCreatedAt() {

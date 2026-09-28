@@ -52,13 +52,15 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
             s.category AS skillCategory,
             es.proficiency_level AS proficiencyLevel,
             es.years_of_experience AS yearsOfExperience,
+            es.pending_proficiency_level AS pendingProficiencyLevel,
+            es.pending_years_of_experience AS pendingYearsOfExperience,
             es.status AS status,
             es.created_at AS createdAt
         FROM employee_skills es
         JOIN employees e ON e.id = es.employee_id
         JOIN skills s ON s.id = es.skill_id
         LEFT JOIN org_units ou ON ou.id = e.org_unit_id
-        WHERE es.status = 'PENDING'
+        WHERE (es.status = 'PENDING' OR es.pending_proficiency_level IS NOT NULL OR es.pending_years_of_experience IS NOT NULL)
           AND (:keyword IS NULL OR (
               LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
               OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -79,7 +81,7 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
         FROM employee_skills es
         JOIN employees e ON e.id = es.employee_id
         JOIN skills s ON s.id = es.skill_id
-        WHERE es.status = 'PENDING'
+        WHERE (es.status = 'PENDING' OR es.pending_proficiency_level IS NOT NULL OR es.pending_years_of_experience IS NOT NULL)
           AND (:keyword IS NULL OR (
               LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
               OR LOWER(e.employee_code) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -103,6 +105,8 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
             s.category AS skillCategory,
             es.proficiency_level AS proficiencyLevel,
             es.years_of_experience AS yearsOfExperience,
+            es.pending_proficiency_level AS pendingProficiencyLevel,
+            es.pending_years_of_experience AS pendingYearsOfExperience,
             es.status AS status,
             es.created_at AS createdAt
         FROM employee_skills es
@@ -110,7 +114,7 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
         JOIN skills s ON s.id = es.skill_id
         JOIN org_units ou ON ou.id = e.org_unit_id
         JOIN org_units scope ON scope.id = :scopeOrgUnitId
-        WHERE es.status = 'PENDING'
+        WHERE (es.status = 'PENDING' OR es.pending_proficiency_level IS NOT NULL OR es.pending_years_of_experience IS NOT NULL)
           AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
           AND (:keyword IS NULL OR (
               LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -135,7 +139,7 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
         JOIN skills s ON s.id = es.skill_id
         JOIN org_units ou ON ou.id = e.org_unit_id
         JOIN org_units scope ON scope.id = :scopeOrgUnitId
-        WHERE es.status = 'PENDING'
+        WHERE (es.status = 'PENDING' OR es.pending_proficiency_level IS NOT NULL OR es.pending_years_of_experience IS NOT NULL)
           AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
           AND (:keyword IS NULL OR (
               LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -163,13 +167,15 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
             s.category AS skillCategory,
             es.proficiency_level AS proficiencyLevel,
             es.years_of_experience AS yearsOfExperience,
+            es.pending_proficiency_level AS pendingProficiencyLevel,
+            es.pending_years_of_experience AS pendingYearsOfExperience,
             es.status AS status,
             es.created_at AS createdAt
         FROM employee_skills es
         JOIN employees e ON e.id = es.employee_id
         JOIN skills s ON s.id = es.skill_id
         LEFT JOIN org_units ou ON ou.id = e.org_unit_id
-        WHERE es.status = 'PENDING'
+        WHERE (es.status = 'PENDING' OR es.pending_proficiency_level IS NOT NULL OR es.pending_years_of_experience IS NOT NULL)
           AND e.user_id = :currentUserId
           AND (:keyword IS NULL OR (
               LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -192,7 +198,7 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
         FROM employee_skills es
         JOIN employees e ON e.id = es.employee_id
         JOIN skills s ON s.id = es.skill_id
-        WHERE es.status = 'PENDING'
+        WHERE (es.status = 'PENDING' OR es.pending_proficiency_level IS NOT NULL OR es.pending_years_of_experience IS NOT NULL)
           AND e.user_id = :currentUserId
           AND (:keyword IS NULL OR (
               LOWER(e.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -227,6 +233,9 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
             e.professional_role AS professionalRole,
             e.standard_hours_per_week AS standardHoursPerWeek,
             e.contract_end_date AS contractEndDate,
+            e.is_outsourced AS isOutsourced,
+            e.provider_name AS providerName,
+            e.start_date AS startDate,
             s.id AS skillId,
             s.name AS skillName,
             es.proficiency_level AS proficiencyLevel,
@@ -243,5 +252,35 @@ public interface SpringDataEmployeeSkillRepository extends JpaRepository<Employe
     List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.ActiveEmployeeSkillProjection> findActiveEmployeesBySkillAndMinLevel(
             @Param("skillId") Long skillId,
             @Param("minLevel") int minLevel
+    );
+
+    @Query("""
+        SELECT es.skillId AS skillId, es.employeeId AS employeeId, COALESCE(e.standardHoursPerWeek, 40) AS standardHoursPerWeek,
+               es.proficiencyLevel AS proficiencyLevel, es.yearsOfExperience AS yearsOfExperience
+        FROM EmployeeSkillJpaEntity es
+        JOIN EmployeeJpaEntity e ON e.id = es.employeeId
+        JOIN SkillJpaEntity s ON s.id = es.skillId
+        WHERE es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND (s.status IS NULL OR UPPER(s.status) = 'ACTIVE')
+          AND (e.status IS NULL OR UPPER(e.status) = 'ACTIVE')
+          AND (:orgUnitId IS NULL OR e.orgUnitId = :orgUnitId)
+    """)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnit(
+            @Param("orgUnitId") Long orgUnitId
+    );
+
+    @Query("""
+        SELECT es.skillId AS skillId, es.employeeId AS employeeId, COALESCE(e.standardHoursPerWeek, 40) AS standardHoursPerWeek,
+               es.proficiencyLevel AS proficiencyLevel, es.yearsOfExperience AS yearsOfExperience
+        FROM EmployeeSkillJpaEntity es
+        JOIN EmployeeJpaEntity e ON e.id = es.employeeId
+        JOIN SkillJpaEntity s ON s.id = es.skillId
+        WHERE es.status = com.hrm.employeemanagement.domain.skill.SkillStatus.APPROVED
+          AND (s.status IS NULL OR UPPER(s.status) = 'ACTIVE')
+          AND (e.status IS NULL OR UPPER(e.status) = 'ACTIVE')
+          AND e.orgUnitId IN :orgUnitIds
+    """)
+    List<com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.skill.projection.EmployeeSkillCapacityProjection> findApprovedCapacityByOrgUnitIds(
+            @Param("orgUnitIds") List<Long> orgUnitIds
     );
 }

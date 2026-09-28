@@ -7,6 +7,8 @@ import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogIn
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveBalancePort;
 import com.hrm.employeemanagement.application.port.outbound.leave.LoadLeaveRequestPort;
 import com.hrm.employeemanagement.application.port.outbound.leave.SaveLeaveRequestPort;
+import com.hrm.employeemanagement.application.port.outbound.notification.SaveNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
@@ -25,6 +27,10 @@ import com.hrm.employeemanagement.domain.leave.LeaveRequest;
 import com.hrm.employeemanagement.domain.leave.LeaveRequestPolicy;
 import com.hrm.employeemanagement.domain.leave.LeaveStatus;
 import com.hrm.employeemanagement.domain.leave.LeaveType;
+import com.hrm.employeemanagement.domain.notification.Notification;
+import com.hrm.employeemanagement.domain.notification.NotificationType;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 import java.math.BigDecimal;
@@ -45,6 +51,32 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadHolidaysPort loadHolidaysPort;
     private final LoadLeaveBalancePort loadLeaveBalancePort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
+    private final SaveNotificationPort saveNotificationPort;
+
+    public SubmitLeaveRequestService(
+            LoadEmployeePort loadEmployeePort,
+            LoadLeaveRequestPort loadLeaveRequestPort,
+            SaveLeaveRequestPort saveLeaveRequestPort,
+            SaveAuditLogInNewTransactionPort auditLogRepository,
+            AuthorizationService authorizationService,
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadLeaveBalancePort loadLeaveBalancePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveNotificationPort saveNotificationPort
+    ) {
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
+        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
+        this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
+        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
+        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
+        this.loadHolidaysPort = loadHolidaysPort;
+        this.loadLeaveBalancePort = loadLeaveBalancePort;
+        this.loadOrgUnitPort = loadOrgUnitPort;
+        this.saveNotificationPort = saveNotificationPort;
+    }
 
     public SubmitLeaveRequestService(
             LoadEmployeePort loadEmployeePort,
@@ -56,14 +88,7 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
             LoadHolidaysPort loadHolidaysPort,
             LoadLeaveBalancePort loadLeaveBalancePort
     ) {
-        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "loadEmployeePort must not be null");
-        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
-        this.saveLeaveRequestPort = Objects.requireNonNull(saveLeaveRequestPort, "saveLeaveRequestPort must not be null");
-        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
-        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
-        this.loadWorkingCalendarPort = loadWorkingCalendarPort;
-        this.loadHolidaysPort = loadHolidaysPort;
-        this.loadLeaveBalancePort = loadLeaveBalancePort;
+        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, loadWorkingCalendarPort, loadHolidaysPort, loadLeaveBalancePort, null, null);
     }
 
     public SubmitLeaveRequestService(
@@ -75,7 +100,7 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
             LoadWorkingCalendarPort loadWorkingCalendarPort,
             LoadHolidaysPort loadHolidaysPort
     ) {
-        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, loadWorkingCalendarPort, loadHolidaysPort, null);
+        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, loadWorkingCalendarPort, loadHolidaysPort, null, null, null);
     }
 
     public SubmitLeaveRequestService(
@@ -85,7 +110,7 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
             SaveAuditLogInNewTransactionPort auditLogRepository,
             AuthorizationService authorizationService
     ) {
-        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, null, null, null);
+        this(loadEmployeePort, loadLeaveRequestPort, saveLeaveRequestPort, auditLogRepository, authorizationService, null, null, null, null, null);
     }
 
     @Override
@@ -207,6 +232,35 @@ public class SubmitLeaveRequestService implements SubmitLeaveRequestUseCase {
                 null,
                 auditDetails
         ));
+
+        // 8. Gửi thông báo đến người quản lý đơn vị
+        if (saveNotificationPort != null && currentEmployee != null && currentEmployee.getOrgUnitId() != null) {
+            OrgUnit orgUnit = loadOrgUnitPort != null
+                    ? loadOrgUnitPort.findById(new OrgUnitId(currentEmployee.getOrgUnitId())).orElse(null)
+                    : null;
+            Long managerEmployeeId = orgUnit != null ? orgUnit.getManagerId() : null;
+            if (managerEmployeeId != null && !managerEmployeeId.equals(targetEmployeeId)) {
+                Employee managerEmp = loadEmployeePort.findById(new EmployeeId(managerEmployeeId)).orElse(null);
+                if (managerEmp != null && managerEmp.getUserIdValue() != null) {
+                    String title = "Đơn xin nghỉ phép mới từ " + (currentEmployee.getFullName() != null ? currentEmployee.getFullName() : "nhân viên");
+                    String content = String.format("%s vừa nộp đơn xin nghỉ phép (%s) từ %s đến %s. Lý do: %s",
+                            currentEmployee.getFullName() != null ? currentEmployee.getFullName() : "Nhân viên",
+                            saved.getLeaveType(),
+                            saved.getStartDate(),
+                            saved.getEndDate(),
+                            saved.getReason() != null ? saved.getReason() : "Không có");
+                    saveNotificationPort.save(Notification.create(
+                            new UserId(managerEmp.getUserIdValue()),
+                            new UserId(currentUserId),
+                            NotificationType.LEAVE_SUBMITTED,
+                            "LEAVE_REQUEST",
+                            saved.getId(),
+                            title,
+                            content
+                    ));
+                }
+            }
+        }
 
         return LeaveRequestResult.fromDomain(saved);
     }

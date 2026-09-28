@@ -2,9 +2,9 @@ package com.hrm.employeemanagement.application.service.authorization;
 
 import java.util.Objects;
 
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
 import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
-import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
@@ -76,6 +76,10 @@ public class AuthorizationService {
         return currentUserId;
     }
 
+    public User getAuthenticatedUser() {
+        return authenticatedUserPort.getAuthenticatedUser();
+    }
+
     public Long requireAny(PermissionCode... permissions) {
         Objects.requireNonNull(
                 permissions,
@@ -133,6 +137,19 @@ public class AuthorizationService {
             return java.util.Collections.emptyList();
         }
         return permissionQueryPort.findPermissionsByUserId(userId);
+    }
+
+    public static boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId, com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort loadOrgUnitPort) {
+        if (currentUser == null || targetOrgUnitId == null) {
+            return false;
+        }
+        if (currentUser.getDataScope() == com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY) {
+            return true;
+        }
+        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+        if (userScopeOrgUnitId == null) return false;
+        if (userScopeOrgUnitId.equals(targetOrgUnitId)) return true;
+        return loadOrgUnitPort != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId);
     }
 }
 

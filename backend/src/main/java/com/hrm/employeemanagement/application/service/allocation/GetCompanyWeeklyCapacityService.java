@@ -32,7 +32,6 @@ import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -41,6 +40,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.reservation.ResourceReservation;
 
 public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacityUseCase {
@@ -55,6 +59,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
     private final LoadApprovedLeavesPort loadApprovedLeavesPort;
     private final LoadWorkingCalendarPort loadWorkingCalendarPort;
     private final LoadResourceReservationPort loadReservationPort;
+    private final SaveAuditLogPort saveAuditLogPort;
+    private final LoadCapacityThresholdPort loadCapacityThresholdPort;
 
     public GetCompanyWeeklyCapacityService(
             AuthorizationService authorizationService,
@@ -65,7 +71,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
-            LoadWorkingCalendarPort loadWorkingCalendarPort
+            LoadWorkingCalendarPort loadWorkingCalendarPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
     ) {
         this(
                 authorizationService,
@@ -77,7 +84,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 loadHolidaysPort,
                 loadApprovedLeavesPort,
                 loadWorkingCalendarPort,
-                null
+                null,
+                null,
+                loadCapacityThresholdPort
         );
     }
 
@@ -91,7 +100,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
             LoadHolidaysPort loadHolidaysPort,
             LoadApprovedLeavesPort loadApprovedLeavesPort,
             LoadWorkingCalendarPort loadWorkingCalendarPort,
-            LoadResourceReservationPort loadReservationPort
+            LoadResourceReservationPort loadReservationPort,
+            SaveAuditLogPort saveAuditLogPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
     ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
@@ -103,60 +114,92 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
         this.loadApprovedLeavesPort = Objects.requireNonNull(loadApprovedLeavesPort, "LoadApprovedLeavesPort must not be null");
         this.loadWorkingCalendarPort = loadWorkingCalendarPort;
         this.loadReservationPort = loadReservationPort;
+        this.saveAuditLogPort = saveAuditLogPort;
+        this.loadCapacityThresholdPort = Objects.requireNonNull(loadCapacityThresholdPort, "LoadCapacityThresholdPort must not be null");
     }
 
     @Override
     public CompanyWeeklyCapacityMatrixResult getWeeklyCapacityMatrix(CompanyWeeklyCapacityQuery query) {
         // [TC-03 & Security]: Bắt buộc quyền RESOURCE_ALLOCATION_READ
-        Long currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        Long currentUserId;
+        try {
+            currentUserId = authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_READ);
+        } catch (PermissionDeniedException e) {
+            if (saveAuditLogPort != null) {
+                saveAuditLogPort.save(AuditLog.createChange(
+                        null,
+                        "ACCESS_DENIED_CAPACITY_VIEW",
+                        "weekly_capacity_matrix",
+                        null,
+                        null,
+                        "Từ chối truy cập chức năng xem ma trận năng lực khả dụng theo tuần"
+                ));
+            }
+            throw e;
+        }
+
         User currentUser = loadUserPort.findById(new UserId(currentUserId))
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng hiện tại"));
 
         // Xác thực và áp dụng Data Scope chặt chẽ
         Long effectiveOrgUnitId;
-        switch (currentUser.getDataScope()) {
-            case COMPANY -> {
-                effectiveOrgUnitId = query.orgUnitId();
-            }
-            case ORGANIZATION_BRANCH -> {
-                if (currentUser.getScopeOrgUnitId() == null) {
-                    throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
-                }
-                if (query.orgUnitId() != null) {
-                    // [TC-03]: Kiểm tra xem orgUnitId được yêu cầu có thuộc branch của người dùng không
-                    boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), currentUser.getScopeOrgUnitId());
-                    if (!inScope) {
-                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
-                    }
+        try {
+            switch (currentUser.getDataScope()) {
+                case COMPANY -> {
                     effectiveOrgUnitId = query.orgUnitId();
-                } else {
-                    // Mặc định giới hạn trong branch của người dùng
-                    effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
                 }
-            }
-            case SELF -> {
-                if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
-                    // VT-02 (Quản lý dự án): Thẩm định phạm vi phòng ban quản lý của PM
-                    Long pmOrgUnitId = resolveEmployeeOrgUnitId(currentUser, currentUserId);
-                    if (pmOrgUnitId == null) {
+                case ORGANIZATION_BRANCH -> {
+                    if (currentUser.getScopeOrgUnitId() == null) {
                         throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
                     }
                     if (query.orgUnitId() != null) {
-                        boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), pmOrgUnitId);
+                        // [TC-03]: Kiểm tra xem orgUnitId được yêu cầu có thuộc branch của người dùng không
+                        boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), currentUser.getScopeOrgUnitId());
                         if (!inScope) {
                             throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
                         }
                         effectiveOrgUnitId = query.orgUnitId();
                     } else {
-                        // Không cho phép PM xem toàn công ty (orgUnitId = null); mặc định giới hạn trong phòng ban của PM
-                        effectiveOrgUnitId = pmOrgUnitId;
+                        // Mặc định giới hạn trong branch của người dùng
+                        effectiveOrgUnitId = currentUser.getScopeOrgUnitId();
                     }
-                } else {
-                    // Người dùng chỉ có quyền SELF (nhân viên chuyên môn VT-04) không được xem bảng năng lực
-                    throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
                 }
+                case SELF -> {
+                    if (currentUser.getRole() != null && currentUser.getRole().getCode() == RoleCode.VT_02) {
+                        // VT-02 (Quản lý dự án): Thẩm định phạm vi phòng ban quản lý của PM
+                        Long pmOrgUnitId = resolveEmployeeOrgUnitId(currentUser, currentUserId);
+                        if (pmOrgUnitId == null) {
+                            throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                        }
+                        if (query.orgUnitId() != null) {
+                            boolean inScope = loadOrgUnitPort.existsInOrgUnitBranch(query.orgUnitId(), pmOrgUnitId);
+                            if (!inScope) {
+                                throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                            }
+                            effectiveOrgUnitId = query.orgUnitId();
+                        } else {
+                            // Không cho phép PM xem toàn công ty (orgUnitId = null); mặc định giới hạn trong phòng ban của PM
+                            effectiveOrgUnitId = pmOrgUnitId;
+                        }
+                    } else {
+                        // Người dùng chỉ có quyền SELF (nhân viên chuyên môn VT-04) không được xem bảng năng lực
+                        throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+                    }
+                }
+                default -> throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
             }
-            default -> throw new PermissionDeniedException(PermissionCode.RESOURCE_ALLOCATION_READ);
+        } catch (PermissionDeniedException e) {
+            if (saveAuditLogPort != null) {
+                saveAuditLogPort.save(AuditLog.createChange(
+                        currentUserId,
+                        "ACCESS_DENIED_CAPACITY_VIEW",
+                        "weekly_capacity_matrix",
+                        null,
+                        null,
+                        "user_id=" + currentUserId + ";role=" + (currentUser.getRole() != null ? currentUser.getRole().getCode().getCode() : "UNKNOWN")
+                ));
+            }
+            throw e;
         }
 
         String orgUnitName = "Toàn công ty";
@@ -204,6 +247,21 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         yw -> WeeklyAvailabilityPolicy.calculateHolidayHoursFromHolidays(yw, holidays, workingDays)
                 ));
 
+        // Tra cứu cấu hình ngưỡng cảnh báo năng lực hiệu lực hiện hành theo QTN-23
+        BigDecimal overloadThreshold = WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD;
+        BigDecimal idleThreshold = WeeklyCapacityMatrixPolicy.UNDERUTILIZED_THRESHOLD;
+        Optional<CapacityThresholdConfig> configOpt = Optional.empty();
+        if (effectiveOrgUnitId != null) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.ORG_UNIT, effectiveOrgUnitId);
+        }
+        if (configOpt.isEmpty()) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null);
+        }
+        if (configOpt.isPresent()) {
+            overloadThreshold = configOpt.get().getOverloadThreshold();
+            idleThreshold = configOpt.get().getIdleThreshold();
+        }
+
         // [🔴 HIGH REVIEW FIX]: Phân trang Server-side thực thụ ở tầng Database
         // Khi không có bộ lọc trạng thái (status == null), truy vấn phân trang trực tiếp từ DB
         // CHỈ nạp đúng pageSize nhân sự và CHỈ batch-load DB cho các nhân sự trên trang đó
@@ -231,13 +289,15 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         page,
                         pageSize,
                         0,
-                        0
+                        0,
+                        overloadThreshold,
+                        idleThreshold
                 );
             }
 
             List<Employee> pageEmployees = loadEmployeePort.findActivePaged(branchIds, search, pageSize, offset);
 
-            ComputationResult computation = computeMatrixForEmployees(pageEmployees, targetWeeks, workingDays, holidayHoursByWeek);
+            ComputationResult computation = computeMatrixForEmployees(pageEmployees, targetWeeks, workingDays, holidayHoursByWeek, overloadThreshold, idleThreshold);
 
             return new CompanyWeeklyCapacityMatrixResult(
                     effectiveOrgUnitId,
@@ -251,7 +311,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     page,
                     pageSize,
                     (int) totalEmployees,
-                    totalPages
+                    totalPages,
+                    overloadThreshold,
+                    idleThreshold
             );
         }
 
@@ -287,7 +349,9 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     query.page(),
                     query.size(),
                     0,
-                    0
+                    0,
+                    overloadThreshold,
+                    idleThreshold
             );
         }
 
@@ -307,7 +371,7 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     .toList();
         }
 
-        ComputationResult computation = computeMatrixForEmployees(candidatesToEvaluate, targetWeeks, workingDays, holidayHoursByWeek);
+        ComputationResult computation = computeMatrixForEmployees(candidatesToEvaluate, targetWeeks, workingDays, holidayHoursByWeek, overloadThreshold, idleThreshold);
         List<EmployeeCapacityRowResult> matchingRows = computation.rows().stream()
                 .filter(r -> matchesStatus(r, query.status()))
                 .toList();
@@ -342,19 +406,23 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 page,
                 pageSize,
                 totalMatching,
-                totalPages
+                totalPages,
+                overloadThreshold,
+                idleThreshold
         );
     }
 
     /**
-     * Tính toán ma trận năng lực tuần cho danh sách nhân sự mục tiêu.
+     * Tính toán ma trận năng lực tuần cho danh sách nhân sự mục tiêu với ngưỡng cấu hình động (QTN-23).
      * Chỉ batch-load dữ liệu phân bổ, khả dụng và nghỉ phép cho đúng danh sách này.
      */
     private ComputationResult computeMatrixForEmployees(
             List<Employee> targetEmployees,
             List<YearWeek> targetWeeks,
             Set<DayOfWeek> workingDays,
-            Map<YearWeek, Integer> holidayHoursByWeek
+            Map<YearWeek, Integer> holidayHoursByWeek,
+            BigDecimal overloadThreshold,
+            BigDecimal idleThreshold
     ) {
         if (targetEmployees == null || targetEmployees.isEmpty()) {
             return new ComputationResult(List.of(), new CapacityMatrixSummaryResult(0, targetWeeks.size(), 0, 0, 0, BigDecimal.ZERO));
@@ -425,9 +493,13 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 BigDecimal baseAvailableHours = WeeklyAvailabilityPolicy.calculateNetAvailableHours(standardHours, holidayHours, leaveHours);
 
                 // 2. Luôn luôn áp dụng điều chỉnh hợp đồng lao động
+                // QTN-21: Chỉ áp dụng startDate làm giới hạn bắt đầu hợp đồng cho nhân sự thuê ngoài.
+                // Đối với nhân sự nội bộ, bảo toàn hành vi cũ không lấy startDate làm ranh giới khả dụng.
                 int weekWorkingDaysCount = workingDays.isEmpty() ? 5 : workingDays.size();
+                LocalDate contractStartDate = emp.isOutsourced() ? emp.getStartDate() : null;
                 BigDecimal availableHours = WeeklyCapacityMatrixPolicy.adjustAvailableHoursForContract(
                         baseAvailableHours,
+                        contractStartDate,
                         emp.getContractEndDate(),
                         yw.getStartDate(),
                         yw.getEndDate(),
@@ -438,12 +510,12 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                 BigDecimal allocatedHours = allocationMap.getOrDefault(key, BigDecimal.ZERO);
                 BigDecimal reservedHours = reservationMap.getOrDefault(key, BigDecimal.ZERO);
 
-                // 4. Áp dụng QTN-12: Giữ chỗ KHÔNG cộng vào allocatedHours (QTN-13)
-                boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(allocatedHours, availableHours);
+                // 4. Áp dụng QTN-12 & QTN-23: Giữ chỗ KHÔNG cộng vào allocatedHours (QTN-13)
+                CapacityStatus status = WeeklyCapacityMatrixPolicy.determineStatus(allocatedHours, availableHours, overloadThreshold, idleThreshold);
+                boolean isOverloaded = (status == CapacityStatus.OVERLOADED);
                 BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(allocatedHours, availableHours);
                 BigDecimal remainingHours = WeeklyCapacityMatrixPolicy.calculateRemainingHours(availableHours, allocatedHours);
                 BigDecimal utilizationPercentage = WeeklyCapacityMatrixPolicy.calculateUtilizationPercentage(allocatedHours, availableHours);
-                CapacityStatus status = WeeklyCapacityMatrixPolicy.determineStatus(allocatedHours, availableHours);
 
                 if (isOverloaded) {
                     overloadedWeeksCount++;
@@ -465,7 +537,8 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                         isOverloaded,
                         excessHours,
                         status,
-                        reservedHours
+                        reservedHours,
+                        leaveHours
                 ));
             }
 
@@ -486,7 +559,11 @@ public class GetCompanyWeeklyCapacityService implements GetCompanyWeeklyCapacity
                     empTotalAllocated,
                     empTotalAvailable,
                     empAvgUtilization,
-                    overloadedWeeksCount
+                    overloadedWeeksCount,
+                    emp.getIsOutsourced(),
+                    emp.getProviderName(),
+                    emp.getStartDate(),
+                    emp.getContractEndDate()
             ));
         }
 

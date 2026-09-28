@@ -172,4 +172,48 @@ public class ProjectUseCaseConfig {
                                 authorizationService);
                 return new TransactionalReopenProjectUseCase(pureService);
         }
+
+        @Bean
+        public com.hrm.employeemanagement.application.port.inbound.project.ApproveProjectUseCase approveProjectUseCase(
+                        LoadProjectPort loadProjectPort,
+                        SaveProjectPort saveProjectPort,
+                        LoadUserPort loadUserPort,
+                        LoadEmployeePort loadEmployeePort,
+                        SaveAuditLogPort saveAuditLogPort,
+                        SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+                        AuthorizationService authorizationService,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false) com.hrm.employeemanagement.application.port.inbound.reservation.AutoProcessProjectReservationsUseCase autoProcessUseCase) {
+                com.hrm.employeemanagement.application.service.project.ApproveProjectService pureService = new com.hrm.employeemanagement.application.service.project.ApproveProjectService(
+                                loadProjectPort,
+                                saveProjectPort,
+                                loadUserPort,
+                                loadEmployeePort,
+                                saveAuditLogPort,
+                                saveDeniedAuditLogPort,
+                                authorizationService,
+                                autoProcessUseCase);
+                return new com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalApproveProjectUseCase(pureService);
+        }
+
+        @Bean
+        public com.hrm.employeemanagement.application.port.inbound.project.CancelProjectUseCase cancelProjectUseCase(
+                        LoadProjectPort loadProjectPort,
+                        SaveProjectPort saveProjectPort,
+                        LoadUserPort loadUserPort,
+                        LoadEmployeePort loadEmployeePort,
+                        SaveAuditLogPort saveAuditLogPort,
+                        SaveAuditLogInNewTransactionPort saveDeniedAuditLogPort,
+                        AuthorizationService authorizationService,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false) com.hrm.employeemanagement.application.port.inbound.reservation.AutoProcessProjectReservationsUseCase autoProcessUseCase) {
+                com.hrm.employeemanagement.application.service.project.CancelProjectService pureService = new com.hrm.employeemanagement.application.service.project.CancelProjectService(
+                                loadProjectPort,
+                                saveProjectPort,
+                                loadUserPort,
+                                loadEmployeePort,
+                                saveAuditLogPort,
+                                saveDeniedAuditLogPort,
+                                authorizationService,
+                                autoProcessUseCase);
+                return new com.hrm.employeemanagement.infrastructure.transaction.project.TransactionalCancelProjectUseCase(pureService);
+        }
 }

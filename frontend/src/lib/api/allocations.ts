@@ -27,11 +27,15 @@ export async function getWeeklyCapacities(
 }
 
 export interface ProjectWeeklyAllocationResult {
+  id?: number;
   employeeId: number;
   projectId: number;
+  projectRoleId?: number;
   year: number;
   weekNumber: number;
   allocatedHours: number;
+  allocationPercentage?: number;
+  varianceNote?: string | null;
 }
 
 export async function getProjectWeeklyAllocations(
@@ -51,15 +55,149 @@ export async function getProjectWeeklyAllocations(
 export async function allocateProjectHours(payload: {
   employeeId: number;
   projectId: number;
+  projectRoleId?: number;
   year: number;
   weekNumber: number;
-  allocatedHours: number;
+  allocatedHours?: number;
+  allocationPercentage?: number;
   overloadReason?: string;
 }): Promise<WeeklyCapacityResult> {
   return apiRequest<WeeklyCapacityResult>('/allocations', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+/**
+ * NCL-06-CN-006: Payload yêu cầu phân bổ hàng loạt cho nhiều tuần
+ */
+export interface BulkAllocateResourcePayload {
+  employeeId: number;
+  projectId: number;
+  projectRoleId?: number;
+  fromYear: number;
+  fromWeek: number;
+  toYear: number;
+  toWeek: number;
+  allocatedHoursPerWeek?: number;
+  allocationPercentagePerWeek?: number;
+}
+
+export interface AllocatedWeekSummary {
+  year: number;
+  weekNumber: number;
+  allocatedHours: number;
+  remainingHours: number;
+}
+
+export interface BlockedWeekSummary {
+  year: number;
+  weekNumber: number;
+  reasonCode: string;
+  reasonMessage: string;
+  netAvailableHours: number;
+  currentAllocatedHours: number;
+  requestedHours: number;
+}
+
+/**
+ * NCL-06-CN-006: Kết quả phân bổ hàng loạt nhiều tuần
+ */
+export interface BulkAllocationResult {
+  employeeId: number;
+  projectId: number;
+  totalRequestedWeeks: number;
+  successCount: number;
+  blockedCount: number;
+  successWeeks: AllocatedWeekSummary[];
+  blockedWeeks: BlockedWeekSummary[];
+}
+
+/**
+ * NCL-06-CN-006: Gọi API phân bổ hàng loạt cho nhiều tuần
+ */
+export async function bulkAllocateResource(
+  payload: BulkAllocateResourcePayload
+): Promise<BulkAllocationResult> {
+  return apiRequest<BulkAllocationResult>('/allocations/bulk', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * NCL-06-CN-004 / QTN-15: Các hành động điều chỉnh phân bổ nguồn lực
+ */
+export type AdjustmentAction = "EDIT_HOURS" | "MOVE_WEEK" | "REMOVE" | "NOTE_VARIANCE";
+
+export interface AdjustAllocationPayload {
+  action: AdjustmentAction;
+  newHours?: number;
+  allocationPercentage?: number;
+  targetYear?: number;
+  targetWeek?: number;
+  varianceReason?: string;
+  overloadReason?: string;
+}
+
+export interface VarianceNotePayload {
+  varianceReason: string;
+}
+
+export interface AllocationChangeLogResult {
+  id: number;
+  allocationId: number;
+  action: AdjustmentAction;
+  oldValue: string;
+  newValue: string;
+  changedBy: number;
+  changedByName: string;
+  changedAt: string;
+  notifiedPmIds?: string;
+}
+
+/**
+ * TC-01: Sửa giờ hoặc chuyển tuần cho dòng phân bổ nguồn lực
+ */
+export async function adjustAllocation(
+  id: number,
+  payload: AdjustAllocationPayload
+): Promise<WeeklyCapacityResult> {
+  return apiRequest<WeeklyCapacityResult>(`/allocations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * TC-02: Gỡ phân bổ nguồn lực (chặn nếu tuần đã kết thúc và có actual hours -> HTTP 409)
+ */
+export async function removeAllocation(id: number): Promise<{ success: boolean; message: string }> {
+  return apiRequest<{ success: boolean; message: string }>(`/allocations/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * TC-02: Ghi chú lý do chênh lệch thay thế khi bị chặn gỡ phân bổ
+ */
+export async function saveAllocationVarianceNote(
+  id: number,
+  payload: VarianceNotePayload
+): Promise<WeeklyCapacityResult> {
+  return apiRequest<WeeklyCapacityResult>(`/allocations/${id}/variance-note`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * TC-04: Xem lịch sử điều chỉnh phân bổ nguồn lực
+ */
+export async function getAllocationHistory(
+  id: number
+): Promise<AllocationChangeLogResult[]> {
+  return apiRequest<AllocationChangeLogResult[]>(`/allocations/${id}/history`);
 }
 
 export type CapacityStatus = "OVERLOADED" | "OPTIMAL" | "UNDERUTILIZED";
@@ -82,6 +220,7 @@ export interface CapacityMatrixCell {
   isOverloaded: boolean;
   excessHours: number;
   reservedHours?: number;
+  approvedLeaveHours?: number;
   status: CapacityStatus;
 }
 
@@ -92,6 +231,10 @@ export interface EmployeeCapacityRow {
   orgUnitId?: number | null;
   orgUnitName?: string | null;
   professionalRole?: string | null;
+  isOutsourced?: boolean;
+  providerName?: string | null;
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
   cells: CapacityMatrixCell[];
   totalAllocatedHours: number;
   totalAvailableHours: number;
@@ -122,6 +265,8 @@ export interface CompanyWeeklyCapacityMatrixData {
   pageSize: number;
   totalEmployees: number;
   totalPages: number;
+  overloadThreshold?: number;
+  idleThreshold?: number;
 }
 
 export interface CompanyWeeklyCapacityMatrixParams {
@@ -170,6 +315,62 @@ export async function getCompanyWeeklyCapacityMatrix(
   return apiRequest<CompanyWeeklyCapacityMatrixData>(
     `/allocations/weekly-matrix${queryStr ? `?${queryStr}` : ""}`
   );
+}
+
+export interface WeeklyAvailableHoursResult {
+  year: number;
+  weekNumber: number;
+  standardHours: number;
+  netAvailableHours: number;
+  totalAllocatedHours: number;
+  remainingHours: number;
+}
+
+export interface ResourceSearchResult {
+  employeeId: number;
+  employeeCode: string;
+  fullName: string;
+  orgUnitId?: number | null;
+  orgUnitName?: string | null;
+  jobTitle?: string | null;
+  skillId: number;
+  skillName: string;
+  proficiencyLevel: number;
+  yearsOfExperience?: number | null;
+  isOutsourced?: boolean;
+  providerName?: string | null;
+  startDate?: string | null;
+  contractEndDate?: string | null;
+  weeklyAvailabilities: WeeklyAvailableHoursResult[];
+  totalRemainingHours: number;
+}
+
+export interface SearchResourceQueryParams {
+  skillId: number;
+  minProficiencyLevel?: number;
+  orgUnitId?: number;
+  fromYear: number;
+  fromWeek: number;
+  toYear?: number;
+  toWeek?: number;
+  durationWeeks?: number;
+}
+
+export async function searchResourceCandidates(
+  params: SearchResourceQueryParams
+): Promise<ResourceSearchResult[]> {
+  const query = new URLSearchParams({
+    skillId: String(params.skillId),
+    fromYear: String(params.fromYear),
+    fromWeek: String(params.fromWeek),
+  });
+  if (params.toYear != null) query.append("toYear", String(params.toYear));
+  if (params.toWeek != null) query.append("toWeek", String(params.toWeek));
+  if (params.minProficiencyLevel != null) query.append("minProficiencyLevel", String(params.minProficiencyLevel));
+  if (params.orgUnitId != null) query.append("orgUnitId", String(params.orgUnitId));
+  if (params.durationWeeks != null) query.append("durationWeeks", String(params.durationWeeks));
+
+  return apiRequest<ResourceSearchResult[]>(`/allocations/search?${query.toString()}`);
 }
 
 // NCL-06-CN-005: Quản lý giữ chỗ nguồn lực (Resource Reservation - QTN-13)
@@ -268,3 +469,42 @@ export async function autoConvertProjectReservations(
   );
 }
 
+// NCL-07-CN-003: Thông báo phân bổ thay đổi
+export interface AllocationNotificationItemResult {
+  id: number;
+  recipientId?: number;
+  recipientName?: string;
+  senderId?: number | null;
+  senderName?: string;
+  type?: string;
+  targetType?: string;
+  targetId?: number;
+  title: string;
+  content: string;
+  isRead?: boolean;
+  read?: boolean;
+  createdAt: string;
+}
+
+export interface AllocationNotificationPageResult {
+  content: AllocationNotificationItemResult[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export async function getAllocationNotifications(params?: {
+  projectId?: number;
+  page?: number;
+  size?: number;
+}): Promise<AllocationNotificationPageResult> {
+  const searchParams = new URLSearchParams();
+  if (params?.projectId != null) searchParams.append("projectId", String(params.projectId));
+  if (params?.page != null) searchParams.append("page", String(params.page));
+  if (params?.size != null) searchParams.append("size", String(params.size));
+  const queryStr = searchParams.toString();
+  return apiRequest<AllocationNotificationPageResult>(
+    `/allocations/notifications${queryStr ? `?${queryStr}` : ""}`
+  );
+}

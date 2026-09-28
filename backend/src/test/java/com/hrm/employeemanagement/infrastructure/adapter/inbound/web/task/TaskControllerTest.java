@@ -66,6 +66,9 @@ class TaskControllerTest {
     @Mock
     private CloneProjectWbsUseCase cloneProjectWbsUseCase;
 
+    @Mock
+    private com.hrm.employeemanagement.application.port.inbound.task.AssignTaskUseCase assignTaskUseCase;
+
     @BeforeEach
     void setUp() {
         TaskController controller = new TaskController(
@@ -73,7 +76,8 @@ class TaskControllerTest {
                 updateTaskUseCase,
                 getProjectWbsUseCase,
                 setTaskBudgetUseCase,
-                cloneProjectWbsUseCase);
+                cloneProjectWbsUseCase,
+                assignTaskUseCase);
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
@@ -359,5 +363,38 @@ class TaskControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{projectId}/tasks/{taskId}/assignment - Phân công công việc thành công")
+    void testAssignTask_Success() throws Exception {
+        com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult result =
+                new com.hrm.employeemanagement.application.dto.task.TaskAssignmentResult(
+                        1L,
+                        "PRJ-01-T001",
+                        "Task 1",
+                        List.of(10L, 20L),
+                        java.time.LocalDate.of(2026, 9, 15),
+                        java.time.LocalDate.of(2026, 9, 30)
+                );
+
+        when(assignTaskUseCase.assignTask(any())).thenReturn(result);
+
+        String requestJson = """
+                {
+                    "employeeIds": [10, 20],
+                    "plannedStartDate": "2026-09-15",
+                    "plannedEndDate": "2026-09-30"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/projects/100/tasks/1/assignment")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.taskId").value(1))
+                .andExpect(jsonPath("$.data.assigneeIds[0]").value(10))
+                .andExpect(jsonPath("$.data.assigneeIds[1]").value(20));
     }
 }

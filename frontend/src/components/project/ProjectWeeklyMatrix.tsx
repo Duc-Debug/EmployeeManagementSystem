@@ -1,5 +1,24 @@
-import { Calendar, ChevronLeft, ChevronRight, Lightbulb, Lock } from 'lucide-react';
-import type { ProjectMember, ProjectMonth } from './projectData';
+import { Calendar, ChevronLeft, ChevronRight, Lightbulb, Lock, UserPlus, AlertTriangle } from 'lucide-react';
+import type { ProjectMember, ProjectMonth, MonthWeek } from './projectData';
+
+function isWeekPastContractEnd(w: MonthWeek, contractEndDateStr?: string): boolean {
+    if (!contractEndDateStr) return false;
+    const contractDate = new Date(contractEndDateStr);
+    if (isNaN(contractDate.getTime())) return false;
+
+    if (w.year && w.weekNumber) {
+        const simple = new Date(w.year, 0, 1 + (w.weekNumber - 1) * 7);
+        const dow = simple.getDay();
+        const ISOweekStart = new Date(simple);
+        if (dow <= 4) {
+            ISOweekStart.setDate(simple.getDate() - (simple.getDay() || 7) + 1);
+        } else {
+            ISOweekStart.setDate(simple.getDate() + 8 - (simple.getDay() || 7));
+        }
+        return contractDate < ISOweekStart;
+    }
+    return false;
+}
 
 interface ProjectWeeklyMatrixProps {
     month: ProjectMonth;
@@ -7,8 +26,10 @@ interface ProjectWeeklyMatrixProps {
     selectedRole: string;
     searchTerm: string;
     isClosed?: boolean;
+    canManageAllocations?: boolean;
     onNavigateMonth: (direction: number) => void;
     onOpenAdjustModal: (memberId: string, weekKey: string, weekLabel: string) => void;
+    onOpenSkillSearchModal?: () => void;
 }
 
 export function ProjectWeeklyMatrix({
@@ -17,8 +38,10 @@ export function ProjectWeeklyMatrix({
     selectedRole,
     searchTerm,
     isClosed = false,
+    canManageAllocations = false,
     onNavigateMonth,
     onOpenAdjustModal,
+    onOpenSkillSearchModal,
 }: ProjectWeeklyMatrixProps) {
     const monthWeeks = month.weeks;
 
@@ -85,7 +108,7 @@ export function ProjectWeeklyMatrix({
                             <h2 className="text-sm font-bold text-slate-900">Phân Bổ Nhân Lực Các Tuần Trong Tháng</h2>
                             {isClosed && (
                                 <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
-                                    <Lock className="h-3 w-3" /> Khóa phân bổ (QTN-08)
+                                    <Lock className="h-3 w-3" /> Đã khóa phân bổ
                                 </span>
                             )}
                             {/* Month Navigator Controls */}
@@ -93,7 +116,7 @@ export function ProjectWeeklyMatrix({
                                 <button
                                     type="button"
                                     onClick={() => onNavigateMonth(-1)}
-                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition"
+                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition cursor-pointer"
                                     title="Tháng trước"
                                 >
                                     <ChevronLeft className="h-3 w-3" />
@@ -102,7 +125,7 @@ export function ProjectWeeklyMatrix({
                                 <button
                                     type="button"
                                     onClick={() => onNavigateMonth(1)}
-                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition"
+                                    className="p-0.5 text-[10px] text-slate-400 hover:text-slate-700 transition cursor-pointer"
                                     title="Tháng sau"
                                 >
                                     <ChevronRight className="h-3 w-3" />
@@ -113,8 +136,18 @@ export function ProjectWeeklyMatrix({
                     </div>
                 </div>
 
-                {/* Heatmap Legend & Scroll Hint */}
+                {/* Controls & Heatmap Legend */}
                 <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                    {onOpenSkillSearchModal && !isClosed && (
+                        <button
+                            type="button"
+                            onClick={onOpenSkillSearchModal}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                        >
+                            <UserPlus className="h-3.5 w-3.5" />
+                            Thêm Nhân Sự Theo Kỹ Năng
+                        </button>
+                    )}
                     <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-600">
                         ↔ Cuộn ngang để xem đủ các tuần
                     </span>
@@ -128,6 +161,7 @@ export function ProjectWeeklyMatrix({
                         <span className="h-2.5 w-2.5 rounded-xs bg-rose-500" /> Quá tải (&gt;40h)
                     </span>
                 </div>
+
             </div>
 
             {/* Matrix Scrollable Container */}
@@ -170,7 +204,9 @@ export function ProjectWeeklyMatrix({
                         {filteredMembers.length === 0 ? (
                             <tr>
                                 <td colSpan={monthWeeks.length + 2} className="py-8 text-center text-xs text-slate-400">
-                                    Không tìm thấy nhân sự phù hợp với bộ lọc.
+                                    {members.length === 0
+                                        ? "Dự án chưa có nhân sự nào được phân bổ. Nhấn '+ Thêm Nhân Sự Theo Kỹ Năng' để chọn thành viên vào dự án."
+                                        : "Không tìm thấy nhân sự phù hợp với bộ lọc."}
                                 </td>
                             </tr>
                         ) : (
@@ -209,10 +245,22 @@ export function ProjectWeeklyMatrix({
                                                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="truncate text-xs font-semibold text-slate-800">
-                                                        {member.name}
+                                                    <div className="truncate text-xs font-semibold text-slate-800 flex items-center gap-1">
+                                                        <span>{member.name}</span>
+                                                        {member.status && member.status !== 'ACTIVE' && (
+                                                            <span className="rounded bg-rose-100 px-1 py-0.2 text-[8px] font-bold text-rose-700">
+                                                                Đã nghỉ
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <div className="truncate text-[10px] text-slate-400">{member.role}</div>
+                                                    <div className="truncate text-[10px] text-slate-400 flex items-center gap-1">
+                                                        <span>{member.role}</span>
+                                                        {member.contractEndDate && (
+                                                            <span className="text-[9px] text-amber-600 font-mono">
+                                                                (HĐ: {member.contractEndDate})
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
@@ -221,6 +269,8 @@ export function ProjectWeeklyMatrix({
                                         {monthWeeks.map((w) => {
                                             const hours = member.weeklyHours[w.key] || 0;
                                             const cellStyle = getHeatmapStyle(hours, member.capacity);
+                                            const isPastContract = isWeekPastContractEnd(w, member.contractEndDate) || (member.status && member.status !== 'ACTIVE');
+                                            const hasExpiredAllocationWarning = hours > 0 && isPastContract;
 
                                             return (
                                                 <td
@@ -228,21 +278,32 @@ export function ProjectWeeklyMatrix({
                                                     className={`px-2 py-2 text-center ${w.isCurrent ? 'bg-indigo-50/30' : ''}`}
                                                 >
                                                     <div
-                                                        onClick={() => !isClosed && onOpenAdjustModal(member.id, w.key, w.label)}
-                                                        className={`select-none rounded-lg p-1.5 transition border ${cellStyle.bg} ${cellStyle.border} ${cellStyle.text} ${
-                                                            isClosed
-                                                                ? 'cursor-not-allowed opacity-70'
-                                                                : 'cursor-pointer transform hover:scale-105 active:scale-95'
-                                                        }`}
+                                                        onClick={() => canManageAllocations && !isClosed && onOpenAdjustModal(member.id, w.key, w.label)}
                                                         title={
                                                             isClosed
-                                                                ? 'Dự án đã đóng, không thể điều chỉnh phân bổ nguồn lực (QTN-08)'
-                                                                : 'Bấm để điều chỉnh giờ phân bổ'
+                                                                ? 'Dự án đã đóng, không thể điều chỉnh phân bổ nguồn lực'
+                                                                : hasExpiredAllocationWarning
+                                                                ? `Cảnh báo: Nhân sự đã nghỉ việc / hết hạn HĐ (${member.contractEndDate || 'Đã nghỉ'}), phân bổ ${hours}h này vắt qua ngày nghỉ việc!`
+                                                                : canManageAllocations ? 'Bấm để điều chỉnh giờ phân bổ' : 'Giờ phân bổ chính thức'
                                                         }
+                                                        className={`select-none rounded-lg p-1.5 transition border ${
+                                                            isClosed || !canManageAllocations
+                                                                ? 'cursor-not-allowed opacity-70'
+                                                                : 'cursor-pointer transform hover:scale-105 active:scale-95'
+                                                        } ${
+                                                            hasExpiredAllocationWarning
+                                                                ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-300'
+                                                                : `${cellStyle.bg} ${cellStyle.border} ${cellStyle.text}`
+                                                        }`}
                                                     >
-                                                        <div className="text-xs font-bold">{hours}h</div>
+                                                        <div className="text-xs font-bold flex items-center justify-center gap-0.5">
+                                                            {hasExpiredAllocationWarning && (
+                                                                <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" />
+                                                            )}
+                                                            <span>{hours}h</span>
+                                                        </div>
                                                         <div className="mt-0.5 text-[9px] font-medium leading-none opacity-90">
-                                                            {cellStyle.label}
+                                                            {hasExpiredAllocationWarning ? '⚠ Quá hạn HĐ' : cellStyle.label}
                                                         </div>
                                                     </div>
                                                 </td>
@@ -340,7 +401,7 @@ export function ProjectWeeklyMatrix({
                     <div className="flex items-start gap-2.5 border-t border-emerald-200/80 bg-emerald-50/70 p-3 text-xs text-emerald-900">
                         <Lightbulb className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
                         <div>
-                            <strong className="font-semibold">Đánh giá tải trọng nhân lực:</strong> Phân bổ công suất toàn bộ đội ngũ trong tháng này đang ở mức an toàn, không có nhân sự nào vượt quá định mức 40h/tuần. Nhấp vào từng ô giờ để điều chỉnh phân bổ chi tiết.
+                            <strong className="font-semibold">Đánh giá tải trọng nhân lực:</strong> Phân bổ công suất toàn bộ đội ngũ trong tháng này đang ở mức an toàn, không có nhân sự nào vượt quá định mức 40h/tuần.
                         </div>
                     </div>
                 );
@@ -348,4 +409,3 @@ export function ProjectWeeklyMatrix({
         </section>
     );
 }
-

@@ -23,6 +23,8 @@ public interface EmployeeSkillRepository {
 
     List<EmployeeSkill> findByStatusAndEmployeeIdIn(com.hrm.employeemanagement.domain.skill.SkillStatus status, List<Long> employeeIds);
 
+    List<EmployeeSkill> findApprovedBySkillAndMinLevel(Long skillId, int minProficiencyLevel);
+
     PageResult<PendingEmployeeSkillItemResult> findPendingSkills(
             DataScope dataScope,
             Long scopeOrgUnitId,

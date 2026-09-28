@@ -1,12 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SideBar, { canAccessTab } from "./SideBar";
+import { resolveActiveTab } from "./dashboard-routing";
 import Header from "./Header";
-import DashboardHeader from "./DashboardHeader";
-import KpiStatsSection from "../kpi/KpiStatsSection";
-import CalendarView from "../calendar/CalendarView";
 import DepartmentsView from "../department/DepartmentsView";
 import EmployeeProfilePage from "../../pages/EmployeeProfilePage";
 import HrProfilePage from "../hrprofile/HrProfilePage";
@@ -16,9 +14,30 @@ import ProjectView from "../project/ProjectView";
 import AccessControlView from "../access/AccessControlView";
 import LeaveManagementView from "../leave/LeaveManagementView";
 import WeeklyAvailabilityView from "../availability/WeeklyAvailabilityView";
+import UnavailabilityView from "../unavailability/UnavailabilityView";
 import WorkingCalendarConfigView from "../calendar/WorkingCalendarConfigView";
+import UpcomingWorkloadView from "../workload/UpcomingWorkloadView";
+import RecruitmentDemandReportView from "../reports/RecruitmentDemandReportView";
+import CapacityForecastReportView from "../reports/CapacityForecastReportView";
+import ProjectAllocationReportView from "../reports/ProjectAllocationReportView";
+import TimesheetVarianceReportView from "../reports/TimesheetVarianceReportView";
+import BillableRateReportView from "../reports/BillableRateReportView";
 import CompanyWeeklyCapacityView from "../capacity/CompanyWeeklyCapacityView";
+import CapacityDashboardView from "../capacity/CapacityDashboardView";
 import ProjectRoleCatalogView from "../rolecatalog/ProjectRoleCatalogView";
+import ScheduleConflictWarningView from "../scheduleconflict/ScheduleConflictWarningView";
+import { SimulationScenarioListView } from "../scenario/SimulationScenarioListView";
+import MyWeeklySchedulePage from "../../features/my-schedule/pages/MyWeeklySchedulePage";
+import EmployeeImportView from "../import/EmployeeImportView";
+import BackupManagementWorkspace from "@/features/backup/BackupManagementWorkspace";
+
+const OutsourcedContractWarningView = lazy(() => import("../outsourcedcontract/OutsourcedContractWarningView"));
+import AdminDashboardOverview from "./AdminDashboardOverview";
+import PmDashboardOverview from "./PmDashboardOverview";
+import RmDashboardOverview from "./RmDashboardOverview";
+import ExecutiveDashboardOverview from "./ExecutiveDashboardOverview";
+import EmployeeDashboardOverview from "./EmployeeDashboardOverview";
+import HrDashboardOverview from "./HrDashboardOverview";
 import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import { getUsers } from "@/lib/api/users";
@@ -35,37 +54,26 @@ export default function Dashboard() {
     const user = useAuthUser();
 
     // Đồng bộ URL trình duyệt với tab tương ứng
-    const activeTab = useMemo(() => {
-        const path = location.pathname.toLowerCase();
-        if (path.includes("capacity") || path.includes("nang-luc")) return "capacity";
-        if (
-            path.includes("roles") ||
-            path.includes("vai-tro") ||
-            path.includes("project-role")
-        ) {
-            return "roles";
-        }
-        if (path.includes("access") || path.includes("phan-quyen")) return "access";
-        if (path.includes("working-calendar") || path.includes("lich-lam-viec") || path.includes("ngay-le") || path.includes("calendar-config")) return "working-calendar";
-        if (path.includes("availability") || path.includes("kha-dung") || path.includes("gio-tuan")) return "availability";
-        if (path.includes("hrprofile") || path.includes("ho-so") || path.includes("employee")) return "hrprofile";
-        if (path.includes("user") || path.includes("tai-khoan")) return "users";
-        if (path.includes("department") || path.includes("phong-ban") || path.includes("org-unit")) return "departments";
-        if (path.includes("attendance") || path.includes("cham-cong")) return "attendance";
-        if (path.includes("leave") || path.includes("nghi-phep")) return "leave";
-        if (path.includes("skills") || path.includes("ky-nang")) return "skills";
-        if (path.includes("project") || path.includes("du-an")) return "project";
-        if (path.includes("report") || path.includes("bao-cao")) return "reports";
-        if (path.includes("setting")) return "settings";
-        return "overview";
-    }, [location.pathname]);
+    const activeTab = useMemo(() => resolveActiveTab(location.pathname), [location.pathname]);
 
-    const isTabAllowed = canAccessTab(user?.roleCode, activeTab, user?.dataScope);
+    const isTabAllowed = canAccessTab(user?.roleCode, activeTab, user?.dataScope, user?.permissions);
 
     const handleTabChange = (tabId: string) => {
         const targetPath = tabId === "overview" ? "/" : `/${tabId}`;
         navigate(targetPath);
     };
+
+    // Điều hướng trang Không sẵn sàng độc lập: Nhúng vào lịch tuần của VT-04, các vai trò khác về trang chủ
+    useEffect(() => {
+        if (activeTab === "unavailability") {
+            const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+            if (role === "VT-04" || role === "ROLE-EMPLOYEE" || role === "EMPLOYEE") {
+                navigate("/my-schedule", { replace: true });
+            } else {
+                navigate("/", { replace: true });
+            }
+        }
+    }, [activeTab, user, navigate]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(
@@ -74,6 +82,27 @@ export default function Dashboard() {
 
     useEffect(() => {
         let isMounted = true;
+        const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
+        const canFetchAllUsers = ["VT-01", "VT-05", "VT-06", "ROLE-HR", "HR", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole);
+
+        if (!canFetchAllUsers) {
+            if (user) {
+                setAttendanceRecords([
+                    {
+                        id: user.employeeCode || String(user.id),
+                        name: user.fullName || user.username || "Nhân viên",
+                        dept: user.orgUnitName || "Phòng ban",
+                        inTime: "--:--",
+                        outTime: "--:--",
+                        hours: "0",
+                        ot: "0",
+                        status: "Đúng giờ",
+                    },
+                ]);
+            }
+            return;
+        }
+
         async function fetchRealUsers() {
             try {
                 const res = await getUsers(0, 50);
@@ -89,15 +118,15 @@ export default function Dashboard() {
                     status: u.status === "ACTIVE" ? "Đúng giờ" : "Vắng mặt",
                 }));
                 setAttendanceRecords(mapped);
-            } catch (err) {
-                console.warn("Không thể tải danh sách nhân sự cho bảng chấm công:", err);
+            } catch {
+                // User lacks permission or backend unavailable
             }
         }
         fetchRealUsers();
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [user]);
 
     const handleClockIn = () => {
         const time = new Date().toLocaleTimeString("en-US", {
@@ -106,7 +135,7 @@ export default function Dashboard() {
             minute: "2-digit",
         });
         const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
-        const currentName = user?.fullName || user?.username || "Tôi (Nhân viên)";
+        const currentName = user?.fullName || user?.username || "Tôi ";
         const currentDept = user?.orgUnitName || "Phòng chuyên môn";
 
         setAttendanceRecords((prev) => {
@@ -145,7 +174,7 @@ export default function Dashboard() {
             minute: "2-digit",
         });
         const currentIdStr = user?.id != null ? String(user.id) : CURRENT_EMPLOYEE_ID;
-        const currentName = user?.fullName || user?.username || "Tôi (Nhân viên)";
+        const currentName = user?.fullName || user?.username || "Tôi ";
 
         setAttendanceRecords((prev) =>
             prev.map((rec) =>
@@ -207,9 +236,22 @@ export default function Dashboard() {
 
                                 {activeTab === "hrprofile" && <HrProfilePage />}
 
+                                {activeTab === "capacity-dashboard" && <CapacityDashboardView onNavigate={handleTabChange} />}
+
                                 {activeTab === "capacity" && <CompanyWeeklyCapacityView />}
 
+                                {activeTab === "my-schedule" && <MyWeeklySchedulePage />}
+
                                 {activeTab === "availability" && <WeeklyAvailabilityView />}
+
+                                {activeTab === "unavailability" && <UnavailabilityView />}
+
+                                {activeTab === "workload" && (
+                                    <UpcomingWorkloadView
+                                        onNavigateToProjects={() => handleTabChange("project")}
+                                        onNavigateToLeave={() => handleTabChange("leave")}
+                                    />
+                                )}
 
                                 {activeTab === "working-calendar" && <WorkingCalendarConfigView />}
 
@@ -234,18 +276,60 @@ export default function Dashboard() {
 
                                 {activeTab === "leave" && <LeaveManagementView />}
 
-                                {(activeTab === "overview" || activeTab === "reports" || activeTab === "settings") && (
-                                    <div>
-                                        {/* Header Overview */}
-                                        <DashboardHeader />
+                                {activeTab === "recruitment-demand" && <RecruitmentDemandReportView />}
 
-                                        {/* Section KPI Cards */}
-                                        <KpiStatsSection />
+                                {activeTab === "simulation-scenarios" && <SimulationScenarioListView />}
 
-                                        {/* Lịch Workspace */}
-                                        <CalendarView />
-                                    </div>
-                                )}
+                                 {activeTab === "capacity-forecast" && <CapacityForecastReportView />}
+
+                                 {activeTab === "timesheet-variance" && <TimesheetVarianceReportView />}
+
+                                 {activeTab === "schedule-conflict" && <ScheduleConflictWarningView />}
+
+                                 {activeTab === "outsourced-contracts" && (
+                                     <Suspense
+                                         fallback={
+                                             <div className="flex h-64 items-center justify-center">
+                                                 <div className="flex flex-col items-center gap-2 text-slate-500">
+                                                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+                                                     <span className="text-xs">Đang tải Hợp đồng thuê ngoài...</span>
+                                                 </div>
+                                             </div>
+                                         }
+                                     >
+                                         <OutsourcedContractWarningView />
+                                     </Suspense>
+                                 )}
+
+                                {activeTab === "data-import" && <EmployeeImportView />}
+
+                                {activeTab === "backup" && <BackupManagementWorkspace />}
+
+                                {activeTab === "project-allocation-report" && <ProjectAllocationReportView />}
+
+                                {activeTab === "billable-rate" && <BillableRateReportView />}
+                                {(activeTab === "overview" || activeTab === "reports") && (() => {
+                                    const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
+                                    if (role === "VT-01" || role === "ROLE-EXECUTIVE" || role === "EXECUTIVE" || role === "DIRECTOR") {
+                                        return <ExecutiveDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-06" || role === "ROLE-ADMIN" || role === "ADMIN") {
+                                        return <AdminDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-02" || role === "ROLE-PM" || role === "PM" || role === "PROJECT-MANAGER") {
+                                        return <PmDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-03" || role === "ROLE-RM" || role === "RM" || role === "RESOURCE-MANAGER") {
+                                        return <RmDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-05" || role === "ROLE-HR" || role === "HR" || role === "HR-MANAGER" || role === "HR-SPECIALIST") {
+                                        return <HrDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    if (role === "VT-04" || role === "ROLE-EMPLOYEE" || role === "EMPLOYEE" || role === "MEMBER" || role === "DEVELOPER") {
+                                        return <EmployeeDashboardOverview onNavigate={handleTabChange} />;
+                                    }
+                                    return <EmployeeDashboardOverview onNavigate={handleTabChange} />;
+                                })()}
                             </>
                         )}
                     </main>

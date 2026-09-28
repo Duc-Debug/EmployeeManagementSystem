@@ -178,11 +178,19 @@ function CustomSelect<T extends string | number>({
 /* ------------------------------------------------------------------ */
 
 const LEVEL_OPTIONS: SelectOption<number>[] = [
-    { value: 1, label: '≥ 1 sao (Mọi mức)' },
-    { value: 2, label: '≥ 2 sao (Cơ bản)' },
-    { value: 3, label: '≥ 3 sao (Khá)' },
-    { value: 4, label: '≥ 4 sao (Giỏi)' },
-    { value: 5, label: '≥ 5 sao (Chuyên gia)' },
+    { value: 1, label: '≥ Mức 1 (Sơ cấp)' },
+    { value: 2, label: '≥ Mức 2 (Trung cấp)' },
+    { value: 3, label: '≥ Mức 3 (Khá)' },
+    { value: 4, label: '≥ Mức 4 (Giỏi)' },
+    { value: 5, label: '≥ Mức 5 (Chuyên gia)' },
+];
+
+const MIN_HOURS_OPTIONS: SelectOption<number>[] = [
+    { value: 0, label: 'Mọi mức giờ rảnh' },
+    { value: 10, label: '≥ 10h rảnh / tuần' },
+    { value: 20, label: '≥ 20h rảnh / tuần' },
+    { value: 30, label: '≥ 30h rảnh / tuần' },
+    { value: 40, label: '≥ 40h rảnh (Rảnh 100%)' },
 ];
 
 const AVAILABILITY_LABEL: Record<AvailabilityStatus, string> = {
@@ -198,10 +206,20 @@ const AVAILABILITY_FILTER_OPTIONS: { id: FilterState['availability']; label: str
     { id: 'busy', label: 'Đang bận' },
 ];
 
+export interface FilterState {
+    keyword: string;
+    skillId: string;
+    minLevel: number;
+    minHours: number;
+    availability: AvailabilityStatus | 'all';
+    department: string;
+}
+
 const DEFAULT_FILTERS: FilterState = {
     keyword: '',
     skillId: 'all',
     minLevel: 1,
+    minHours: 0,
     availability: 'all',
     department: 'all',
 };
@@ -323,6 +341,7 @@ export default function SkillresourceSearch({
     const [orgUnits, setOrgUnits] = useState<{ id: number; name: string }[]>([]);
     const [realEmployees, setRealEmployees] = useState<ResourceEmployee[]>([]);
     const [loading, setLoading] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
 
     // 1. Tải danh mục kỹ năng & cây phòng ban từ backend
     useEffect(() => {
@@ -381,6 +400,7 @@ export default function SkillresourceSearch({
     // 2. Gọi backend tìm kiếm nhân sự theo kỹ năng & độ rảnh
     const executeSearch = async () => {
         setLoading(true);
+        setHasSearched(true);
         try {
             const { year, week } = getCurrentYearAndWeek();
             const fromYear = year;
@@ -510,7 +530,7 @@ export default function SkillresourceSearch({
         }
     }
 
-    const dataSource = realEmployees.length > 0 ? realEmployees : propEmployees;
+    const dataSource = hasSearched ? realEmployees : (realEmployees.length > 0 ? realEmployees : propEmployees);
 
     const filteredEmployees = useMemo(() => {
         const keyword = filters.keyword.trim().toLowerCase();
@@ -526,9 +546,14 @@ export default function SkillresourceSearch({
             const matchesAvailability =
                 filters.availability === 'all' || emp.availability === filters.availability;
 
-            return matchesKeyword && matchesAvailability;
+            // Tính số giờ rảnh bình quân mỗi tuần
+            const weekCount = emp.weeklyAvailabilities?.length || 12;
+            const avgWeeklyRemaining = (emp.totalRemainingHours ?? 0) / Math.max(1, weekCount);
+            const matchesMinHours = filters.minHours === 0 || avgWeeklyRemaining >= filters.minHours;
+
+            return matchesKeyword && matchesAvailability && matchesMinHours;
         });
-    }, [filters.keyword, filters.availability, dataSource]);
+    }, [filters.keyword, filters.availability, filters.minHours, dataSource]);
 
     return (
         <div
@@ -558,12 +583,25 @@ export default function SkillresourceSearch({
                 </div>
             </div>
 
+            {/* Banner Giải thích Công thức QTN-10 & Phân quyền */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-indigo-50/70 border border-indigo-100 p-3.5 text-xs text-indigo-950">
+                <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span>
+                        <strong>Quy tắc QTN-10:</strong> Giờ trống thực tế = Giờ chuẩn − Giờ nghỉ lễ − Giờ nghỉ phép đã duyệt − Tổng giờ đã phân bổ vào các dự án.
+                    </span>
+                </div>
+                <span className="text-[11px] font-semibold text-indigo-700 bg-white border border-indigo-200 rounded-full px-2.5 py-0.5 shadow-2xs">
+                    Thẩm quyền: VT-03 (RM) & VT-06 (Admin)
+                </span>
+            </div>
+
             {/* Khung Bộ Lọc Tìm Kiếm */}
             <div className="mt-3 rounded-2xl bg-white p-4 text-slate-900 shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-3">
                     <div className="flex items-center gap-2">
                         <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
-                        <span>Bộ lọc tìm kiếm năng lực & độ rảnh</span>
+                        <span>Bộ lọc tìm kiếm năng lực & độ rảnh (NCL-02-CN-004)</span>
                     </div>
                     <button
                         type="button"
@@ -575,7 +613,7 @@ export default function SkillresourceSearch({
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 items-center">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5 items-center">
                     {/* Ô tìm từ khóa */}
                     <div className="relative flex items-center">
                         <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
@@ -583,8 +621,18 @@ export default function SkillresourceSearch({
                             value={filters.keyword}
                             onChange={(e) => updateFilter('keyword', e.target.value)}
                             placeholder="Tên, mã NV, vị trí, kỹ năng..."
-                            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#4338ca] focus:outline-none focus:ring-2 focus:ring-[#4338ca]/20"
+                            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#4338ca] focus:outline-none focus:ring-2 focus:ring-[#4338ca]/20"
                         />
+                        {filters.keyword && (
+                            <button
+                                type="button"
+                                onClick={() => updateFilter('keyword', '')}
+                                className="absolute right-2.5 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                                title="Xóa tìm kiếm"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
                     </div>
 
                     {/* Kỹ năng & Mức sao */}
@@ -601,9 +649,17 @@ export default function SkillresourceSearch({
                             value={filters.minLevel}
                             onChange={(val) => updateFilter('minLevel', Number(val))}
                             options={LEVEL_OPTIONS}
-                            className="w-32 shrink-0"
+                            className="w-28 shrink-0"
                         />
                     </div>
+
+                    {/* Lọc Giờ rảnh tối thiểu */}
+                    <CustomSelect
+                        value={filters.minHours}
+                        onChange={(val) => updateFilter('minHours', Number(val))}
+                        options={MIN_HOURS_OPTIONS}
+                        icon={<Clock className="h-4 w-4" />}
+                    />
 
                     {/* Phòng ban / Bộ phận */}
                     <CustomSelect
@@ -638,7 +694,7 @@ export default function SkillresourceSearch({
             {loading ? (
                 <div className="mt-4 rounded-2xl bg-white p-12 text-center border border-slate-200 shadow-xs">
                     <Loader2 className="mx-auto h-8 w-8 text-indigo-600 animate-spin" />
-                    <p className="mt-3 text-xs font-medium text-slate-500">Đang tra cứu dữ liệu nhân lực & độ rảnh từ hệ thống...</p>
+                    <p className="mt-3 text-xs font-medium text-slate-500">Đang tra cứu dữ liệu nhân lực & độ rảnh...</p>
                 </div>
             ) : filteredEmployees.length === 0 ? (
                 <div className="mt-4 rounded-2xl bg-white p-12 text-center border border-slate-200 shadow-xs text-slate-900">

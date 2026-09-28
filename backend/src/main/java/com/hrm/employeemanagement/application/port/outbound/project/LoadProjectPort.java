@@ -9,6 +9,8 @@ import com.hrm.employeemanagement.domain.project.ProjectId;
 public interface LoadProjectPort {
     Optional<Project> findById(ProjectId id);
 
+    List<Project> findAllById(List<ProjectId> ids);
+
     Optional<Project> findByIdForUpdate(ProjectId id);
 
     List<Project> findAll(int page, int size);
@@ -32,4 +34,16 @@ public interface LoadProjectPort {
     boolean existsManagedBy(Long projectId, Long employeeId);
 
     boolean existsMember(Long projectId, Long employeeId);
+
+    List<Long> findAllProjectIdsByOrgUnitBranch(Long scopeOrgUnitId);
+
+    List<Long> findAllManagedProjectIds(Long employeeId);
+
+    List<Project> findActiveProjects(int page, int size);
+
+    List<Project> findActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId, int page, int size);
+
+    long countActiveProjects();
+
+    long countActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId);
 }

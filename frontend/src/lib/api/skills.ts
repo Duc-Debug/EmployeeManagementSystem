@@ -34,7 +34,12 @@ export interface EmployeeSkillResponse {
   yearsOfExperience: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
   statusDisplayName?: string;
+  rejectionReason?: string;
   reviewNotes?: string;
+  lastApprovedProficiencyLevel?: number;
+  lastApprovedYearsOfExperience?: number;
+  pendingProficiencyLevel?: number;
+  pendingYearsOfExperience?: number;
   version?: number;
 }
 
@@ -51,6 +56,8 @@ export interface PendingEmployeeSkillItem {
   skillCategory?: string;
   proficiencyLevel: number;
   yearsOfExperience: number;
+  pendingProficiencyLevel?: number;
+  pendingYearsOfExperience?: number;
   status: string;
   createdAt?: string;
 }
@@ -313,10 +320,11 @@ export async function rejectSkill(id: number, rejectionReason?: string): Promise
 /* ── Department Skill Matrix API ─────────────────────────── */
 
 export async function getDepartmentSkillMatrix(
-  orgUnitId: number
+  orgUnitId?: number
 ): Promise<DepartmentSkillMatrixResponse> {
+  const query = orgUnitId && orgUnitId > 0 ? `?orgUnitId=${orgUnitId}` : "";
   const res = await apiRequest<any>(
-    `/skills/matrix?orgUnitId=${orgUnitId}`
+    `/skills/matrix${query}`
   );
   return unwrapData<DepartmentSkillMatrixResponse>(res);
 }

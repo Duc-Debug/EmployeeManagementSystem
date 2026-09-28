@@ -84,7 +84,7 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         } else if (dataScope == DataScope.ORGANIZATION_BRANCH) {
             role = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
         } else {
-            role = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
+            role = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên");
         }
         return new User(
                 new UserId(userId),
@@ -490,6 +490,27 @@ class SearchResourceBySkillAndAvailabilityServiceTest {
         assertEquals(20, result.weeklyAvailabilities().get(0).standardHours());
         assertEquals(0, new BigDecimal("20").compareTo(result.weeklyAvailabilities().get(0).netAvailableHours()));
         assertEquals(0, new BigDecimal("20").compareTo(result.totalRemainingHours()));
+    }
+
+    @Test
+    @DisplayName("Project Manager (VT-02): Có thể tìm kiếm ứng viên toàn công ty để bổ sung vào dự án")
+    void testSearch_ProjectManager_CanViewAllCandidates() {
+        when(authorizationService.require(PermissionCode.RESOURCE_SEARCH)).thenReturn(600L);
+        Role pmRole = new Role(new RoleId(2L), RoleCode.VT_02, "Quản lý dự án");
+        User pmUser = new User(new UserId(600L), "pm_user", "hash", pmRole, UserStatus.ACTIVE, null, DataScope.SELF, null, 0L);
+        when(loadUserPort.findById(any())).thenReturn(Optional.of(pmUser));
+
+        ResourceCandidate c1 = createCandidate(101L, 101L, 10L, "NV01", "Ứng viên 1");
+        ResourceCandidate c2 = createCandidate(102L, 102L, 20L, "NV02", "Ứng viên 2");
+
+        when(searchResourcePort.findActiveEmployeesBySkill(1L, 1)).thenReturn(List.of(c1, c2));
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        SearchResourceQuery query = new SearchResourceQuery(1L, 1, null, 2026, 10, 2026, 10);
+        List<ResourceSearchResult> results = service.search(query);
+
+        assertEquals(2, results.size());
     }
 }
 

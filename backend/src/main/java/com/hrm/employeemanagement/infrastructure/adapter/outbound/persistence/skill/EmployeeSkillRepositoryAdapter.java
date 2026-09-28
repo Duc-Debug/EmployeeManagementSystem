@@ -115,6 +115,16 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
     }
 
     @Override
+    public List<EmployeeSkill> findApprovedBySkillAndMinLevel(Long skillId, int minProficiencyLevel) {
+        if (skillId == null) {
+            return List.of();
+        }
+        return repository.findApprovedBySkillAndMinLevel(skillId, minProficiencyLevel).stream()
+                .map(SkillPersistenceMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public PageResult<PendingEmployeeSkillItemResult> findPendingSkills(
             DataScope dataScope,
             Long scopeOrgUnitId,
@@ -184,6 +194,8 @@ public class EmployeeSkillRepositoryAdapter implements EmployeeSkillRepository {
                 p.getSkillCategory(),
                 p.getProficiencyLevel(),
                 p.getYearsOfExperience(),
+                p.getPendingProficiencyLevel(),
+                p.getPendingYearsOfExperience(),
                 p.getStatus(),
                 p.getCreatedAt()
         );

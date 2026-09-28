@@ -69,6 +69,7 @@ function flattenOrgTree(nodes: readonly OrgUnitTreeNode[], depth = 0): OrgUnitOp
 
 export default function DepartmentLeaveCalendarView() {
     const user = useAuthUser();
+    const isPm = user?.roleCode?.replace(/_/g, "-") === "VT-02";
 
     // 1. Quản lý trạng thái bộ lọc & ngày tháng
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -200,13 +201,13 @@ export default function DepartmentLeaveCalendarView() {
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                         Đơn vị / Bộ phận
                     </label>
-                    <OrgUnitCombobox
+                    {isPm ? <p className="text-sm font-semibold text-indigo-700">Nhóm dự án do tôi quản lý</p> : <OrgUnitCombobox
                         id="dept-leave-org-select"
                         options={orgOptions}
                         value={selectedOrgUnitId}
                         onChange={(val) => setSelectedOrgUnitId(val)}
                         placeholder="Chọn phòng ban cần xem..."
-                    />
+                    />}
                 </div>
 
                 {/* Bộ chọn Tháng / Năm & Nút Hôm nay */}
@@ -267,7 +268,7 @@ export default function DepartmentLeaveCalendarView() {
                     </div>
 
                     {/* Cờ includeSubUnits (P2) */}
-                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition select-none">
+                    {!isPm && <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition select-none">
                         <input
                             type="checkbox"
                             checked={includeSubUnits}
@@ -276,89 +277,87 @@ export default function DepartmentLeaveCalendarView() {
                         />
                         <GitBranch className="size-3.5 text-slate-500" />
                         <span>Bao gồm bộ phận con</span>
-                    </label>
+                    </label>}
                 </div>
             </div>
 
-            {/* Thẻ thống kê nhanh KPI */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
-                            Nhân sự bộ phận
+            {/* Thẻ thống kê nhanh KPI (Gọn gàng, giảm chiều cao) */}
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <div className="flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50/50 px-3.5 py-2">
+                    <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 block">
+                            {isPm ? "Nhân sự dự án" : "Nhân sự bộ phận"}
                         </span>
-                        <Users className="size-4 text-blue-600" />
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className="text-base font-extrabold text-blue-950">
+                                {isLoading ? "..." : (calendarData?.totalDepartmentEmployees ?? "--")}
+                            </span>
+                            <span className="text-[11px] font-medium text-blue-700">người</span>
+                        </div>
                     </div>
-                    <p className="mt-2 text-2xl font-black text-blue-950">
-                        {isLoading ? "..." : (calendarData?.totalDepartmentEmployees ?? "--")} người
-                    </p>
-                    <p className="mt-1 text-[11px] font-semibold text-blue-600">
-                        {includeSubUnits ? "Đã gồm các nhóm/team con" : "Chỉ tính nhân sự trực tiếp"}
-                    </p>
+                    <Users className="size-4 text-blue-600 shrink-0" />
                 </div>
 
-                <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-purple-800">
+                <div className="flex items-center justify-between rounded-xl border border-purple-200 bg-purple-50/50 px-3.5 py-2">
+                    <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 block">
                             Khoảng nghỉ tháng
                         </span>
-                        <FileText className="size-4 text-purple-600" />
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className="text-base font-extrabold text-purple-950">
+                                {isLoading ? "..." : (calendarData?.totalLeaveRequests ?? "--")}
+                            </span>
+                            <span className="text-[11px] font-medium text-purple-700">đơn</span>
+                        </div>
                     </div>
-                    <p className="mt-2 text-2xl font-black text-purple-950">
-                        {isLoading ? "..." : (calendarData?.totalLeaveRequests ?? "--")} đơn
-                    </p>
-                    <p className="mt-1 text-[11px] font-semibold text-purple-600">
-                        Đang chờ duyệt hoặc đã duyệt
-                    </p>
+                    <FileText className="size-4 text-purple-600 shrink-0" />
                 </div>
 
                 <div className={cn(
-                    "rounded-2xl border p-4 transition",
+                    "flex items-center justify-between rounded-xl border px-3.5 py-2 transition",
                     (calendarData?.warningDaysCount ?? 0) > 0
-                        ? "border-rose-300 bg-rose-50/80 shadow-xs"
+                        ? "border-rose-300 bg-rose-50/80 shadow-2xs"
                         : "border-slate-200 bg-white"
                 )}>
-                    <div className="flex items-center justify-between">
+                    <div>
                         <span className={cn(
-                            "text-xs font-bold uppercase tracking-wider",
-                            (calendarData?.warningDaysCount ?? 0) > 0 ? "text-rose-800" : "text-slate-600"
+                            "text-[10px] font-bold uppercase tracking-wider block",
+                            (calendarData?.warningDaysCount ?? 0) > 0 ? "text-rose-800" : "text-slate-500"
                         )}>
                             Ngày vượt ngưỡng
                         </span>
-                        <AlertTriangle className={cn(
-                            "size-4",
-                            (calendarData?.warningDaysCount ?? 0) > 0 ? "text-rose-600" : "text-slate-400"
-                        )} />
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className={cn(
+                                "text-base font-extrabold",
+                                (calendarData?.warningDaysCount ?? 0) > 0 ? "text-rose-950" : "text-slate-900"
+                            )}>
+                                {isLoading ? "..." : (calendarData?.warningDaysCount ?? 0)}
+                            </span>
+                            <span className={cn(
+                                "text-[11px] font-medium",
+                                (calendarData?.warningDaysCount ?? 0) > 0 ? "text-rose-700" : "text-slate-500"
+                            )}>ngày</span>
+                        </div>
                     </div>
-                    <p className={cn(
-                        "mt-2 text-2xl font-black",
-                        (calendarData?.warningDaysCount ?? 0) > 0 ? "text-rose-950" : "text-slate-900"
-                    )}>
-                        {isLoading ? "..." : (calendarData?.warningDaysCount ?? 0)} ngày
-                    </p>
-                    <p className={cn(
-                        "mt-1 text-[11px] font-semibold",
+                    <AlertTriangle className={cn(
+                        "size-4 shrink-0",
                         (calendarData?.warningDaysCount ?? 0) > 0 ? "text-rose-600" : "text-slate-400"
-                    )}>
-                        {(calendarData?.warningDaysCount ?? 0) > 0
-                            ? "Nguy cơ thiếu hụt năng lực làm việc"
-                            : "Nguồn lực ổn định"}
-                    </p>
+                    )} />
                 </div>
 
-                <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-800">
+                <div className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50/50 px-3.5 py-2">
+                    <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 block">
                             Ngưỡng an toàn
                         </span>
-                        <CalendarDays className="size-4 text-indigo-600" />
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className="text-base font-extrabold text-indigo-950">
+                                {((calendarData?.warningThresholdPercentage ?? warningThreshold) * 100).toFixed(0)}%
+                            </span>
+                            <span className="text-[11px] font-medium text-indigo-700">công suất</span>
+                        </div>
                     </div>
-                    <p className="mt-2 text-2xl font-black text-indigo-950">
-                        {((calendarData?.warningThresholdPercentage ?? warningThreshold) * 100).toFixed(0)}%
-                    </p>
-                    <p className="mt-1 text-[11px] font-semibold text-indigo-600">
-                        Báo động khi số người nghỉ ≥ ngưỡng
-                    </p>
+                    <CalendarDays className="size-4 text-indigo-600 shrink-0" />
                 </div>
             </div>
 
@@ -529,7 +528,11 @@ export default function DepartmentLeaveCalendarView() {
                                                     <span className="truncate font-semibold">{item.fullName}</span>
                                                     <span className={cn(
                                                         "h-1.5 w-1.5 rounded-full shrink-0",
-                                                        item.status === "APPROVED" ? "bg-emerald-500" : "bg-amber-500"
+                                                        item.status === "APPROVED"
+                                                            ? "bg-emerald-500"
+                                                            : item.status === "CANCEL_REQUESTED"
+                                                                ? "bg-orange-500"
+                                                                : "bg-amber-500"
                                                     )} />
                                                 </div>
                                             ))}
@@ -653,9 +656,15 @@ export default function DepartmentLeaveCalendarView() {
                                             "rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase",
                                             item.status === "APPROVED"
                                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                : "bg-amber-50 text-amber-700 border-amber-200"
+                                                : item.status === "CANCEL_REQUESTED"
+                                                    ? "bg-orange-50 text-orange-700 border-orange-200"
+                                                    : "bg-amber-50 text-amber-700 border-amber-200"
                                         )}>
-                                            {item.status === "APPROVED" ? "Đã duyệt" : "Chờ phê duyệt"}
+                                            {item.status === "APPROVED"
+                                                ? "Đã duyệt"
+                                                : item.status === "CANCEL_REQUESTED"
+                                                    ? "Chờ duyệt hủy"
+                                                    : "Chờ phê duyệt"}
                                         </span>
                                     </div>
 

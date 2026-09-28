@@ -34,6 +34,7 @@ import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
 import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
 import com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException;
 import com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException;
@@ -347,5 +348,40 @@ class AddProjectMemberServiceTest {
 
         verify(saveProjectMemberPort).addMember(PROJECT_ID, NEW_MEMBER_EMPLOYEE_ID);
         verify(saveAuditLogPort).save(any());
+    }
+
+    @Test
+    @DisplayName("VT-03 (RM): Có thể thêm thành viên vào dự án khi có quyền RESOURCE_ALLOCATION_MANAGE")
+    void shouldAddMemberSuccessfully_WhenUserIsRMWithAllocationManagePermission() {
+        User rmUser = new User(
+                new UserId(30L),
+                "rm_user",
+                "hash",
+                new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực"),
+                UserStatus.ACTIVE,
+                new EmployeeId(101L),
+                DataScope.ORGANIZATION_BRANCH,
+                ORG_UNIT_ID,
+                1L
+        );
+        Employee member = createActiveEmployee(NEW_MEMBER_EMPLOYEE_ID);
+        User memberUser = new User(new UserId(200L), "member", "hash", new Role(new RoleId(2L), RoleCode.VT_04, "Employee"), UserStatus.ACTIVE, new EmployeeId(NEW_MEMBER_EMPLOYEE_ID), DataScope.SELF, null, 1L);
+        memberUser.setEmail("rm_member@hrm.com");
+
+        when(authorizationService.require(PermissionCode.PROJECT_UPDATE)).thenThrow(new PermissionDeniedException(PermissionCode.PROJECT_UPDATE));
+        when(authorizationService.require(PermissionCode.RESOURCE_ALLOCATION_MANAGE)).thenReturn(30L);
+        when(loadUserPort.findById(new UserId(30L))).thenReturn(Optional.of(rmUser));
+        when(loadProjectPort.findById(new ProjectId(PROJECT_ID))).thenReturn(Optional.of(createActiveProject()));
+        when(loadProjectPort.existsInOrgUnitBranch(PROJECT_ID, ORG_UNIT_ID)).thenReturn(true);
+        when(loadEmployeePort.findById(new EmployeeId(NEW_MEMBER_EMPLOYEE_ID))).thenReturn(Optional.of(member));
+        when(loadProjectMemberPort.existsMember(PROJECT_ID, NEW_MEMBER_EMPLOYEE_ID)).thenReturn(false);
+        when(loadUserPort.findById(new UserId(200L))).thenReturn(Optional.of(memberUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(ORG_UNIT_ID))).thenReturn(Optional.empty());
+
+        ProjectMemberResult result = service.addProjectMember(new AddProjectMemberCommand(PROJECT_ID, NEW_MEMBER_EMPLOYEE_ID));
+
+        assertThat(result).isNotNull();
+        assertThat(result.employeeId()).isEqualTo(NEW_MEMBER_EMPLOYEE_ID);
+        verify(saveProjectMemberPort).addMember(PROJECT_ID, NEW_MEMBER_EMPLOYEE_ID);
     }
 }

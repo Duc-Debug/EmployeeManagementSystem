@@ -1,10 +1,11 @@
 package com.hrm.employeemanagement.domain.employee;
 
-import com.hrm.employeemanagement.domain.exception.employee.InvalidEmployeeDataException;
-import com.hrm.employeemanagement.domain.user.UserId;
-
 import java.time.LocalDate;
 import java.util.Objects;
+
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.exception.employee.InvalidEmployeeDataException;
+import com.hrm.employeemanagement.domain.user.UserId;
 
 public class Employee {
     private EmployeeId id;
@@ -18,18 +19,27 @@ public class Employee {
     private Boolean isOutsourced;
     private Integer standardHoursPerWeek;
     private EmployeeStatus status;
+    private String providerName;
     private Long version;
 
     public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName,
                     String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                     Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status) {
         this(id, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
-                contractEndDate, isOutsourced, standardHoursPerWeek, status, null);
+                contractEndDate, isOutsourced, standardHoursPerWeek, status, null, null);
     }
 
     public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName,
                     String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                     Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status, Long version) {
+        this(id, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
+                contractEndDate, isOutsourced, standardHoursPerWeek, status, null, version);
+    }
+
+    public Employee(EmployeeId id, UserId userId, Long orgUnitId, String employeeCode, String fullName,
+                    String professionalRole, LocalDate startDate, LocalDate contractEndDate,
+                    Boolean isOutsourced, Integer standardHoursPerWeek, EmployeeStatus status,
+                    String providerName, Long version) {
         this.id = id;
         this.userId = userId;
         this.orgUnitId = orgUnitId;
@@ -40,6 +50,7 @@ public class Employee {
         this.contractEndDate = contractEndDate;
         this.isOutsourced = isOutsourced != null ? isOutsourced : false;
         this.status = status != null ? status : EmployeeStatus.ACTIVE;
+        this.providerName = providerName;
         setStandardHoursPerWeek(standardHoursPerWeek != null ? standardHoursPerWeek : 40);
         validateContractDates(startDate, contractEndDate);
         this.version = version;
@@ -60,6 +71,20 @@ public class Employee {
                                            Integer standardHoursPerWeek) {
         return new Employee(null, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
                 contractEndDate, false, standardHoursPerWeek, EmployeeStatus.ACTIVE);
+    }
+
+    public static Employee createOutsourced(Long orgUnitId, String employeeCode, String fullName,
+                                            String providerName, String professionalRole,
+                                            LocalDate startDate, LocalDate contractEndDate,
+                                            Integer standardHoursPerWeek) {
+        if (providerName == null || providerName.isBlank()) {
+            throw new InvalidEmployeeDataException("Đơn vị cung cấp nhân sự thuê ngoài không được để trống");
+        }
+        if (startDate == null || contractEndDate == null) {
+            throw new InvalidEmployeeDataException("Thời hạn hợp đồng thuê (ngày bắt đầu và ngày kết thúc) không được để trống");
+        }
+        return new Employee(null, null, orgUnitId, employeeCode, fullName, professionalRole,
+                startDate, contractEndDate, true, standardHoursPerWeek, EmployeeStatus.ACTIVE, providerName.trim(), null);
     }
 
     public void updateProfile(String fullName, Long orgUnitId, String professionalRole,
@@ -145,6 +170,10 @@ public class Employee {
         return isOutsourced;
     }
 
+    public String getProviderName() {
+        return providerName;
+    }
+
     public Integer getStandardHoursPerWeek() {
         return standardHoursPerWeek;
     }
@@ -171,5 +200,45 @@ public class Employee {
 
     public void changeStatus(EmployeeStatus newStatus) {
         this.status = Objects.requireNonNull(newStatus, "Trạng thái nhân viên không được null");
+    }
+
+    public boolean isOutsourced() {
+        return Boolean.TRUE.equals(this.isOutsourced);
+    }
+
+    /**
+     * Kiểm tra một tuần (ISO YearWeek) có nằm trong khoảng thời gian hợp đồng hay không.
+     * Áp dụng theo QTN-21: Tuần hợp lệ khi không kết thúc trước startDate và không bắt đầu sau contractEndDate.
+     */
+    public boolean isWithinContractPeriod(YearWeek yearWeek) {
+        if (yearWeek == null) {
+            return false;
+        }
+        LocalDate weekStart = yearWeek.getStartDate();
+        LocalDate weekEnd = yearWeek.getEndDate();
+
+        if (this.startDate != null && weekEnd.isBefore(this.startDate)) {
+            return false;
+        }
+        if (this.contractEndDate != null && weekStart.isAfter(this.contractEndDate)) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Kiểm tra một ngày cụ thể có nằm trong khoảng thời gian hợp đồng hay không.
+     */
+    public boolean isWithinContractPeriod(LocalDate date) {
+        if (date == null) {
+            return false;
+        }
+        if (this.startDate != null && date.isBefore(this.startDate)) {
+            return false;
+        }
+        if (this.contractEndDate != null && date.isAfter(this.contractEndDate)) {
+            return false;
+        }
+        return true;
     }
 }

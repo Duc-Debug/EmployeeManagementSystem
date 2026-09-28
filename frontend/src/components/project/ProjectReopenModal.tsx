@@ -71,7 +71,6 @@ export function ProjectReopenModal({
                         </div>
                         <div>
                             <h2 className="text-base font-bold text-slate-900">Mở lại dự án</h2>
-                            <p className="text-xs text-emerald-700 font-medium">NCL-03-CN-004 & Kích hoạt lại vòng đời</p>
                         </div>
                     </div>
                     <button
@@ -117,10 +116,6 @@ export function ProjectReopenModal({
                             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                             <span>Kích hoạt lại dự án (ACTIVE)</span>
                         </div>
-                        <p className="text-[11px] leading-relaxed text-emerald-800">
-                            Sau khi mở lại thành công, dự án sẽ chuyển về trạng thái <strong>ĐANG THỰC HIỆN</strong>.
-                            Quản lý dự án (PM) và thành viên có thể tiếp tục tạo công việc mới và cập nhật phân bổ nguồn lực.
-                        </p>
                     </div>
 
                     {/* RBAC Notice if not executive */}
@@ -128,10 +123,10 @@ export function ProjectReopenModal({
                         <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-amber-900 space-y-1">
                             <div className="flex items-center gap-1.5 font-bold text-amber-950">
                                 <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                                <span>Phân quyền Ban Giám đốc (VT-01)</span>
+                                <span>Phân quyền Ban Giám đốc</span>
                             </div>
                             <p className="text-[11px] text-amber-800">
-                                Theo quy tắc bảo mật hệ thống, quyền mở lại dự án đã đóng được giới hạn cho <strong>Ban Giám đốc (VT-01)</strong> nhằm đảm bảo tính toàn vẹn của chi phí và giờ công.
+                                Theo quy tắc bảo mật hệ thống, quyền mở lại dự án đã đóng được giới hạn cho <strong>Ban Giám đốc</strong> nhằm đảm bảo tính toàn vẹn của chi phí và giờ công.
                             </p>
                         </div>
                     )}

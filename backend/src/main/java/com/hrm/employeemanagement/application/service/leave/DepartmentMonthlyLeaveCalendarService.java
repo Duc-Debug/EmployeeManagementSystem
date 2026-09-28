@@ -21,6 +21,7 @@ import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 
 import com.hrm.employeemanagement.application.port.outbound.calendar.HolidayQueryPort;
 import com.hrm.employeemanagement.application.port.outbound.calendar.HolidayRecord;
@@ -111,7 +112,20 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
 
         // 5. Lấy danh sách nhân viên đang hoạt động trong bộ phận (hoặc toàn bộ nhánh con nếu includeSubUnits = true)
         List<Employee> activeEmployees;
-        if (Boolean.TRUE.equals(query.includeSubUnits())) {
+        boolean projectTeam = currentUser.getRole().getCode() == RoleCode.VT_02;
+        if (projectTeam) {
+            Employee pm = loadEmployeePort.findByUserId(new UserId(currentUserId))
+                    .orElseThrow(() -> new PermissionDeniedException(PermissionCode.DEPARTMENT_LEAVE_READ));
+            List<Employee> team = new ArrayList<>();
+            int offset = 0;
+            while (true) {
+                List<Employee> page = loadEmployeePort.findByProjectManager(pm.getIdValue(), 500, offset);
+                team.addAll(page);
+                if (page.size() < 500) break;
+                offset += 500;
+            }
+            activeEmployees = team.stream().filter(e -> e.getStatus() == EmployeeStatus.ACTIVE).toList();
+        } else if (Boolean.TRUE.equals(query.includeSubUnits())) {
             List<Employee> branchEmployees = new ArrayList<>();
             int pageSize = 500;
             int offset = 0;
@@ -167,7 +181,7 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
         DepartmentMonthlyLeaveCalendar calendar = DepartmentMonthlyLeaveCalendar.calculate(
                 query.orgUnitId(),
                 orgUnit.getUnitCode(),
-                orgUnit.getUnitName(),
+                projectTeam ? "Nhóm dự án do tôi quản lý" : orgUnit.getUnitName(),
                 targetYear,
                 targetMonth,
                 activeEmployees.size(),
@@ -193,7 +207,7 @@ public class DepartmentMonthlyLeaveCalendarService implements GetDepartmentMonth
             case COMPANY -> true;
             case ORGANIZATION_BRANCH -> currentUser.getScopeOrgUnitId() != null
                     && loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, currentUser.getScopeOrgUnitId());
-            case SELF -> false;
+            case SELF -> currentUser.getRole().getCode() == RoleCode.VT_02;
         };
 
         if (!inScope) {

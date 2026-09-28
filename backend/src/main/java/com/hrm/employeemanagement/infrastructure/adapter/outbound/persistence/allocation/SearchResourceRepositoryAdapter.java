@@ -62,7 +62,10 @@ public class SearchResourceRepositoryAdapter implements SearchResourcePort {
                     p.getSkillId(),
                     p.getSkillName(),
                     p.getProficiencyLevel(),
-                    p.getYearsOfExperience()
+                    p.getYearsOfExperience(),
+                    p.getIsOutsourced(),
+                    p.getProviderName(),
+                    p.getStartDate()
             ));
         }
 

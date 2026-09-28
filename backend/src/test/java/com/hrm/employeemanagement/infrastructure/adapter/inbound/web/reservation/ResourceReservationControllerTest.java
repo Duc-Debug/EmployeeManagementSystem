@@ -10,7 +10,6 @@ import com.hrm.employeemanagement.application.port.inbound.reservation.CreateRes
 import com.hrm.employeemanagement.application.port.inbound.reservation.GetResourceReservationsUseCase;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
-import com.hrm.employeemanagement.domain.exception.reservation.InvalidReservationDataException;
 import com.hrm.employeemanagement.domain.exception.reservation.ReservationNotFoundException;
 import com.hrm.employeemanagement.domain.reservation.ReservationStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.reservation.dto.CancelReservationRequest;

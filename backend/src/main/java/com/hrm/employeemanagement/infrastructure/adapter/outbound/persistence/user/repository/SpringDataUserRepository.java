@@ -25,6 +25,26 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     @Query("SELECT COUNT(u) FROM UserJpaEntity u WHERE u.role.code = 'VT-06' AND u.isActive = true")
     long countActiveAdmins();
 
+    long countByIsActive(Boolean isActive);
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT u.id)
+        FROM users u
+        JOIN employees e
+            ON e.user_id = u.id
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND u.is_active = :isActive
+        """,
+        nativeQuery = true)
+    long countByOrgUnitBranchAndIsActive(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("isActive") boolean isActive
+    );
+
     @Query(value = """
         SELECT DISTINCT u.*
         FROM users u
@@ -122,13 +142,14 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE users
-        SET data_scope = 'ORGANIZATION_BRANCH'
+        SET scope_org_unit_id = COALESCE(scope_org_unit_id, (SELECT id FROM org_units ORDER BY id LIMIT 1)),
+            data_scope = 'ORGANIZATION_BRANCH'
         WHERE role_id IN (
             SELECT id
             FROM roles
             WHERE code = 'VT-03'
         )
-          AND data_scope <> 'ORGANIZATION_BRANCH'
+          AND (data_scope <> 'ORGANIZATION_BRANCH' OR scope_org_unit_id IS NULL)
         """,
         nativeQuery = true)
     int normalizeOrgBranchScopeUsers();

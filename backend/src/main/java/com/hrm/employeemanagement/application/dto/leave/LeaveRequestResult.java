@@ -20,6 +20,8 @@ public record LeaveRequestResult(
         LeaveStatus status,
         Long approverId,
         String approverComment,
+        String cancellationReason,
+        LocalDateTime cancellationRequestedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -36,6 +38,8 @@ public record LeaveRequestResult(
                 domain.getStatus(),
                 domain.getApproverId(),
                 domain.getApproverComment(),
+                domain.getCancellationReason(),
+                domain.getCancellationRequestedAt(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt()
         );

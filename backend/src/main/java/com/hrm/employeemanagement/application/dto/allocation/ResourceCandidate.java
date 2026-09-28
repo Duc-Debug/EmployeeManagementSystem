@@ -18,6 +18,41 @@ public record ResourceCandidate(
         Long skillId,
         String skillName,
         Integer proficiencyLevel,
-        BigDecimal yearsOfExperience
+        BigDecimal yearsOfExperience,
+        Boolean isOutsourced,
+        String providerName,
+        LocalDate startDate
 ) {
+    public ResourceCandidate(
+            Long employeeId,
+            Long userId,
+            String employeeCode,
+            String fullName,
+            Long orgUnitId,
+            String professionalRole,
+            Integer standardHoursPerWeek,
+            LocalDate contractEndDate,
+            Long skillId,
+            String skillName,
+            Integer proficiencyLevel,
+            BigDecimal yearsOfExperience
+    ) {
+        this(
+                employeeId,
+                userId,
+                employeeCode,
+                fullName,
+                orgUnitId,
+                professionalRole,
+                standardHoursPerWeek,
+                contractEndDate,
+                skillId,
+                skillName,
+                proficiencyLevel,
+                yearsOfExperience,
+                false,
+                null,
+                null
+        );
+    }
 }

@@ -13,9 +13,11 @@ export interface LeaveRequestDto {
   daysCount: number;
   hoursDeducted: number;
   reason?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "CANCEL_REQUESTED";
   approverId?: number;
   approverComment?: string;
+  cancellationReason?: string;
+  cancellationRequestedAt?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -120,7 +122,7 @@ export interface LeaveCalendarItemDto {
   fullName: string;
   startDate: string;
   endDate: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "CANCEL_REQUESTED";
   hoursDeducted: number;
   leaveType: "ANNUAL" | "UNPAID" | "SICK" | "PERSONAL";
   reason?: string;
@@ -212,6 +214,39 @@ export async function approveLeaveRequest(id: number | string, comment?: string)
 export async function rejectLeaveRequest(id: number | string, reason: string): Promise<LeaveRequestDto> {
   const numericId = typeof id === "string" ? id.replace(/\D/g, "") : id;
   return apiRequest<LeaveRequestDto>(`/leave-requests/${numericId}/reject`, {
+    method: "PUT",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+/**
+ * NCL-05-CN-007: Nhân viên chuyên môn gửi yêu cầu hủy đơn nghỉ phép đã duyệt
+ */
+export async function requestCancelLeaveRequest(id: number | string, reason: string): Promise<LeaveRequestDto> {
+  const numericId = typeof id === "string" ? id.replace(/\D/g, "") : id;
+  return apiRequest<LeaveRequestDto>(`/leave-requests/${numericId}/request-cancel`, {
+    method: "PUT",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+/**
+ * NCL-05-CN-007: Quản lý nguồn lực duyệt yêu cầu hủy đơn nghỉ phép đã duyệt
+ */
+export async function approveCancelLeaveRequest(id: number | string, comment?: string): Promise<LeaveRequestDto> {
+  const numericId = typeof id === "string" ? id.replace(/\D/g, "") : id;
+  return apiRequest<LeaveRequestDto>(`/leave-requests/${numericId}/approve-cancel`, {
+    method: "PUT",
+    body: JSON.stringify({ comment: comment || "" }),
+  });
+}
+
+/**
+ * NCL-05-CN-007: Quản lý nguồn lực từ chối yêu cầu hủy đơn nghỉ phép đã duyệt
+ */
+export async function rejectCancelLeaveRequest(id: number | string, reason: string): Promise<LeaveRequestDto> {
+  const numericId = typeof id === "string" ? id.replace(/\D/g, "") : id;
+  return apiRequest<LeaveRequestDto>(`/leave-requests/${numericId}/reject-cancel`, {
     method: "PUT",
     body: JSON.stringify({ reason }),
   });

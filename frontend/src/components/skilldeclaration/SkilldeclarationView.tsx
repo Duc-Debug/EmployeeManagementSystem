@@ -30,11 +30,11 @@ let toastSeq = 0;
 export type ModuleTab = 'declare' | 'matrix' | 'catalog' | 'approve' | 'search';
 
 const MODULE_TABS: { id: ModuleTab; label: string; icon: typeof SearchIcon; allowedRoles: string[] }[] = [
-    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04', 'VT-06'] },
+    { id: 'declare', label: 'Khai báo cá nhân', icon: ClipboardList, allowedRoles: ['VT-04'] },
     { id: 'matrix', label: 'Ma trận kỹ năng bộ phận', icon: LayoutGrid, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'] },
     { id: 'catalog', label: 'Danh mục kỹ năng', icon: BookOpen, allowedRoles: ['VT-01', 'VT-02', 'VT-03', 'VT-04', 'VT-05', 'VT-06'] },
-    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03', 'VT-06'] },
-    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-02', 'VT-03', 'VT-06'] },
+    { id: 'approve', label: 'Duyệt kỹ năng', icon: ShieldCheck, allowedRoles: ['VT-03'] },
+    { id: 'search', label: 'Tra cứu nhân lực', icon: SearchIcon, allowedRoles: ['VT-03', 'VT-06'] },
 ];
 
 interface SkillCampaign {
@@ -142,25 +142,25 @@ export default function SkilldeclarationView({
     const loadCatalog = async () => {
         try {
             const data = await getSkills();
-            if (data && data.length > 0) {
-                const mapped: CatalogSkill[] = data.map((s) => ({
-                    id: s.id,
-                    name: s.name,
-                    category: s.groupName || 'Khác',
-                    groupId: s.groupId,
-                    description: s.description,
-                    version: s.version,
-                }));
-                setCatalog(mapped);
-            }
+            const mapped: CatalogSkill[] = (data || []).map((s) => ({
+                id: s.id,
+                name: s.name,
+                category: s.groupName || 'Khác',
+                groupId: s.groupId,
+                description: s.description,
+                status: s.status,
+                version: s.version,
+            }));
+            setCatalog(mapped);
         } catch (err) {
             console.error('Failed to load skills catalog from backend:', err);
+            setCatalog([]);
         }
     };
 
     // 2. Tải danh sách kỹ năng cá nhân đã khai báo (cho VT-04)
     const loadPersonalSkills = async () => {
-        if (roleCode !== 'VT-04') return;
+        if (roleCode !== 'VT-04' && roleCode !== 'VT-06') return;
         try {
             const data = await getMySkills();
             const mapped: DeclaredSkill[] = data.map((es) => ({
@@ -171,6 +171,12 @@ export default function SkilldeclarationView({
                 level: es.proficiencyLevel,
                 years: es.yearsOfExperience,
                 status: (es.status?.toLowerCase() as SkillStatus) || 'pending',
+                rejectionReason: es.rejectionReason,
+                reviewNotes: es.reviewNotes,
+                pendingLevel: es.pendingProficiencyLevel,
+                pendingYears: es.pendingYearsOfExperience,
+                lastApprovedLevel: es.lastApprovedProficiencyLevel,
+                lastApprovedYears: es.lastApprovedYearsOfExperience,
             }));
             setSkills(mapped);
         } catch (err) {
@@ -186,10 +192,14 @@ export default function SkilldeclarationView({
             const mapped: PendingApprovalSkill[] = data.map((p) => ({
                 id: p.id,
                 employeeName: p.employeeName,
+                employeeCode: p.employeeCode,
+                orgUnitName: p.orgUnitName,
                 skillName: p.skillName,
                 category: p.skillCategory || 'Khác',
                 level: p.proficiencyLevel,
                 years: p.yearsOfExperience,
+                pendingLevel: p.pendingProficiencyLevel,
+                pendingYears: p.pendingYearsOfExperience,
                 status: (p.status?.toLowerCase() as any) || 'pending',
             }));
             setApprovalRequests(mapped);
@@ -297,6 +307,11 @@ export default function SkilldeclarationView({
     async function handleSave(payload: SkillPayload) {
         setSaving(true);
         try {
+            if (!payload.skillId || isNaN(Number(payload.skillId))) {
+                pushToast('Lỗi khai báo', 'Vui lòng chọn một kỹ năng hợp lệ từ danh mục.');
+                setSaving(false);
+                return;
+            }
             if (formMode === 'update') {
                 await updateMySkill(payload.skillId, {
                     skillId: payload.skillId,
@@ -341,20 +356,22 @@ export default function SkilldeclarationView({
 
     return (
         <div className="flex flex-col h-full min-h-0 space-y-4 flex-1">
-            <ToastList toasts={toasts} onDone={removeToast} />
-
             {/* ── Header ── */}
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Khai báo Kỹ năng</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        {roleCode === 'VT-04' ? 'Khai báo Kỹ năng' : 'Quản lý Năng lực & Kỹ năng'}
+                    </h1>
                     <p className="text-sm text-slate-500">
-                        Quản lý hồ sơ năng lực, tra cứu nhân sự theo kỹ năng và mức độ rảnh để gán vào dự án.
+                        {roleCode === 'VT-04'
+                            ? 'Khai báo và cập nhật hồ sơ kỹ năng chuyên môn, kinh nghiệm thực tế của bạn.'
+                            : 'Quản lý danh mục kỹ năng chuẩn, theo dõi ma trận năng lực bộ phận và tra cứu nhân sự khả dụng để phân bổ vào dự án.'}
                     </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    {/* Nút thiết lập thời hạn định kỳ cho Quản lý nguồn lực VT-03 & Admin VT-06 (User Story 9) */}
-                    {(roleCode === 'VT-03' || roleCode === 'VT-06') && (
+                    {/* Nút thiết lập thời hạn định kỳ cho Quản lý nguồn lực VT-03, HR VT-05 & Admin VT-06 (User Story 9) */}
+                    {(roleCode === 'VT-03' || roleCode === 'VT-05' || roleCode === 'VT-06') && (
                         <button
                             type="button"
                             onClick={() => {
@@ -398,8 +415,8 @@ export default function SkilldeclarationView({
 
             {/* ── Tab Content ── */}
             <div className="flex-1 min-h-0 overflow-y-auto">
-                {/* Tab Khai báo cá nhân (Dành cho VT-04 và VT-06) */}
-                {activeTab === 'declare' && (roleCode === 'VT-04' || roleCode === 'VT-06') && (
+                {/* Tab Khai báo cá nhân (Dành riêng cho Nhân viên chuyên môn VT-04) */}
+                {activeTab === 'declare' && roleCode === 'VT-04' && (
                     <div className="space-y-4">
                         {/* Banner thông báo đợt cập nhật kỹ năng định kỳ (User Story 9) */}
                         <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 via-sky-50/50 to-white p-4 text-slate-800 shadow-2xs">
@@ -473,8 +490,8 @@ export default function SkilldeclarationView({
                     />
                 )}
 
-                {/* Tab Tra cứu nhân lực theo kỹ năng & độ rảnh (Dành cho VT-02, VT-03, VT-06 - User Story 15) */}
-                {activeTab === 'search' && ['VT-02', 'VT-03', 'VT-06'].includes(roleCode) && (
+                {/* Tab Tra cứu nhân lực theo kỹ năng & độ rảnh (Dành cho VT-01, VT-02, VT-03, VT-05, VT-06 - User Story 15) */}
+                {activeTab === 'search' && ['VT-01', 'VT-02', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode) && (
                     <SkillresourceSearch
                         embedded
                         departments={departments}
@@ -621,6 +638,9 @@ export default function SkilldeclarationView({
                     </div>
                 </div>
             )}
+
+            {/* Toast Notifications */}
+            <ToastList toasts={toasts} onDone={removeToast} />
         </div>
     );
 }

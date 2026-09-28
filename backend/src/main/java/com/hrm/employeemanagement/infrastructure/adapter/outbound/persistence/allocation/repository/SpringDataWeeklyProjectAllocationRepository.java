@@ -4,7 +4,12 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.LockModeType;
 
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.allocation.entity.WeeklyProjectAllocationJpaEntity;
 
@@ -29,4 +34,26 @@ public interface SpringDataWeeklyProjectAllocationRepository extends JpaReposito
 
     List<WeeklyProjectAllocationJpaEntity> findByProjectIdAndYearAndWeekNumberBetween(
             Long projectId, Integer year, Integer startWeek, Integer endWeek);
+
+    List<WeeklyProjectAllocationJpaEntity> findByProjectIdAndYearAndWeekNumberIn(
+            Long projectId, Integer year, List<Integer> weekNumbers);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM WeeklyProjectAllocationJpaEntity a WHERE a.projectId = :projectId AND a.year = :year AND a.weekNumber IN :weekNumbers")
+    List<WeeklyProjectAllocationJpaEntity> findByProjectIdAndYearAndWeekNumberInForUpdate(
+            @Param("projectId") Long projectId,
+            @Param("year") Integer year,
+            @Param("weekNumbers") List<Integer> weekNumbers
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM WeeklyProjectAllocationJpaEntity a WHERE a.employeeId IN :employeeIds AND a.year = :year AND a.weekNumber IN :weekNumbers")
+    List<WeeklyProjectAllocationJpaEntity> findByEmployeeIdInAndYearAndWeekNumberInForUpdate(
+            @Param("employeeIds") List<Long> employeeIds,
+            @Param("year") Integer year,
+            @Param("weekNumbers") List<Integer> weekNumbers
+    );
+
+    List<WeeklyProjectAllocationJpaEntity> findByYearAndWeekNumberBetween(
+            Integer year, Integer startWeek, Integer endWeek);
 }

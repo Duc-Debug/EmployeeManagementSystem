@@ -86,7 +86,7 @@ export function ProjectTaskModal({
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
                     <div>
-                        <label className="mb-1 block font-semibold text-slate-700">Hạng mục chính (Phase/Category) *</label>
+                        <label className="mb-1 block font-semibold text-slate-700">Hạng mục chính *</label>
                         <ComboSelect
                             value={catId}
                             options={categories.map((c) => ({ id: c.id, label: `${c.code} - ${c.name}` }))}

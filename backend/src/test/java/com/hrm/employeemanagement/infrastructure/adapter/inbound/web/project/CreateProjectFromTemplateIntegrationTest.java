@@ -137,7 +137,8 @@ class CreateProjectFromTemplateIntegrationTest {
                 "managerId": %d,
                 "startDate": "2026-10-01",
                 "endDate": "2026-12-31",
-                "description": "Dự án test tích hợp từ Flyway migration V31"
+                "description": "Dự án test tích hợp từ Flyway migration V31",
+                "status": "ACTIVE"
             }
             """, templateId, expectedProjectName, devDept.getId(), pmEmployee.getId());
 

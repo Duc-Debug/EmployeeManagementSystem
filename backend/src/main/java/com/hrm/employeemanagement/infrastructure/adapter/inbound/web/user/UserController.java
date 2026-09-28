@@ -19,8 +19,10 @@ import com.hrm.employeemanagement.application.dto.user.PageResult;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserCommand;
 import com.hrm.employeemanagement.application.dto.user.UpdateUserRoleCommand;
 import com.hrm.employeemanagement.application.dto.user.UserResult;
+import com.hrm.employeemanagement.application.dto.user.UserStatsResult;
 import com.hrm.employeemanagement.application.port.inbound.user.CreateUserUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.GetUserListUseCase;
+import com.hrm.employeemanagement.application.port.inbound.user.GetUserStatsUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.ToggleUserStatusUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserRoleUseCase;
 import com.hrm.employeemanagement.application.port.inbound.user.UpdateUserUseCase;
@@ -40,17 +42,20 @@ public class UserController {
     private final UpdateUserRoleUseCase updateUserRoleUseCase;
     private final UpdateUserUseCase updateUserUseCase;
     private final GetUserListUseCase getUserListUseCase;
+    private final GetUserStatsUseCase getUserStatsUseCase;
 
     public UserController(CreateUserUseCase createUserUseCase,
                           ToggleUserStatusUseCase toggleUserStatusUseCase,
                           UpdateUserRoleUseCase updateUserRoleUseCase,
                           UpdateUserUseCase updateUserUseCase,
-                          GetUserListUseCase getUserListUseCase) {
+                          GetUserListUseCase getUserListUseCase,
+                          GetUserStatsUseCase getUserStatsUseCase) {
         this.createUserUseCase = createUserUseCase;
         this.toggleUserStatusUseCase = toggleUserStatusUseCase;
         this.updateUserRoleUseCase = updateUserRoleUseCase;
         this.updateUserUseCase = updateUserUseCase;
         this.getUserListUseCase = getUserListUseCase;
+        this.getUserStatsUseCase = getUserStatsUseCase;
     }
 
     @PostMapping
@@ -84,6 +89,12 @@ public class UserController {
                                                                         @RequestParam(defaultValue = "20") int size) {
         PageResult<UserResult> users = getUserListUseCase.getUsers(page, size);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tài khoản thành công", users));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<UserStatsResult>> getUserStats() {
+        UserStatsResult stats = getUserStatsUseCase.getUserStats();
+        return ResponseEntity.ok(ApiResponse.success("Lấy thống kê tài khoản thành công", stats));
     }
 
     @GetMapping("/{id}")

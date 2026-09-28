@@ -15,7 +15,8 @@ public class SkillPersistenceMapper {
                 entity.getCategory(),
                 entity.getDescription(),
                 entity.getGroupId(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getStatus() == null ? null : com.hrm.employeemanagement.domain.skill.SkillStatus.valueOf(entity.getStatus())
         );
     }
 
@@ -30,6 +31,7 @@ public class SkillPersistenceMapper {
                 domain.getCreatedAt()
         );
         entity.setGroupId(domain.getGroupId());
+        entity.setStatus(domain.getStatus() == null ? null : domain.getStatus().name());
         return entity;
     }
 

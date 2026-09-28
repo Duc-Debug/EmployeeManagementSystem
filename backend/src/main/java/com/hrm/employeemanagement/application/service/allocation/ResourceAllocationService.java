@@ -11,8 +11,11 @@ import java.util.stream.Collectors;
 import com.hrm.employeemanagement.application.dto.allocation.AllocateResourceCommand;
 import com.hrm.employeemanagement.application.dto.allocation.WeeklyCapacityResult;
 import com.hrm.employeemanagement.application.port.inbound.allocation.AllocateResourceUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
 import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort;
 import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
 import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
 import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
@@ -20,8 +23,13 @@ import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectP
 import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.AdjustmentAction;
+import com.hrm.employeemanagement.domain.allocation.AllocationChangeLog;
+import com.hrm.employeemanagement.domain.allocation.AllocationNotificationPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyCapacityMatrixPolicy;
 import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdConfig;
+import com.hrm.employeemanagement.domain.allocation.threshold.CapacityThresholdScope;
 import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
@@ -31,6 +39,7 @@ import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
 import com.hrm.employeemanagement.domain.exception.allocation.AllocationOverloadWarningException;
 import com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException;
+import com.hrm.employeemanagement.domain.exception.allocation.OutsourcedContractPeriodException;
 import com.hrm.employeemanagement.domain.exception.allocation.ProjectInactiveException;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
@@ -53,6 +62,9 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
     private final SaveAuditLogInNewTransactionPort saveAuditLogPort;
     private final LoadUserPort loadUserPort;
     private final LoadOrgUnitPort loadOrgUnitPort;
+    private final SaveAllocationChangeLogPort saveChangeLogPort;
+    private final AllocationNotificationPort notificationPort;
+    private final LoadCapacityThresholdPort loadCapacityThresholdPort;
 
     public ResourceAllocationService(
             AuthorizationService authorizationService,
@@ -65,6 +77,60 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             LoadUserPort loadUserPort,
             LoadOrgUnitPort loadOrgUnitPort
     ) {
+        this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
+                saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
+                null, null, null);
+    }
+
+    public ResourceAllocationService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
+    ) {
+        this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
+                saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
+                null, null, loadCapacityThresholdPort);
+    }
+
+    public ResourceAllocationService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort
+    ) {
+        this(authorizationService, loadEmployeePort, loadProjectPort, loadWeeklyAvailabilityPort,
+                saveAllocationPort, loadAllocationPort, saveAuditLogPort, loadUserPort, loadOrgUnitPort,
+                saveChangeLogPort, notificationPort, null);
+    }
+
+    public ResourceAllocationService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort,
+            LoadCapacityThresholdPort loadCapacityThresholdPort
+    ) {
         this.authorizationService = Objects.requireNonNull(authorizationService, "AuthorizationService must not be null");
         this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort, "LoadEmployeePort must not be null");
         this.loadProjectPort = Objects.requireNonNull(loadProjectPort, "LoadProjectPort must not be null");
@@ -74,6 +140,9 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         this.saveAuditLogPort = Objects.requireNonNull(saveAuditLogPort, "SaveAuditLogInNewTransactionPort must not be null");
         this.loadUserPort = Objects.requireNonNull(loadUserPort, "LoadUserPort must not be null");
         this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort, "LoadOrgUnitPort must not be null");
+        this.saveChangeLogPort = saveChangeLogPort;
+        this.notificationPort = notificationPort;
+        this.loadCapacityThresholdPort = loadCapacityThresholdPort;
     }
 
     @Override
@@ -96,9 +165,46 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
             throw new EmployeeInactiveException("Không thể phân bổ cho nhân sự không còn ở trạng thái hoạt động");
         }
 
-        LocalDate weekStartDate = yearWeek.getStartDate();
-        if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
-            throw new EmployeeInactiveException("Nhân sự đã kết thúc hợp đồng lao động trước tuần được chọn (" + yearWeek.weekNumber() + "/" + yearWeek.year() + ")");
+        // [QTN-21 / NCL-14-CN-002] Ràng buộc hiệu lực hợp đồng cho nhân sự thuê ngoài
+        if (employee.isOutsourced()) {
+            if (!employee.isWithinContractPeriod(yearWeek)) {
+                String providerInfo = (employee.getProviderName() != null && !employee.getProviderName().isBlank())
+                        ? " (đơn vị cung cấp: " + employee.getProviderName() + ")"
+                        : "";
+                String periodInfo = (employee.getStartDate() != null && employee.getContractEndDate() != null)
+                        ? " từ " + employee.getStartDate() + " đến " + employee.getContractEndDate()
+                        : "";
+                if (employee.getStartDate() != null && yearWeek.getEndDate().isBefore(employee.getStartDate())) {
+                    throw new OutsourcedContractPeriodException(
+                            "Không thể phân bổ: Hợp đồng của nhân sự thuê ngoài " + employee.getFullName() + providerInfo
+                                    + " chưa có hiệu lực tại tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
+                                    + " (thời hạn hợp đồng" + periodInfo + ")",
+                            employee.getIdValue(),
+                            employee.getEmployeeCode(),
+                            employee.getProviderName(),
+                            employee.getStartDate(),
+                            employee.getContractEndDate(),
+                            yearWeek
+                    );
+                } else {
+                    throw new OutsourcedContractPeriodException(
+                            "Không thể phân bổ: Hợp đồng của nhân sự thuê ngoài " + employee.getFullName() + providerInfo
+                                    + " đã hết hạn trước tuần " + yearWeek.weekNumber() + "/" + yearWeek.year()
+                                    + " (thời hạn hợp đồng" + periodInfo + ")",
+                            employee.getIdValue(),
+                            employee.getEmployeeCode(),
+                            employee.getProviderName(),
+                            employee.getStartDate(),
+                            employee.getContractEndDate(),
+                            yearWeek
+                    );
+                }
+            }
+        } else {
+            LocalDate weekStartDate = yearWeek.getStartDate();
+            if (employee.getContractEndDate() != null && employee.getContractEndDate().isBefore(weekStartDate)) {
+                throw new EmployeeInactiveException("Nhân sự đã kết thúc hợp đồng lao động trước tuần được chọn (" + yearWeek.weekNumber() + "/" + yearWeek.year() + ")");
+            }
         }
 
         // Load Dự án
@@ -119,6 +225,28 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         BigDecimal netAvailableHours = availabilityOpt.map(WeeklyAvailability::getNetAvailableHours)
                 .orElse(BigDecimal.valueOf(standardHours));
 
+        // Tính toán effectiveAllocatedHours và effectivePercentage (NCL-06-CN-007)
+        if (command.allocatedHours() != null && command.allocationPercentage() != null) {
+            throw new IllegalArgumentException("Không được cung cấp đồng thời số giờ phân bổ và tỷ lệ phần trăm phân bổ");
+        }
+
+        BigDecimal effectiveAllocatedHours;
+        BigDecimal effectivePercentage;
+
+        if (command.allocationPercentage() != null) {
+            effectivePercentage = command.allocationPercentage();
+            effectiveAllocatedHours = netAvailableHours.multiply(effectivePercentage)
+                    .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        } else {
+            effectiveAllocatedHours = command.allocatedHours();
+            if (netAvailableHours.compareTo(BigDecimal.ZERO) > 0) {
+                effectivePercentage = effectiveAllocatedHours.multiply(BigDecimal.valueOf(100))
+                        .divide(netAvailableHours, 2, java.math.RoundingMode.HALF_UP);
+            } else {
+                effectivePercentage = BigDecimal.ZERO;
+            }
+        }
+
         // Load tất cả allocations hiện tại của nhân sự trong tuần
         List<WeeklyProjectAllocation> existingAllocations = loadAllocationPort.loadAllocationsForEmployee(command.employeeId(), yearWeek);
 
@@ -128,18 +256,23 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 .map(WeeklyProjectAllocation::getAllocatedHours)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(command.allocatedHours());
+        BigDecimal totalRequestedAllocated = otherProjectsAllocatedSum.add(effectiveAllocatedHours);
 
-        // [QTN-11 / NCL-06-CN-003] Phát hiện quá tải khi phân bổ theo tuần
-        boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalRequestedAllocated, netAvailableHours);
-        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalRequestedAllocated, netAvailableHours);
+        // [QTN-11 / NCL-06-CN-003 & NCL-07-CN-004] Phát hiện quá tải khi phân bổ theo tuần
+        BigDecimal overloadThreshold = resolveOverloadThreshold(employee.getOrgUnitId());
+        BigDecimal thresholdHours = WeeklyCapacityMatrixPolicy.calculateOverloadThresholdHours(netAvailableHours, overloadThreshold);
+        boolean isOverloaded = WeeklyCapacityMatrixPolicy.isOverloaded(totalRequestedAllocated, netAvailableHours, overloadThreshold);
+        BigDecimal excessHours = WeeklyCapacityMatrixPolicy.calculateExcessHours(totalRequestedAllocated, netAvailableHours, overloadThreshold);
 
         if (isOverloaded) {
             String reason = command.overloadReason();
             if (reason == null || reason.trim().isEmpty()) {
                 // TC-01, TC-03: Cảnh báo quá tải và yêu cầu xác nhận kèm lý do
+                String thresholdDetail = overloadThreshold.compareTo(WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD) != 0
+                        ? " (ngưỡng " + overloadThreshold + "% = " + thresholdHours + "h)"
+                        : "";
                 throw new AllocationOverloadWarningException(
-                        "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ". Số giờ vượt: " + excessHours + "h. Yêu cầu Quản lý nguồn lực xác nhận có ghi rõ lý do.",
+                        "Không thể phân bổ: Tổng số giờ phân bổ (" + totalRequestedAllocated + "h) vượt quá số giờ khả dụng" + thresholdDetail + " (" + netAvailableHours + "h) của nhân sự trong tuần " + yearWeek.weekNumber() + "/" + yearWeek.year() + ". Số giờ vượt: " + excessHours + "h. Yêu cầu Quản lý nguồn lực xác nhận có ghi rõ lý do.",
                         netAvailableHours,
                         totalRequestedAllocated,
                         excessHours
@@ -172,8 +305,9 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         // Capture snapshot trạng thái cũ TRƯỚC KHI thực hiện bất kỳ mutation nào trên entity
         boolean oldIsOverloaded = existingOpt.map(WeeklyProjectAllocation::isOverloaded).orElse(false);
         BigDecimal oldHours = existingOpt.map(WeeklyProjectAllocation::getAllocatedHours).orElse(BigDecimal.ZERO);
-        String oldValue = oldHours.toString();
-        String newValue = command.allocatedHours().toString();
+        BigDecimal oldPct = existingOpt.map(WeeklyProjectAllocation::getAllocationPercentage).orElse(null);
+        String oldValue = oldHours + "h" + (oldPct != null ? " (" + oldPct + "%)" : "");
+        String newValue = effectiveAllocatedHours + "h (" + effectivePercentage + "%)";
         String oldOverloadState = "isOverloaded=" + oldIsOverloaded
                 + ";projectAllocatedHours=" + oldHours
                 + ";totalWeeklyAllocatedHours=" + currentTotalAllocated;
@@ -181,10 +315,13 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         WeeklyProjectAllocation allocation;
         if (existingOpt.isPresent()) {
             allocation = existingOpt.get();
-            allocation.updateAllocatedHours(command.allocatedHours());
+            allocation.updateAllocation(effectiveAllocatedHours, effectivePercentage);
+            if (command.projectRoleId() != null) {
+                allocation.setProjectRoleId(command.projectRoleId());
+            }
         } else {
             allocation = WeeklyProjectAllocation.createNew(
-                    command.employeeId(), command.projectId(), yearWeek, command.allocatedHours());
+                    command.employeeId(), command.projectId(), command.projectRoleId(), yearWeek, effectiveAllocatedHours, effectivePercentage);
         }
 
         java.time.LocalDateTime approvedAt = java.time.LocalDateTime.now();
@@ -220,14 +357,38 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
         // Lưu bản ghi (Concurrency retry được xử lý tại RetryableAllocateResourceUseCaseDecorator)
         WeeklyProjectAllocation saved = saveAllocationPort.save(allocation);
 
-        // Ghi nhật ký kiểm toán chuẩn (Audit Log)
+        String actionType = existingOpt.isPresent() ? "EDIT" : "ADD";
+        AdjustmentAction changeAction = existingOpt.isPresent() ? AdjustmentAction.EDIT_HOURS : AdjustmentAction.ADD;
+        String safeOldValue = existingOpt.isPresent() ? oldValue : "(Chưa phân bổ)";
+        String safeNewValue = newValue;
+
+        String notifiedPmIds = notifyStakeholders(
+                project, employee, currentUser, actionType,
+                AllocationNotificationPolicy.YearWeekRange.ofSingle(yearWeek),
+                safeOldValue, safeNewValue
+        );
+
+        if (saveChangeLogPort != null) {
+            Long allocationId = (saved != null && saved.getId() != null) ? saved.getId() : allocation.getId();
+            saveChangeLogPort.save(AllocationChangeLog.create(
+                    allocationId,
+                    changeAction,
+                    safeOldValue,
+                    safeNewValue,
+                    currentUserId,
+                    notifiedPmIds
+            ));
+        }
+
+        // [TC-04, TC-05, BR-07] Ghi nhật ký kiểm toán (Audit Log)
+        String auditAction = employee.isOutsourced() ? "ALLOCATE_OUTSOURCED_RESOURCE" : "RESOURCE_ALLOCATED";
         saveAuditLogPort.save(AuditLog.createChange(
                 currentUserId,
-                "RESOURCE_ALLOCATED",
+                auditAction,
                 "weekly_project_allocations",
                 saved.getId(),
-                "Số giờ phân bổ cũ: " + oldValue + "h",
-                "Số giờ phân bổ mới: " + newValue + "h cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
+                "Phân bổ cũ: " + oldValue,
+                "Phân bổ mới: " + newValue + " cho nhân sự ID: " + employee.getIdValue() + ", dự án ID: " + command.projectId()
         ));
 
         // [TC-05] Ghi nhật ký kiểm toán nghiệp vụ khi có thẩm quyền xác nhận vượt tải hợp lệ (State transition)
@@ -372,5 +533,53 @@ public class ResourceAllocationService implements AllocateResourceUseCase {
                 isOverAllocated,
                 warningMessage
         );
+    }
+
+    private BigDecimal resolveOverloadThreshold(Long orgUnitId) {
+        if (loadCapacityThresholdPort == null) {
+            return WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD;
+        }
+        java.util.Optional<CapacityThresholdConfig> configOpt = java.util.Optional.empty();
+        if (orgUnitId != null) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.ORG_UNIT, orgUnitId);
+        }
+        if (configOpt.isEmpty()) {
+            configOpt = loadCapacityThresholdPort.findByScope(CapacityThresholdScope.COMPANY, null);
+        }
+        return configOpt.map(CapacityThresholdConfig::getOverloadThreshold)
+                .orElse(WeeklyCapacityMatrixPolicy.DEFAULT_OVERLOAD_THRESHOLD);
+    }
+
+    private String notifyStakeholders(
+            Project project,
+            Employee employee,
+            User actor,
+            String actionType,
+            AllocationNotificationPolicy.YearWeekRange weekRange,
+            String oldValue,
+            String newValue
+    ) {
+        if (notificationPort == null) {
+            return null;
+        }
+        Long pmId = project.getManagerId() != null ? project.getManagerId().value() : null;
+        String title = AllocationNotificationPolicy.formatTitle(project.getProjectName(), actionType);
+        String content = AllocationNotificationPolicy.formatContent(
+                actor != null ? actor.getUsername() : "Người quản lý nguồn lực",
+                actionType,
+                employee != null ? employee.getFullName() : "Nhân sự",
+                project.getProjectName(),
+                weekRange,
+                oldValue,
+                newValue
+        );
+        notificationPort.notifyAllocationChanged(
+                project.getIdValue(),
+                employee != null ? employee.getIdValue() : null,
+                actor != null && actor.getId() != null ? actor.getId().value() : null,
+                title,
+                content
+        );
+        return pmId != null ? String.valueOf(pmId) : null;
     }
 }

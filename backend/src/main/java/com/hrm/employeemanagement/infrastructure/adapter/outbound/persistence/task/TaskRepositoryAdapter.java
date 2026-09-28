@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.hrm.employeemanagement.application.port.outbound.task.LoadTaskPort;
 import com.hrm.employeemanagement.application.port.outbound.task.SaveTaskPort;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.project.ProjectId;
 import com.hrm.employeemanagement.domain.task.Task;
 import com.hrm.employeemanagement.domain.task.TaskId;
@@ -31,6 +32,29 @@ public class TaskRepositoryAdapter implements LoadTaskPort, SaveTaskPort {
             return Optional.empty();
         }
         return taskRepository.findById(id.value()).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Task> findAllById(List<TaskId> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Long> rawIds = ids.stream().map(TaskId::value).filter(Objects::nonNull).toList();
+        if (rawIds.isEmpty()) {
+            return List.of();
+        }
+        return taskRepository.findAllById(rawIds).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Task> findByAssigneeId(EmployeeId assigneeId) {
+        if (assigneeId == null || assigneeId.value() == null) {
+            return List.of();
+        }
+        return taskRepository.findByAssigneeId(assigneeId.value())
+                .stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 
     @Override
@@ -63,7 +87,9 @@ public class TaskRepositoryAdapter implements LoadTaskPort, SaveTaskPort {
     @Override
     public Task save(Task task) {
         TaskJpaEntity entity = mapper.toJpaEntity(task);
-        TaskJpaEntity saved = taskRepository.save(entity);
+        // TaskJpaEntity uses @Version. Flush here so a concurrent actualHours update
+        // fails inside the use-case transaction and rolls every related write back.
+        TaskJpaEntity saved = taskRepository.saveAndFlush(entity);
         return mapper.toDomain(saved);
     }
 

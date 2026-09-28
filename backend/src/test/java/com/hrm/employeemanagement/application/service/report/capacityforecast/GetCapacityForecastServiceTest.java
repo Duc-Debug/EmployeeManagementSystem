@@ -1,0 +1,385 @@
+package com.hrm.employeemanagement.application.service.report.capacityforecast;
+
+import com.hrm.employeemanagement.application.dto.report.capacityforecast.CapacityForecastQuery;
+import com.hrm.employeemanagement.application.dto.report.capacityforecast.CapacityForecastResult;
+import com.hrm.employeemanagement.application.dto.report.capacityforecast.CapacityForecastResult.ForecastStatus;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.domain.allocation.WeeklyProjectAllocation;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.DataScope;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
+import com.hrm.employeemanagement.domain.reservation.ReservationStatus;
+import com.hrm.employeemanagement.domain.reservation.ResourceReservation;
+import com.hrm.employeemanagement.domain.user.User;
+import com.hrm.employeemanagement.domain.user.UserId;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@DisplayName("GetCapacityForecastService Unit Tests (NCL-10-CN-004)")
+class GetCapacityForecastServiceTest {
+
+    // Keep forecast tests independent from the calendar date on which the build runs.
+    private static final YearWeek TEST_WEEK = YearWeek.from(LocalDate.now());
+
+    private AuthorizationService authorizationService;
+    private LoadUserPort loadUserPort;
+    private LoadEmployeePort loadEmployeePort;
+    private LoadOrgUnitPort loadOrgUnitPort;
+    private LoadWeeklyProjectAllocationPort loadAllocationPort;
+    private LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort;
+    private LoadHolidaysPort loadHolidaysPort;
+    private LoadApprovedLeavesPort loadApprovedLeavesPort;
+    private LoadWorkingCalendarPort loadWorkingCalendarPort;
+    private LoadResourceReservationPort loadReservationPort;
+    private SaveAuditLogPort saveAuditLogPort;
+
+    private GetCapacityForecastService service;
+
+    private final Long USER_VT01_ID = 100L;
+    private final Long USER_VT03_ID = 200L;
+
+    private final Long ORG_UNIT_1_ID = 10L;
+    private final Long ORG_UNIT_2_ID = 20L;
+
+    @BeforeEach
+    void setUp() {
+        authorizationService = mock(AuthorizationService.class);
+        loadUserPort = mock(LoadUserPort.class);
+        loadEmployeePort = mock(LoadEmployeePort.class);
+        loadOrgUnitPort = mock(LoadOrgUnitPort.class);
+        loadAllocationPort = mock(LoadWeeklyProjectAllocationPort.class);
+        loadWeeklyAvailabilityPort = mock(LoadWeeklyAvailabilityPort.class);
+        loadHolidaysPort = mock(LoadHolidaysPort.class);
+        loadApprovedLeavesPort = mock(LoadApprovedLeavesPort.class);
+        loadWorkingCalendarPort = mock(LoadWorkingCalendarPort.class);
+        loadReservationPort = mock(LoadResourceReservationPort.class);
+        saveAuditLogPort = mock(SaveAuditLogPort.class);
+
+        service = new GetCapacityForecastService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort,
+                loadReservationPort,
+                saveAuditLogPort
+        );
+
+        when(loadHolidaysPort.getHolidaysBetween(any(), any())).thenReturn(List.of());
+        when(loadApprovedLeavesPort.loadApprovedLeaveHoursForEmployeesAndWeeks(any(), any())).thenReturn(Map.of());
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+
+        OrgUnit unit1 = mock(OrgUnit.class);
+        when(unit1.getUnitName()).thenReturn("Trung tâm Software 1");
+        when(unit1.getTreePath()).thenReturn("/10/");
+        when(loadOrgUnitPort.findById(eq(new OrgUnitId(ORG_UNIT_1_ID)))).thenReturn(Optional.of(unit1));
+    }
+
+    @Test
+    @DisplayName("TC-01: Báo cáo 12 tuần trả đúng giờ khả dụng, cam kết và còn trống từng tuần")
+    void execute_ShouldReturn12WeeksDataAccurately() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+
+        Employee emp2 = mock(Employee.class);
+        when(emp2.getIdValue()).thenReturn(2L);
+        when(emp2.getStandardHoursPerWeek()).thenReturn(40);
+
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1, emp2));
+
+        WeeklyProjectAllocation alloc1 = new WeeklyProjectAllocation(
+                101L, 1L, 500L, TEST_WEEK, BigDecimal.valueOf(30)
+        );
+        WeeklyProjectAllocation alloc2 = new WeeklyProjectAllocation(
+                102L, 2L, 500L, TEST_WEEK, BigDecimal.valueOf(20)
+        );
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(alloc1, alloc2));
+        when(loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(any(), any())).thenReturn(List.of());
+
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 12);
+
+        // Act
+        CapacityForecastResult result = service.execute(query);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(12, result.weeks().size());
+        assertEquals(TEST_WEEK.year(), result.fromYear());
+        assertEquals(TEST_WEEK.weekNumber(), result.fromWeek());
+
+        CapacityForecastResult.WeeklyForecastItem week38 = result.weeks().get(0);
+        assertEquals(TEST_WEEK.year(), week38.year());
+        assertEquals(TEST_WEEK.weekNumber(), week38.weekNumber());
+        assertEquals(new BigDecimal("80.0"), week38.availableHours());
+        assertEquals(new BigDecimal("50.0"), week38.committedHours());
+        assertEquals(new BigDecimal("0.0"), week38.reservedHours());
+        assertEquals(new BigDecimal("30.0"), week38.committedRemainingHours());
+        assertEquals(new BigDecimal("30.0"), week38.projectedRemainingHours());
+        assertEquals(new BigDecimal("62.5"), week38.committedUtilization());
+        assertEquals(new BigDecimal("62.5"), week38.projectedUtilization());
+        assertEquals(ForecastStatus.AVAILABLE, week38.status());
+
+        verify(saveAuditLogPort, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("TC-02: Giữ chỗ được trả riêng và ảnh hưởng đúng tới giờ còn trống dự kiến")
+    void execute_ShouldSeparateReservedHoursFromCommittedHours() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
+
+        WeeklyProjectAllocation alloc = new WeeklyProjectAllocation(
+                101L, 1L, 500L, TEST_WEEK, BigDecimal.valueOf(25)
+        );
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of(alloc));
+
+        ResourceReservation reservation = new ResourceReservation(
+                201L, 1000L, 1L, TEST_WEEK, BigDecimal.valueOf(10),
+                ReservationStatus.ACTIVE, null, null, "Dự án dự kiến", 100L, LocalDateTime.now(), null, null, 0L
+        );
+        when(loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(any(), any())).thenReturn(List.of(reservation));
+
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 4);
+
+        // Act
+        CapacityForecastResult result = service.execute(query);
+
+        // Assert
+        assertEquals(4, result.weeks().size());
+        CapacityForecastResult.WeeklyForecastItem week1 = result.weeks().get(0);
+        assertEquals(new BigDecimal("40.0"), week1.availableHours());
+        assertEquals(new BigDecimal("25.0"), week1.committedHours());
+        assertEquals(new BigDecimal("10.0"), week1.reservedHours());
+        assertEquals(new BigDecimal("15.0"), week1.committedRemainingHours());
+        assertEquals(new BigDecimal("5.0"), week1.projectedRemainingHours());
+        assertEquals(new BigDecimal("62.5"), week1.committedUtilization());
+        assertEquals(new BigDecimal("87.5"), week1.projectedUtilization());
+        assertEquals(ForecastStatus.NEAR_FULL, week1.status());
+    }
+
+    @Test
+    @DisplayName("TC-03: Permission denial được ủy quyền audit duy nhất cho AuthorizationService")
+    void execute_ShouldDelegatePermissionDeniedAuditToAuthorizationService() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ))
+                .thenThrow(new PermissionDeniedException(PermissionCode.CAPACITY_FORECAST_REPORT_READ));
+
+        CapacityForecastQuery query = new CapacityForecastQuery(null, 2026, 38, 12);
+
+        // Act & Assert
+        assertThrows(PermissionDeniedException.class, () -> service.execute(query));
+        verify(saveAuditLogPort, never()).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("VT-03 không xem được dữ liệu đơn vị ngoài Data Scope")
+    void execute_VT03_ShouldDenyOrgUnitOutsideBranchScope() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT03_ID);
+
+        User vt03User = mock(User.class);
+        when(vt03User.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(vt03User.getScopeOrgUnitId()).thenReturn(ORG_UNIT_1_ID);
+        when(loadUserPort.findById(new UserId(USER_VT03_ID))).thenReturn(Optional.of(vt03User));
+
+        when(loadOrgUnitPort.existsInOrgUnitBranch(ORG_UNIT_2_ID, ORG_UNIT_1_ID)).thenReturn(false);
+
+        CapacityForecastQuery query = new CapacityForecastQuery(ORG_UNIT_2_ID, 2026, 38, 12);
+
+        // Act & Assert
+        assertThrows(PermissionDeniedException.class, () -> service.execute(query));
+        verify(saveAuditLogPort, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("Tham số durationWeeks không hợp lệ (< 4 hoặc > 16) sẽ bị ném IllegalArgumentException")
+    void execute_ShouldThrowExceptionForInvalidDuration() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        // Act & Assert
+        CapacityForecastQuery invalidQueryLow = new CapacityForecastQuery(null, 2026, 38, 2);
+        assertThrows(IllegalArgumentException.class, () -> service.execute(invalidQueryLow));
+
+        CapacityForecastQuery invalidQueryHigh = new CapacityForecastQuery(null, 2026, 38, 20);
+        assertThrows(IllegalArgumentException.class, () -> service.execute(invalidQueryHigh));
+    }
+
+    @Test
+    @DisplayName("Regression: Ưu tiên dùng netAvailableHours từ WeeklyAvailability đã lưu khi có sẵn record")
+    void execute_ShouldPreferSavedWeeklyAvailabilityNetAvailableHoursWhenPresent() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
+
+        // WeeklyAvailability đã lưu có standard 40h nhưng netAvailableHours = 24h
+        WeeklyAvailability savedAvail = new WeeklyAvailability(
+                50L, 1L, TEST_WEEK, 40, 16, BigDecimal.ZERO, BigDecimal.valueOf(24)
+        );
+        when(loadWeeklyAvailabilityPort.loadAvailabilityForEmployeesAndWeeks(any(), any())).thenReturn(List.of(savedAvail));
+        when(loadAllocationPort.loadAllocationsForEmployeesAndWeeks(any(), any())).thenReturn(List.of());
+        when(loadReservationPort.findActiveByEmployeeIdsAndYearWeeks(any(), any())).thenReturn(List.of());
+
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 4);
+
+        // Act
+        CapacityForecastResult result = service.execute(query);
+
+        // Assert
+        assertEquals(new BigDecimal("24.0"), result.weeks().get(0).availableHours());
+    }
+
+    @Test
+    @DisplayName("Validation: Ném IllegalArgumentException khi chỉ truyền 1 trong 2 tham số fromYear hoặc fromWeek")
+    void execute_ShouldThrowExceptionWhenOnlyOneOfFromYearOrFromWeekIsProvided() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        // Only fromYear provided
+        CapacityForecastQuery onlyYearQuery = new CapacityForecastQuery(null, 2027, null, 12);
+        assertThrows(IllegalArgumentException.class, () -> service.execute(onlyYearQuery));
+
+        // Only fromWeek provided
+        CapacityForecastQuery onlyWeekQuery = new CapacityForecastQuery(null, null, 20, 12);
+        assertThrows(IllegalArgumentException.class, () -> service.execute(onlyWeekQuery));
+    }
+
+    @Test
+    @DisplayName("BR-01: Ném IllegalArgumentException khi từ tuần truyền vào trước tuần ISO hiện tại")
+    void execute_ShouldThrowExceptionWhenRequestedWeekIsBeforeCurrentWeek() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        YearWeek pastWeek = YearWeek.from(LocalDate.now().minusWeeks(1));
+        CapacityForecastQuery pastWeekQuery = new CapacityForecastQuery(
+                null, pastWeek.year(), pastWeek.weekNumber(), 12);
+
+        // Act & Assert
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.execute(pastWeekQuery));
+        assertTrue(ex.getMessage().contains("Tuần bắt đầu phải là tuần hiện tại hoặc tuần tương lai"));
+    }
+
+    @Test
+    @DisplayName("ISO Week: Xử lý chính xác chuyển giao năm ISO (VD từ 2026-W52 với 4 tuần dự báo -> 2026-W52, 2027-W01, W02, W03)")
+    void execute_ShouldHandleCrossYearIsoWeeksCorrectly() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
+
+        CapacityForecastQuery crossYearQuery = new CapacityForecastQuery(null, 2026, 52, 4);
+
+        // Act
+        CapacityForecastResult result = service.execute(crossYearQuery);
+
+        // Assert
+        assertEquals(4, result.weeks().size());
+        assertEquals(2026, result.weeks().get(0).year());
+        assertEquals(52, result.weeks().get(0).weekNumber());
+
+        assertEquals(2026, result.weeks().get(1).year());
+        assertEquals(53, result.weeks().get(1).weekNumber());
+
+        assertEquals(2027, result.weeks().get(2).year());
+        assertEquals(1, result.weeks().get(2).weekNumber());
+
+        assertEquals(2027, result.weeks().get(3).year());
+        assertEquals(2, result.weeks().get(3).weekNumber());
+    }
+
+    @Test
+    @DisplayName("BR-02: Áp dụng điều chỉnh contractEndDate nếu hợp đồng kết thúc trong tuần")
+    void execute_ShouldAdjustForContractEndDate() {
+        // Arrange
+        when(authorizationService.require(PermissionCode.CAPACITY_FORECAST_REPORT_READ)).thenReturn(USER_VT01_ID);
+        User vt01User = mock(User.class);
+        when(vt01User.getDataScope()).thenReturn(DataScope.COMPANY);
+        when(loadUserPort.findById(new UserId(USER_VT01_ID))).thenReturn(Optional.of(vt01User));
+
+        Employee emp1 = mock(Employee.class);
+        when(emp1.getIdValue()).thenReturn(1L);
+        when(emp1.getStandardHoursPerWeek()).thenReturn(40);
+        // Hợp đồng hết hạn vào thứ Tư của tuần kiểm thử -> chỉ làm việc 3 ngày (24h).
+        when(emp1.getContractEndDate()).thenReturn(TEST_WEEK.getStartDate().plusDays(2));
+        when(loadEmployeePort.findAllActive()).thenReturn(List.of(emp1));
+
+        CapacityForecastQuery query = new CapacityForecastQuery(null, TEST_WEEK.year(), TEST_WEEK.weekNumber(), 4);
+
+        // Act
+        CapacityForecastResult result = service.execute(query);
+
+        // Assert
+        assertEquals(new BigDecimal("24.0"), result.weeks().get(0).availableHours());
+    }
+}

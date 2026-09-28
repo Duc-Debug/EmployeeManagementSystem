@@ -85,6 +85,28 @@ class DepartmentSkillMatrixControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/skills/matrix (không truyền orgUnitId - Toàn bộ) -> Trả về ma trận 200 OK")
+    void getMatrix_WithoutQueryParam_Returns200() throws Exception {
+        DepartmentSkillMatrixResult result = new DepartmentSkillMatrixResult(
+                null,
+                "ALL",
+                "Toàn công ty",
+                List.of(new SkillMatrixSkillHeaderResult(1L, "JAVA", "Java", "Backend", 2, false)),
+                List.of(new SkillMatrixRowResult(101L, "EMP001", "Nguyễn Văn A", "Backend Dev", Map.of())),
+                new SkillMatrixSummaryResult(1, 1, 0, 0)
+        );
+
+        when(getDepartmentSkillMatrixUseCase.execute(null)).thenReturn(result);
+
+        mockMvc.perform(get("/api/v1/skills/matrix"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.orgUnitId").isEmpty())
+                .andExpect(jsonPath("$.data.orgUnitName").value("Toàn công ty"))
+                .andExpect(jsonPath("$.data.summary.totalEmployees").value(1));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/skills/matrix/10 -> Gọi qua Path Variable trả về 200 OK")
     void getMatrix_WithPathVariable_Returns200() throws Exception {
         DepartmentSkillMatrixResult result = new DepartmentSkillMatrixResult(

@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from "react";
+import { useState, useMemo, useEffect, type FormEvent } from "react";
 import { X, CalendarClock, Clock, User, AlertCircle, Loader2 } from "lucide-react";
 import type { EmployeeProfile } from "@/lib/api/employees";
 import { declareWeeklyAvailability, type WeeklyAvailabilityResult } from "@/lib/api/availability";
@@ -32,9 +32,23 @@ export default function DeclareAvailabilityModal({
   const [year, setYear] = useState<number>(initialYear);
   const [weekNumber, setWeekNumber] = useState<number>(initialWeekNumber);
   const [standardHours, setStandardHours] = useState<number>(initialStandardHours);
-
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+
+  // Synchronize state with incoming initial props whenever modal opens or props change
+  useEffect(() => {
+    if (open) {
+      if (initialEmployeeId) {
+        setEmployeeId(initialEmployeeId);
+      } else if (employees.length > 0) {
+        setEmployeeId(employees[0].id);
+      }
+      if (initialYear !== undefined) setYear(initialYear);
+      if (initialWeekNumber !== undefined) setWeekNumber(initialWeekNumber);
+      if (initialStandardHours !== undefined) setStandardHours(initialStandardHours);
+      setErrorMessage("");
+    }
+  }, [open, initialEmployeeId, initialYear, initialWeekNumber, initialStandardHours, employees]);
 
   // Compute date range for the selected week
   const dateRangeText = useMemo(() => {
@@ -97,7 +111,7 @@ export default function DeclareAvailabilityModal({
                 Khai báo giờ chuẩn tuần
               </h2>
               <p className="text-xs text-slate-500">
-                NCL-02-CN-003: Định mức giờ làm việc chuẩn cho từng tuần cụ thể
+                Định mức giờ làm việc chuẩn cho từng tuần cụ thể
               </p>
             </div>
           </div>
@@ -201,7 +215,7 @@ export default function DeclareAvailabilityModal({
               className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 font-bold text-slate-800 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
             />
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              * Hệ thống sẽ tự động trừ các ngày nghỉ lễ và đơn nghỉ phép đã phê duyệt của tuần này theo quy tắc QTN-10 để tính giờ khả dụng thực tế.
+              * Tự động trừ các ngày nghỉ lễ và đơn nghỉ phép đã phê duyệt của tuần này để tính giờ khả dụng thực tế.
             </p>
           </div>
         </form>

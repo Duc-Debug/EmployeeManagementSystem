@@ -1,6 +1,5 @@
 package com.hrm.employeemanagement.domain.skill;
 
-import java.util.Objects;
 import java.util.UUID;
 
 public final class SkillCodeGenerator {

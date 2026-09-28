@@ -3,7 +3,6 @@ package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.milestone;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -35,7 +34,6 @@ import com.hrm.employeemanagement.application.port.inbound.milestone.DeleteMiles
 import com.hrm.employeemanagement.application.port.inbound.milestone.GetProjectMilestonesUseCase;
 import com.hrm.employeemanagement.application.port.inbound.milestone.UpdateMilestoneUseCase;
 import com.hrm.employeemanagement.domain.exception.milestone.DuplicateMilestoneNameException;
-import com.hrm.employeemanagement.domain.exception.milestone.MilestoneNotFoundException;
 import com.hrm.employeemanagement.domain.exception.milestone.ProjectHasNoWbsException;
 import com.hrm.employeemanagement.domain.milestone.MilestoneStatus;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;

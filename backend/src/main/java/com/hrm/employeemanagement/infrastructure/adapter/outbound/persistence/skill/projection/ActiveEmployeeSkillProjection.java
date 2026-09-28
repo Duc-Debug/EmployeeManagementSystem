@@ -16,4 +16,7 @@ public interface ActiveEmployeeSkillProjection {
     String getSkillName();
     Integer getProficiencyLevel();
     BigDecimal getYearsOfExperience();
+    Boolean getIsOutsourced();
+    String getProviderName();
+    LocalDate getStartDate();
 }

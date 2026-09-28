@@ -161,4 +161,42 @@ class WeeklyCapacityMatrixPolicyTest {
         assertThat(WeeklyCapacityMatrixPolicy.calculateAverageUtilization(BigDecimal.ZERO, BigDecimal.ZERO))
                 .isEqualByComparingTo(BigDecimal.ZERO);
     }
+
+    @Test
+    @DisplayName("NCL-07-CN-004 / TC-01: Ngưỡng động - từ mức 90% trở lên là quá tải (OVERLOADED)")
+    void testDynamicThreshold_OverloadBoundary() {
+        BigDecimal overload = BigDecimal.valueOf(90.0);
+        BigDecimal idle = BigDecimal.valueOf(20.0);
+
+        // 1. Đúng ngưỡng 90% (36h / 40h) -> OVERLOADED (TC-01 evidence trực tiếp)
+        assertThat(WeeklyCapacityMatrixPolicy.determineStatus(BigDecimal.valueOf(36.0), BigDecimal.valueOf(40.0), overload, idle))
+                .isEqualTo(CapacityStatus.OVERLOADED);
+
+        // 2. Vượt ngưỡng 90% (37h / 40h = 92.5%) -> OVERLOADED
+        assertThat(WeeklyCapacityMatrixPolicy.determineStatus(BigDecimal.valueOf(37.0), BigDecimal.valueOf(40.0), overload, idle))
+                .isEqualTo(CapacityStatus.OVERLOADED);
+
+        // 3. Ngay dưới ngưỡng 90% (35.9h / 40h = 89.8%) -> OPTIMAL (Normal)
+        assertThat(WeeklyCapacityMatrixPolicy.determineStatus(BigDecimal.valueOf(35.9), BigDecimal.valueOf(40.0), overload, idle))
+                .isEqualTo(CapacityStatus.OPTIMAL);
+    }
+
+    @Test
+    @DisplayName("NCL-07-CN-004: Ngưỡng động - dưới mức 20% là nhàn rỗi (UNDERUTILIZED), đúng 20% là OPTIMAL")
+    void testDynamicThreshold_IdleBoundary() {
+        BigDecimal overload = BigDecimal.valueOf(90.0);
+        BigDecimal idle = BigDecimal.valueOf(20.0);
+
+        // 1. Dưới ngưỡng nhàn rỗi 20% (7.9h / 40h = 19.8%) -> UNDERUTILIZED
+        assertThat(WeeklyCapacityMatrixPolicy.determineStatus(BigDecimal.valueOf(7.9), BigDecimal.valueOf(40.0), overload, idle))
+                .isEqualTo(CapacityStatus.UNDERUTILIZED);
+
+        // 2. Đúng ngưỡng nhàn rỗi 20% (8h / 40h = 20.0%) -> OPTIMAL (Normal)
+        assertThat(WeeklyCapacityMatrixPolicy.determineStatus(BigDecimal.valueOf(8.0), BigDecimal.valueOf(40.0), overload, idle))
+                .isEqualTo(CapacityStatus.OPTIMAL);
+
+        // 3. Ngay trên ngưỡng nhàn rỗi (8.1h / 40h = 20.3%) -> OPTIMAL
+        assertThat(WeeklyCapacityMatrixPolicy.determineStatus(BigDecimal.valueOf(8.1), BigDecimal.valueOf(40.0), overload, idle))
+                .isEqualTo(CapacityStatus.OPTIMAL);
+    }
 }

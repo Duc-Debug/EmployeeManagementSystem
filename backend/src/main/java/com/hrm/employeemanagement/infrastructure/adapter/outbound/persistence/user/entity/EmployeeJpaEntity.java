@@ -42,6 +42,9 @@ public class EmployeeJpaEntity {
     @Column(name = "is_outsourced")
     private Boolean isOutsourced;
 
+    @Column(name = "provider_name")
+    private String providerName;
+
     @Column(name = "standard_hours_per_week", nullable = false)
     private Integer standardHoursPerWeek;
 
@@ -58,12 +61,20 @@ public class EmployeeJpaEntity {
                               String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                               Boolean isOutsourced, Integer standardHoursPerWeek, String status) {
         this(id, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
-                contractEndDate, isOutsourced, standardHoursPerWeek, status, null);
+                contractEndDate, isOutsourced, standardHoursPerWeek, status, null, null);
     }
 
     public EmployeeJpaEntity(Long id, Long userId, Long orgUnitId, String employeeCode, String fullName,
                               String professionalRole, LocalDate startDate, LocalDate contractEndDate,
                               Boolean isOutsourced, Integer standardHoursPerWeek, String status, Long version) {
+        this(id, userId, orgUnitId, employeeCode, fullName, professionalRole, startDate,
+                contractEndDate, isOutsourced, standardHoursPerWeek, status, null, version);
+    }
+
+    public EmployeeJpaEntity(Long id, Long userId, Long orgUnitId, String employeeCode, String fullName,
+                              String professionalRole, LocalDate startDate, LocalDate contractEndDate,
+                              Boolean isOutsourced, Integer standardHoursPerWeek, String status,
+                              String providerName, Long version) {
         this.id = id;
         this.userId = userId;
         this.orgUnitId = orgUnitId;
@@ -75,6 +86,7 @@ public class EmployeeJpaEntity {
         this.isOutsourced = isOutsourced;
         this.standardHoursPerWeek = standardHoursPerWeek;
         this.status = status;
+        this.providerName = providerName;
         this.version = version;
     }
 
@@ -109,6 +121,9 @@ public class EmployeeJpaEntity {
 
     public Boolean getIsOutsourced() { return isOutsourced; }
     public void setIsOutsourced(Boolean outsourced) { isOutsourced = outsourced; }
+
+    public String getProviderName() { return providerName; }
+    public void setProviderName(String providerName) { this.providerName = providerName; }
 
     public Integer getStandardHoursPerWeek() { return standardHoursPerWeek; }
     public void setStandardHoursPerWeek(Integer standardHoursPerWeek) { this.standardHoursPerWeek = standardHoursPerWeek; }

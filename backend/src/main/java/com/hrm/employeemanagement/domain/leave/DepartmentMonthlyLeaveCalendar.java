@@ -145,7 +145,8 @@ public class DepartmentMonthlyLeaveCalendar {
                 if (item.coversDate(currentDate)) {
                     dayItems.add(item);
                     employeesOnLeave.add(item.getEmployeeId());
-                    if (item.getStatus() == LeaveStatus.APPROVED) {
+                    if (item.getStatus() == LeaveStatus.APPROVED
+                            || item.getStatus() == LeaveStatus.CANCEL_REQUESTED) {
                         approvedCount++;
                     } else if (item.getStatus() == LeaveStatus.PENDING) {
                         pendingCount++;
