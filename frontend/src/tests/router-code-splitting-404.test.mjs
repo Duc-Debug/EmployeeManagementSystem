@@ -16,7 +16,7 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
 
         test("TC-01: App.tsx uses React.lazy() for major route components", () => {
             assert.match(appTsx, /const\s+ResetPasswordPage\s*=\s*lazy\(/);
-            assert.match(appTsx, /const\s+ChangePasswordPage\s*=\s*lazy\(/);
+            assert.match(appTsx, /const\s+(ChangePasswordPage|ForceChangePasswordPage)\s*=\s*lazy\(/);
             assert.match(appTsx, /const\s+NotFoundPage\s*=\s*lazy\(/);
             assert.match(appTsx, /const\s+ProjectView\s*=\s*lazy\(/);
             assert.match(appTsx, /const\s+AttendancePage\s*=\s*lazy\(/);
@@ -213,14 +213,14 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             const hasScenarioChunk = files.some((f) => f.startsWith("SimulationScenarioListView-") && f.endsWith(".js"));
             const hasDepartmentChunk = files.some((f) => f.startsWith("DepartmentsView-") && f.endsWith(".js"));
             const hasNotFoundChunk = files.some((f) => f.startsWith("NotFoundPage-") && f.endsWith(".js"));
-            const hasChangePasswordChunk = files.some((f) => f.startsWith("ChangePasswordPage-") && f.endsWith(".js"));
+            const hasChangePasswordChunk = files.some((f) => (f.startsWith("ChangePasswordPage-") || f.startsWith("ForceChangePasswordPage-")) && f.endsWith(".js"));
 
             assert.ok(hasProjectChunk, "ProjectView chunk must exist");
             assert.ok(hasCapacityChunk, "CompanyWeeklyCapacityView chunk must exist");
             assert.ok(hasScenarioChunk, "SimulationScenarioListView chunk must exist");
             assert.ok(hasDepartmentChunk, "DepartmentsView chunk must exist");
             assert.ok(hasNotFoundChunk, "NotFoundPage chunk must exist");
-            assert.ok(hasChangePasswordChunk, "ChangePasswordPage chunk must exist");
+            assert.ok(hasChangePasswordChunk, "ChangePasswordPage/ForceChangePasswordPage chunk must exist");
         });
     });
 });

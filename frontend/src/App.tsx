@@ -9,7 +9,7 @@ import { useAuthUser } from "./lib/auth-session";
 
 // Public & Auth Lazy Loaded Pages
 const ResetPasswordPage = lazy(() => import("./components/auth/ResetPasswordPage"));
-const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
+const ForceChangePasswordPage = lazy(() => import("./components/auth/ForceChangePasswordPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 // Dashboard Route Lazy Loaded Pages
@@ -94,7 +94,7 @@ function App() {
                     element={
                         <RequireAuth allowPasswordChangeOnly>
                             <Suspense fallback={<PageLoading />}>
-                                <ChangePasswordPage />
+                                <ForceChangePasswordPage />
                             </Suspense>
                         </RequireAuth>
                     }

@@ -3,6 +3,7 @@
 import { apiRequest } from "../api-client";
 import {
   clearAuthSession,
+  getStoredUser,
   setAuthToken,
   setStoredUser,
   type AuthUser,
@@ -44,9 +45,10 @@ export interface UserResultDto {
   status: UserStatus;
   username: string;
   permissions?: string[];
+  requiresPasswordChange?: boolean;
 }
 
-export function mapAuthUser(userRes: UserResultDto): AuthUser {
+export function mapAuthUser(userRes: UserResultDto, requiresPasswordChange?: boolean): AuthUser {
   return {
     dataScope: userRes.dataScope,
     email: userRes.email ?? null,
@@ -61,6 +63,9 @@ export function mapAuthUser(userRes: UserResultDto): AuthUser {
     status: userRes.status,
     username: userRes.username,
     permissions: userRes.permissions || [],
+    requiresPasswordChange: Boolean(
+      requiresPasswordChange ?? userRes.requiresPasswordChange
+    ),
   };
 }
 
@@ -82,10 +87,10 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
       method: "GET",
     });
 
-    const authUser = mapAuthUser(userRes);
-    if (loginRes.requiresPasswordChange !== undefined) {
-      authUser.requiresPasswordChange = Boolean(loginRes.requiresPasswordChange);
-    }
+    const requiresPasswordChange = Boolean(
+      userRes.requiresPasswordChange ?? loginRes.requiresPasswordChange
+    );
+    const authUser = mapAuthUser(userRes, requiresPasswordChange);
 
     setStoredUser(authUser);
     return authUser;
@@ -111,10 +116,12 @@ export async function changePassword(payload: ChangePasswordPayload): Promise<vo
     body: JSON.stringify(payload),
     method: "POST",
   });
-  const current = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("nexushrm_auth_user") || "null") : null;
-  if (current) {
-    current.requiresPasswordChange = false;
-    setStoredUser(current);
+  const stored = getStoredUser();
+  if (stored) {
+    setStoredUser({
+      ...stored,
+      requiresPasswordChange: false,
+    });
   }
 }
 
