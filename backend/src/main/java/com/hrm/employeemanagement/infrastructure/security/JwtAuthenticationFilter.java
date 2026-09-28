@@ -86,8 +86,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     if (jwtTokenVersion != null) {
                         if (!jwtTokenVersion.equals(user.getTokenVersion())) {
                             userStatusCache.evict(username);
-                            filterChain.doFilter(request, response);
-                            return;
+                            Optional<User> freshUserOpt = loadUserPort.findByUsername(username);
+                            if (freshUserOpt.isPresent() && freshUserOpt.get().isActive()
+                                    && jwtTokenVersion.equals(freshUserOpt.get().getTokenVersion())) {
+                                user = freshUserOpt.get();
+                                userStatusCache.put(username, user);
+                            } else {
+                                filterChain.doFilter(request, response);
+                                return;
+                            }
                         }
                     } else {
                         Date tokenIssuedAt = tokenProvider.getIssuedAtFromToken(jwt);

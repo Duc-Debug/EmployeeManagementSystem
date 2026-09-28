@@ -196,19 +196,81 @@ class FirstTimePasswordChangeIntegrationTest {
         String token2 = loginData2.path("token").asText();
         assertThat(token2).isNotBlank();
 
-        // 8. Access protected API with token2 -> must succeed (200 OK), NOT blocked by stale cache!
+        // 8. Access /auth/me with token2 -> must succeed (200 OK) with requiresPasswordChange = false
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + token2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requiresPasswordChange").value(false));
+
+        // 9. Access protected API with token2 -> must succeed (200 OK), NOT blocked by stale cache!
         mockMvc.perform(get("/api/v1/users")
                         .header("Authorization", "Bearer " + token2))
                 .andExpect(status().isOk());
 
-        // 9. Verify that userStatusCache now caches the updated User with passwordChangedAt != null
+        // 10. Verify that userStatusCache now caches the updated User with passwordChangedAt != null
         Optional<User> cachedUserAfter = userStatusCache.get(USERNAME);
         assertThat(cachedUserAfter).isPresent();
         assertThat(cachedUserAfter.get().getPasswordChangedAt()).isNotNull();
 
-        // 10. Subsequent request to protected API hits the cache and still succeeds (200 OK)
+        // 11. Subsequent request to protected API hits the cache and still succeeds (200 OK)
         mockMvc.perform(get("/api/v1/users")
                         .header("Authorization", "Bearer " + token2))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("P1 Resilience: Even if cache somehow retains stale User (tokenVersion=1), filter reloads from DB on tokenVersion=2 so /auth/me and protected API succeed on first request")
+    void testStaleUserCache_OnTokenVersionMismatch_ReloadsUserAndSucceeds() throws Exception {
+        // Change password in DB directly to simulate updated password & tokenVersion = 2
+        UserJpaEntity entity = userRepository.findById(userId).orElseThrow();
+        entity.setPasswordHash(passwordEncoder.encode(NEW_PASSWORD));
+        entity.setTokenVersion(2);
+        entity.setPasswordChangedAt(java.time.Instant.now());
+        userRepository.saveAndFlush(entity);
+
+        // Intentionally poison the Caffeine cache with a stale User entity (tokenVersion = 1, passwordChangedAt = null)
+        User staleUser = new User(
+                new com.hrm.employeemanagement.domain.user.UserId(userId),
+                USERNAME,
+                "stale_hash",
+                new com.hrm.employeemanagement.domain.role.Role(
+                        new com.hrm.employeemanagement.domain.role.RoleId(1L),
+                        com.hrm.employeemanagement.domain.role.RoleCode.VT_06,
+                        "Quản trị viên"
+                ),
+                com.hrm.employeemanagement.domain.user.UserStatus.ACTIVE,
+                null,
+                DataScope.COMPANY,
+                null,
+                null,
+                null, // passwordChangedAt is null!
+                1,    // tokenVersion is 1!
+                null
+        );
+        userStatusCache.put(USERNAME, staleUser);
+
+        // Login with new password -> obtains JWT with tokenVersion = 2
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", USERNAME,
+                                "password", NEW_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String token = objectMapper.readTree(loginResult.getResponse().getContentAsString())
+                .path("data").path("token").asText();
+
+        // The very first request after login to /auth/me MUST succeed (200 OK) even though cache was stale!
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requiresPasswordChange").value(false));
+
+        // Subsequent protected API request also succeeds (200 OK)
+        mockMvc.perform(get("/api/v1/users")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
 }
