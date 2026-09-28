@@ -52,6 +52,36 @@ export async function getProjectWeeklyAllocations(
   return apiRequest<ProjectWeeklyAllocationResult[]>(`/projects/${projectId}/allocations?${params.toString()}`);
 }
 
+export interface MonthAllocationWeekRange {
+  year: number;
+  startWeek: number;
+  endWeek: number;
+}
+
+export function getMonthAllocationWeekRange(
+  weeks: Array<{ year?: number; weekNumber?: number }>
+): MonthAllocationWeekRange | null {
+  if (!weeks || weeks.length === 0) return null;
+  const start = weeks[0];
+  const end = weeks[weeks.length - 1];
+  if (!start.year || !start.weekNumber || !end.weekNumber) return null;
+  return {
+    year: start.year,
+    startWeek: start.weekNumber,
+    endWeek: end.weekNumber,
+  };
+}
+
+export async function fetchMonthProjectAllocations(
+  projectId: number,
+  weeks: Array<{ year?: number; weekNumber?: number }>,
+  fetchFn = getProjectWeeklyAllocations,
+): Promise<ProjectWeeklyAllocationResult[]> {
+  const range = getMonthAllocationWeekRange(weeks);
+  if (!range) return [];
+  return fetchFn(projectId, range.year, range.startWeek, range.endWeek);
+}
+
 export async function allocateProjectHours(payload: {
   employeeId: number;
   projectId: number;
