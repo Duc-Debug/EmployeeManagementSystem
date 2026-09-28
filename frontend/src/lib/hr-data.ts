@@ -10,19 +10,6 @@ export interface Employee {
     phone: string
 }
 
-export type AttendanceStatus = "Đúng giờ" | "Đi muộn" | "Vắng mặt" | "Đã điều chỉnh"
-
-export interface AttendanceRecord {
-    id: string
-    name: string
-    dept: string
-    inTime: string
-    outTime: string
-    hours: string
-    ot: string
-    status: AttendanceStatus
-}
-
 export const DEPARTMENTS = [
     "Nhân sự",
     "Công nghệ thông tin",
@@ -86,15 +73,6 @@ export const INITIAL_EMPLOYEES: Employee[] = [
         status: "active",
         phone: "0982 666 888",
     },
-]
-
-export const INITIAL_ATTENDANCE: AttendanceRecord[] = [
-    { id: "EMP-002", name: "Nguyễn Thị Mai", dept: "Nhân sự", inTime: "07:55 AM", outTime: "05:35 PM", hours: "8.0 hrs", ot: "0.5 hrs", status: "Đúng giờ" },
-    { id: "EMP-001", name: "Trần Văn Hùng", dept: "Công nghệ thông tin", inTime: "08:10 AM", outTime: "07:00 PM", hours: "8.0 hrs", ot: "1.5 hrs", status: "Đúng giờ" },
-    { id: "EMP-003", name: "Lê Hoàng Nam", dept: "Kinh doanh", inTime: "08:25 AM", outTime: "05:30 PM", hours: "7.5 hrs", ot: "0.0 hrs", status: "Đi muộn" },
-    { id: "EMP-004", name: "Phạm Minh Anh", dept: "Marketing", inTime: "07:50 AM", outTime: "05:30 PM", hours: "8.0 hrs", ot: "0.0 hrs", status: "Đúng giờ" },
-    { id: "EMP-005", name: "Đỗ Thanh Tùng", dept: "Kế toán", inTime: "-- : --", outTime: "-- : --", hours: "0.0 hrs", ot: "0.0 hrs", status: "Vắng mặt" },
-    { id: "EMP-006", name: "Vũ Phương Thảo", dept: "Nhân sự", inTime: "07:48 AM", outTime: "06:15 PM", hours: "8.0 hrs", ot: "0.75 hrs", status: "Đúng giờ" },
 ]
 
 export interface WeeklyAvailability {

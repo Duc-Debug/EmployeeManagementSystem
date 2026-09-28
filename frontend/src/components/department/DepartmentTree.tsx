@@ -34,6 +34,7 @@ import { getUsers } from "@/lib/api/users";
 import type { OrgUnitTreeNode, User } from "@/types/hrm";
 import ComboSelect, { type ComboOption } from "./ComboSelect";
 import { useAuthUser } from "@/lib/auth-session";
+import { can } from "@/lib/permissions";
 
 export type UnitType = "COMPANY" | "CENTER" | "DEPARTMENT" | "TEAM";
 
@@ -310,9 +311,10 @@ export default function DepartmentTree() {
         let isMounted = true;
         async function fetchInitialData() {
             try {
+                const canReadUsers = can("USER_READ", currentUser) || isAdmin;
                 const [treeRes, usersRes] = await Promise.all([
                     getOrgTree().catch(() => null),
-                    getUsers(0, 100).catch(() => null),
+                    canReadUsers ? getUsers(0, 100).catch(() => null) : Promise.resolve(null),
                 ]);
                 if (!isMounted) return;
                 const userList = usersRes?.content || [];
@@ -329,7 +331,7 @@ export default function DepartmentTree() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [currentUser, isAdmin]);
 
     // Tự động đồng bộ danh sách đơn vị khi cây phòng ban thay đổi (thêm, sửa, xóa)
     useEffect(() => {
