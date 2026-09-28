@@ -68,4 +68,10 @@ class FileSystemBackupStorageAdapterTest {
         assertThatThrownBy(() -> storageAdapter.resolveBackupPath("   "))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    @DisplayName("Lấy đúng đường dẫn cấu hình storage directory")
+    void testGetStorageDirectory() {
+        assertThat(storageAdapter.getStorageDirectory()).isEqualTo(tempDir.toString());
+    }
 }

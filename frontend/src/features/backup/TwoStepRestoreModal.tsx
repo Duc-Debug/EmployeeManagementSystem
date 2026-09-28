@@ -57,8 +57,8 @@ export function TwoStepRestoreModal({
 
   const handleRestoreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (confirmationCode.trim().toUpperCase() !== "RESTORE") {
-      setError("Vui lòng nhập chính xác từ khóa 'RESTORE' để xác nhận phục hồi.");
+    if (confirmationCode.trim() !== "RESTORE") {
+      setError("Vui lòng gõ chính xác từ khóa 'RESTORE' (viết hoa) để xác nhận phục hồi.");
       return;
     }
     if (reason.trim().length < 10) {
@@ -69,7 +69,7 @@ export function TwoStepRestoreModal({
     try {
       setIsRestoring(true);
       setError(null);
-      await restoreBackup(backup.id, "RESTORE", reason.trim());
+      await restoreBackup(backup.id, confirmationCode.trim(), reason.trim());
       onSuccess();
       handleClose();
     } catch (err: unknown) {
@@ -205,17 +205,17 @@ export function TwoStepRestoreModal({
           ) : (
             <form id="restore-form" onSubmit={handleRestoreSubmit} className="space-y-3.5">
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 leading-relaxed">
-                Nhằm tránh thao tác nhầm lẫn, vui lòng nhập chính xác từ khóa <strong className="font-mono text-rose-950 font-bold">RESTORE</strong> vào ô bên dưới và nêu lý do giải trình phục hồi.
+                Nhằm tránh thao tác nhầm lẫn, vui lòng gõ chính xác từ khóa <strong className="font-mono text-rose-950 font-bold">RESTORE</strong> (viết hoa) vào ô bên dưới và nêu lý do giải trình phục hồi.
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Từ khóa xác nhận bảo mật (Gõ RESTORE) <span className="text-rose-500">*</span>
+                  Từ khóa xác nhận bảo mật (Gõ chính xác RESTORE) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-mono tracking-wider focus:border-rose-500 focus:outline-hidden focus:ring-2 focus:ring-rose-500/10 placeholder:text-slate-400 font-bold uppercase"
-                  placeholder="Gõ chính xác từ khóa RESTORE"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-mono tracking-wider focus:border-rose-500 focus:outline-hidden focus:ring-2 focus:ring-rose-500/10 placeholder:text-slate-400 font-bold"
+                  placeholder="Gõ chính xác RESTORE"
                   value={confirmationCode}
                   onChange={(e) => setConfirmationCode(e.target.value)}
                   disabled={isRestoring}
@@ -283,7 +283,7 @@ export function TwoStepRestoreModal({
                 form="restore-form"
                 disabled={
                   isRestoring ||
-                  confirmationCode.trim().toUpperCase() !== "RESTORE" ||
+                  confirmationCode.trim() !== "RESTORE" ||
                   reason.trim().length < 10
                 }
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-xs disabled:opacity-50 cursor-pointer"

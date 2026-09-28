@@ -143,7 +143,7 @@ class BackupControllerTest {
                 false, 1L, "admin", LocalDateTime.now(), LocalDateTime.now(), null
         );
 
-        when(backupService.createBackup(any(), eq(1L), eq("testuser"), anyString())).thenReturn(created);
+        when(backupService.createBackup(any(), eq(1L), eq("admin@company.com"), eq("testuser"), anyString())).thenReturn(created);
 
         mockMvc.perform(post("/api/v1/backups")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -229,7 +229,7 @@ class BackupControllerTest {
                 "BCK-UPLOAD-1.json", "path", 100L, "chk", BackupStatus.COMPLETED,
                 false, 1L, "admin", LocalDateTime.now(), LocalDateTime.now(), null
         );
-        when(backupService.uploadBackup(anyString(), any(), any(), any(), anyLong(), any(), any(), any()))
+        when(backupService.uploadBackup(anyString(), any(), any(), any(), anyLong(), eq(1L), eq("admin@company.com"), eq("testuser"), anyString()))
                 .thenReturn(uploaded);
 
         mockMvc.perform(multipart("/api/v1/backups/upload")
