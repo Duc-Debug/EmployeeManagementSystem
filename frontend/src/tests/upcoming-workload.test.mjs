@@ -7,12 +7,8 @@ import {
     getWorkloadStatus,
     getStatusColorClass,
     isSpecialistRole,
+    canAccessEmployeeWorkload,
 } from "../components/workload/workloadUtils.ts";
-
-export function canAccessEmployeeWorkload(currentUser, targetEmployee) {
-    if (!currentUser || !isSpecialistRole(currentUser.roleCode)) return false;
-    return currentUser.employeeId === targetEmployee.id;
-}
 
 describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
 
