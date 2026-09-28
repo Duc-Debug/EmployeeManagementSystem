@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,12 +19,14 @@ import com.hrm.employeemanagement.application.dto.user.UserResult;
 import com.hrm.employeemanagement.domain.authorization.DataScope;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
 import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.orgunit.OrgUnitId;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
+import com.hrm.employeemanagement.domain.user.UserStatus;
 
 class UserServiceQueryTest extends BaseUserServiceTest {
 
@@ -317,5 +320,73 @@ class UserServiceQueryTest extends BaseUserServiceTest {
         assertEquals(1, result.getContent().size());
         assertEquals(1L, result.getTotalElements());
         assertEquals(2L, result.getContent().get(0).getId());
+    }
+
+    @Test
+    @DisplayName("getCurrentUserProfile trả về đúng employeeCode và email thực từ database")
+    void testGetCurrentUserProfile_ReturnsRealEmployeeCodeAndEmail() {
+        User user = new User(
+                new UserId(1L),
+                "nv01",
+                "hash",
+                staffRole,
+                UserStatus.ACTIVE,
+                new EmployeeId(5L),
+                DataScope.SELF,
+                null,
+                "nv01@example.com",
+                null,
+                1,
+                0L
+        );
+        Employee employee = testEmployee(5L, 1L, 10L, "NV-DEV01");
+        OrgUnit orgUnit = activeOrgUnit(10L, "OU-10", "Ban Phát triển Phần mềm");
+
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(user));
+        when(loadEmployeePort.findByUserId(new UserId(1L))).thenReturn(Optional.of(employee));
+        when(loadOrgUnitPort.findById(new OrgUnitId(10L))).thenReturn(Optional.of(orgUnit));
+        when(authorizationService.getUserPermissions(1L)).thenReturn(List.of("TASK_VIEW"));
+
+        UserResult result = userService.getCurrentUserProfile(1L);
+
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals("nv01", result.getUsername());
+        assertEquals("nv01@example.com", result.getEmail());
+        assertEquals(5L, result.getEmployeeId());
+        assertEquals("NV-DEV01", result.getEmployeeCode());
+        assertEquals("Ban Phát triển Phần mềm", result.getOrgUnitName());
+        assertEquals(List.of("TASK_VIEW"), result.getPermissions());
+    }
+
+    @Test
+    @DisplayName("getCurrentUserProfile trả về employeeCode = null khi không liên kết Employee, không tự sinh EMP-xxx")
+    void testGetCurrentUserProfile_NoLinkedEmployee_ReturnsNullEmployeeCode() {
+        User user = new User(
+                new UserId(2L),
+                "admin",
+                "hash",
+                adminRole,
+                UserStatus.ACTIVE,
+                null,
+                DataScope.COMPANY,
+                null,
+                "admin@example.com",
+                null,
+                1,
+                0L
+        );
+
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(user));
+        when(loadEmployeePort.findByUserId(new UserId(2L))).thenReturn(Optional.empty());
+        when(authorizationService.getUserPermissions(2L)).thenReturn(List.of("USER_MANAGE"));
+
+        UserResult result = userService.getCurrentUserProfile(2L);
+
+        assertNotNull(result);
+        assertEquals(2L, result.getId());
+        assertEquals("admin@example.com", result.getEmail());
+        assertNull(result.getEmployeeCode());
+        assertNull(result.getEmployeeId());
     }
 }

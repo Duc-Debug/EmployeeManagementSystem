@@ -1020,6 +1020,9 @@ public UserResult updateUserRole(
                         ? employee.getIdValue()
                         : null,
                 employee != null
+                        ? employee.getEmployeeCode()
+                        : null,
+                employee != null
                         ? employee.getFullName()
                         : null,
                 employee != null

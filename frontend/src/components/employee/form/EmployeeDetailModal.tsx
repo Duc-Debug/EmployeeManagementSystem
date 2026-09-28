@@ -47,7 +47,7 @@ export default function EmployeeDetailModal({
                             {employee.fullName || "—"}
                         </h3>
                         <p className="text-xs text-slate-500 font-mono font-medium mt-0.5">
-                            {employee.employeeCode || employee.id || "EMP-001"}
+                            {employee.employeeCode || employee.id || "—"}
                         </p>
                     </div>
                 </div>

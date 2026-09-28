@@ -43,7 +43,7 @@ export default function EmployeeCard({ employee, onEdit, onDelete, onToggleStatu
                         )}
                     </div>
                     <p className="font-mono text-[11px] font-semibold text-slate-500">
-                        {employee.employeeCode || employee.id || "EMP-001"}
+                        {employee.employeeCode || employee.id || "—"}
                         {employee.username && <span className="text-slate-400 font-sans ml-1.5">(@{employee.username})</span>}
                     </p>
                 </div>
