@@ -39,6 +39,7 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
     private final String encryptionKey;
+    private final org.springframework.core.env.Environment environment;
 
     private static final java.util.regex.Pattern IDENTIFIER_PATTERN = java.util.regex.Pattern.compile("^[a-zA-Z0-9_]+$");
 
@@ -165,16 +166,56 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
             "scenario_shares"
     );
 
+    @org.springframework.beans.factory.annotation.Autowired
     public DatabaseBackupRestoreEngineAdapter(
             JdbcTemplate jdbcTemplate,
-            @Value("${app.backup.encryption-key:${APP_BACKUP_ENCRYPTION_KEY:${BACKUP_ENCRYPTION_KEY:${jwt.secret:${JWT_SECRET:local-development-backup-aes-key-32-chars-minimum}}}}}") String encryptionKey
+            @Value("${app.backup.encryption-key:${APP_BACKUP_ENCRYPTION_KEY:${jwt.secret:${JWT_SECRET:}}}}") String encryptionKey,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) org.springframework.core.env.Environment environment
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.encryptionKey = encryptionKey;
+        this.environment = environment;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+    }
+
+    public DatabaseBackupRestoreEngineAdapter(JdbcTemplate jdbcTemplate, String encryptionKey) {
+        this(jdbcTemplate, encryptionKey, null);
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void validateEncryptionKey() {
+        if (isProductionEnvironment()) {
+            if (encryptionKey == null || encryptionKey.trim().isBlank()) {
+                throw new IllegalStateException(
+                        "CRITICAL CONFIGURATION ERROR: Backup encryption key ('app.backup.encryption-key' or 'APP_BACKUP_ENCRYPTION_KEY') " +
+                        "is mandatory in production. Application startup failed to prevent insecure backups."
+                );
+            }
+            if (isKnownInsecureKey(encryptionKey)) {
+                throw new IllegalStateException(
+                        "CRITICAL CONFIGURATION ERROR: Backup encryption key in production cannot use insecure default placeholder values."
+                );
+            }
+        }
+    }
+
+    private boolean isProductionEnvironment() {
+        if (environment == null) {
+            return false;
+        }
+        return environment.acceptsProfiles(org.springframework.core.env.Profiles.of("prod", "production"))
+                || (!environment.acceptsProfiles(org.springframework.core.env.Profiles.of("local", "test", "dev")) && environment.getActiveProfiles().length > 0);
+    }
+
+    private boolean isKnownInsecureKey(String key) {
+        if (key == null) return false;
+        String trimmed = key.trim();
+        return trimmed.equalsIgnoreCase("local-development-backup-aes-key-32-chars-minimum")
+                || trimmed.equalsIgnoreCase("default-fallback-backup-encryption-key-32b")
+                || trimmed.equalsIgnoreCase("test-environment-backup-aes-key-32-chars-minimum-length");
     }
 
     @Override
@@ -291,12 +332,15 @@ public class DatabaseBackupRestoreEngineAdapter implements DatabaseBackupRestore
     }
 
     private byte[] getDerivedKey() {
-        String key = (encryptionKey != null && !encryptionKey.isBlank())
-                ? encryptionKey
-                : "default-fallback-backup-encryption-key-32b";
+        if (encryptionKey == null || encryptionKey.trim().isBlank()) {
+            throw new IllegalStateException(
+                    "Backup encryption key is missing or not configured. " +
+                    "Please configure 'app.backup.encryption-key' or 'APP_BACKUP_ENCRYPTION_KEY'."
+            );
+        }
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return digest.digest(key.getBytes(StandardCharsets.UTF_8));
+            return digest.digest(encryptionKey.trim().getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         }

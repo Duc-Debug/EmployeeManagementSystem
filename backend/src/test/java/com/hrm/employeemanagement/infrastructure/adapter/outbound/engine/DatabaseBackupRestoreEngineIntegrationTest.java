@@ -85,4 +85,46 @@ class DatabaseBackupRestoreEngineIntegrationTest {
         Integer roleCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM roles", Integer.class);
         assertThat(roleCount).isNotNull().isGreaterThan(0);
     }
+
+    @Test
+    @DisplayName("P1 Test: Khi encryption key bị thiếu hoặc để trống, tiến trình Backup/Restore PHẢI fail-fast và không tự fallback về key mặc định")
+    void whenEncryptionKeyMissing_thenBackupFailsFast(@TempDir Path tempDir) {
+        File backupFile = tempDir.resolve("missing_key_backup.json").toFile();
+        DatabaseBackupRestoreEngineAdapter missingKeyAdapter = new DatabaseBackupRestoreEngineAdapter(jdbcTemplate, "");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> missingKeyAdapter.performBackup(backupFile, BackupType.FULL))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Backup encryption key is missing or not configured");
+    }
+
+    @Test
+    @DisplayName("P1 Test: Trong môi trường Production, thiếu key hoặc dùng placeholder key mặc định PHẢI fail-fast khi khởi động")
+    void whenProductionEnvironmentAndKeyMissingOrInsecure_thenStartupValidationFails() {
+        org.springframework.mock.env.MockEnvironment prodEnv = new org.springframework.mock.env.MockEnvironment();
+        prodEnv.setActiveProfiles("prod");
+
+        // 1. Missing / Blank key in Prod -> Phải ném ngoại lệ
+        DatabaseBackupRestoreEngineAdapter blankKeyAdapter = new DatabaseBackupRestoreEngineAdapter(jdbcTemplate, "", prodEnv);
+        org.assertj.core.api.Assertions.assertThatThrownBy(blankKeyAdapter::validateEncryptionKey)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("is mandatory in production");
+
+        // 2. Insecure default placeholder key in Prod -> Phải ném ngoại lệ
+        DatabaseBackupRestoreEngineAdapter placeholderKeyAdapter = new DatabaseBackupRestoreEngineAdapter(
+                jdbcTemplate,
+                "local-development-backup-aes-key-32-chars-minimum",
+                prodEnv
+        );
+        org.assertj.core.api.Assertions.assertThatThrownBy(placeholderKeyAdapter::validateEncryptionKey)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cannot use insecure default placeholder");
+
+        // 3. Valid production key -> Validation thành công
+        DatabaseBackupRestoreEngineAdapter validKeyAdapter = new DatabaseBackupRestoreEngineAdapter(
+                jdbcTemplate,
+                "a-strong-and-secure-custom-production-encryption-key-12345",
+                prodEnv
+        );
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(validKeyAdapter::validateEncryptionKey);
+    }
 }

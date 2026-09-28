@@ -17,6 +17,7 @@ public class PasswordResetEmailOutboxJpaEntity {
     @Column(nullable = false)
     private String username;
 
+    @Convert(converter = PasswordResetTokenEncryptionConverter.class)
     @Column(name = "reset_token", nullable = false)
     private String resetToken;
 
@@ -52,6 +53,7 @@ public class PasswordResetEmailOutboxJpaEntity {
         this.createdAt = Instant.now();
     }
 
+    public Long getId() { return id; }
     public String getRecipientEmail() { return recipientEmail; }
     public String getUsername() { return username; }
     public String getResetToken() { return resetToken; }
