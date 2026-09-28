@@ -156,19 +156,35 @@ export function ProlongedIdlenessWarningModal({
     if (!report || report.totalIdleEmployees === 0) return;
     setIsExporting(true);
     try {
-      const allData = await getProlongedIdleStaff({
-        orgUnitId: selectedOrgUnitId,
-        fromYear,
-        fromWeek,
-        durationWeeks,
-        consecutiveThreshold: CONSECUTIVE_THRESHOLD,
-        status: statusFilter,
-        search: debouncedSearch.trim() || undefined,
-        page: 0,
-        size: 1000,
-      });
+      let currentPage = 0;
+      const exportPageSize = 50;
+      const allItems: ProlongedIdleStaffItem[] = [];
+      let total = 0;
 
-      const itemsToExport = allData?.items || [];
+      do {
+        const pageData = await getProlongedIdleStaff({
+          orgUnitId: selectedOrgUnitId,
+          fromYear,
+          fromWeek,
+          durationWeeks,
+          consecutiveThreshold: CONSECUTIVE_THRESHOLD,
+          status: statusFilter,
+          search: debouncedSearch.trim() || undefined,
+          page: currentPage,
+          size: exportPageSize,
+        });
+
+        const items = pageData?.items || [];
+        allItems.push(...items);
+        total = pageData?.totalIdleEmployees || 0;
+
+        if (items.length < exportPageSize || allItems.length >= total) {
+          break;
+        }
+        currentPage++;
+      } while (currentPage < 50);
+
+      const itemsToExport = allItems;
       if (itemsToExport.length === 0) return;
 
       const headers = [

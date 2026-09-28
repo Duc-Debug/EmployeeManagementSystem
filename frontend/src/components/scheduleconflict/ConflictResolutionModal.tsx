@@ -33,8 +33,7 @@ export default function ConflictResolutionModal({
     const loadEmployeeList = useCallback(async () => {
         try {
             setLoadingEmployees(true);
-            const [empRes, treeRes] = await Promise.allSettled([
-                getEmployees(1, 1000),
+            const [treeRes] = await Promise.allSettled([
                 getOrgTree(),
             ]);
 
@@ -47,9 +46,22 @@ export default function ConflictResolutionModal({
                 setOrgUnitNamesMap(map);
             }
 
-            if (empRes.status === "fulfilled" && empRes.value?.content) {
-                setEmployees(empRes.value.content);
-            }
+            let currentPage = 1;
+            const pageSize = 50;
+            const allEmployees: EmployeeProfile[] = [];
+            let total = 0;
+            do {
+                const empPage = await getEmployees(currentPage, pageSize);
+                const items = empPage?.content || [];
+                allEmployees.push(...items);
+                total = empPage?.totalElements || 0;
+                if (items.length < pageSize || allEmployees.length >= total) {
+                    break;
+                }
+                currentPage++;
+            } while (currentPage <= 20);
+
+            setEmployees(allEmployees);
         } catch (err) {
             console.error("Lỗi khi tải danh sách nhân viên:", err);
         } finally {

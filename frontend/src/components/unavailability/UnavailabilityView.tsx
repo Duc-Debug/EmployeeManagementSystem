@@ -122,12 +122,24 @@ export default function UnavailabilityView() {
     let isMounted = true;
     async function loadDirectory() {
       try {
-        const res = await getEmployees(1, 200);
-        if (isMounted && res?.content) {
-          const map: Record<number, string> = {};
-          for (const emp of res.content) {
+        let currentPage = 1;
+        const pageSize = 50;
+        const map: Record<number, string> = {};
+        let total = 0;
+        do {
+          const res = await getEmployees(currentPage, pageSize);
+          if (!isMounted) return;
+          const items = res?.content || [];
+          for (const emp of items) {
             map[emp.id] = emp.fullName;
           }
+          total = res?.totalElements || 0;
+          if (items.length < pageSize || Object.keys(map).length >= total) {
+            break;
+          }
+          currentPage++;
+        } while (currentPage <= 10);
+        if (isMounted) {
           setEmployeesMap(map);
         }
       } catch {
