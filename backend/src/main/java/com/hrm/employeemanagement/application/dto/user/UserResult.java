@@ -11,6 +11,7 @@ public class UserResult {
     private final String roleName;
     private final UserStatus status;
     private final Long employeeId;
+    private final String employeeCode;
     private final String fullName;
     private final Long orgUnitId;
     private final String orgUnitName;
@@ -26,6 +27,7 @@ public class UserResult {
             String roleName,
             UserStatus status,
             Long employeeId,
+            String employeeCode,
             String fullName,
             Long orgUnitId,
             String orgUnitName,
@@ -40,6 +42,7 @@ public class UserResult {
         this.roleName = roleName;
         this.status = status;
         this.employeeId = employeeId;
+        this.employeeCode = employeeCode;
         this.fullName = fullName;
         this.orgUnitId = orgUnitId;
         this.orgUnitName = orgUnitName;
@@ -60,9 +63,27 @@ public class UserResult {
             Long orgUnitId,
             String orgUnitName,
             DataScope dataScope,
+            Long scopeOrgUnitId,
+            java.util.List<String> permissions
+    ) {
+        this(id, username, email, roleCode, roleName, status, employeeId, null, fullName, orgUnitId, orgUnitName, dataScope, scopeOrgUnitId, permissions);
+    }
+
+    public UserResult(
+            Long id,
+            String username,
+            String email,
+            String roleCode,
+            String roleName,
+            UserStatus status,
+            Long employeeId,
+            String fullName,
+            Long orgUnitId,
+            String orgUnitName,
+            DataScope dataScope,
             Long scopeOrgUnitId
     ) {
-        this(id, username, email, roleCode, roleName, status, employeeId, fullName, orgUnitId, orgUnitName, dataScope, scopeOrgUnitId, java.util.Collections.emptyList());
+        this(id, username, email, roleCode, roleName, status, employeeId, null, fullName, orgUnitId, orgUnitName, dataScope, scopeOrgUnitId, java.util.Collections.emptyList());
     }
 
     public UserResult(
@@ -78,7 +99,7 @@ public class UserResult {
             DataScope dataScope,
             Long scopeOrgUnitId
     ) {
-        this(id, username, null, roleCode, roleName, status, employeeId, fullName, orgUnitId, orgUnitName, dataScope, scopeOrgUnitId);
+        this(id, username, (String) null, roleCode, roleName, status, employeeId, fullName, orgUnitId, orgUnitName, dataScope, scopeOrgUnitId);
     }
 
     public Long getId() {
@@ -107,6 +128,10 @@ public class UserResult {
 
     public Long getEmployeeId() {
         return employeeId;
+    }
+
+    public String getEmployeeCode() {
+        return employeeCode;
     }
 
     public String getFullName() {

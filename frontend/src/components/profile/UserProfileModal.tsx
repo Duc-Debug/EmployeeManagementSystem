@@ -14,19 +14,19 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
     const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
     const [userInfo, setUserInfo] = useState({
-        name: authUser?.fullName || authUser?.username || "Chưa cập nhật",
-        email: authUser?.email || (authUser?.username ? `${authUser.username}@hrm.local` : "Chưa cập nhật"),
-        role: authUser?.roleName || authUser?.roleCode || "Nhân viên",
-        department: authUser?.orgUnitName || "Chưa chỉ định",
+        name: authUser?.fullName || authUser?.username || "—",
+        email: authUser?.email || "—",
+        role: authUser?.roleName || authUser?.roleCode || "—",
+        department: authUser?.orgUnitName || "—",
     });
 
     useEffect(() => {
         if (authUser) {
             setUserInfo({
-                name: authUser.fullName || authUser.username,
-                email: authUser.email || (authUser.username ? `${authUser.username}@hrm.local` : "Chưa cập nhật"),
-                role: authUser.roleName || authUser.roleCode || "Nhân viên",
-                department: authUser.orgUnitName || "Chưa chỉ định",
+                name: authUser.fullName || authUser.username || "—",
+                email: authUser.email || "—",
+                role: authUser.roleName || authUser.roleCode || "—",
+                department: authUser.orgUnitName || "—",
             });
         }
     }, [authUser, isOpen]);

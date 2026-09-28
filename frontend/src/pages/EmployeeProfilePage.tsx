@@ -299,7 +299,7 @@ export default function EmployeeProfilePage() {
             if (userRes.status === "fulfilled") {
                 const users = userRes.value?.content || [];
                 const mapped: EmployeeFormData[] = users.map((u: BackendUser) => {
-                    const empCode = u.employeeId ? `EMP-${String(u.employeeId).padStart(3, "0")}` : `EMP-${u.id}`;
+                    const empCode = u.employeeCode || (u.employeeId ? String(u.employeeId) : "—");
                     const dates = getStoredDates(u.id) || (u.employeeId ? getStoredDates(u.employeeId) : undefined) || getStoredDates(empCode);
                     return {
                         id: String(u.id),
@@ -644,7 +644,7 @@ export default function EmployeeProfilePage() {
                     ...data,
                     id: String(res.id),
                     employeeId: res.employeeId ?? undefined,
-                    employeeCode: data.employeeCode || (res.employeeId ? `EMP-${String(res.employeeId).padStart(3, "0")}` : `EMP-${res.id}`),
+                    employeeCode: data.employeeCode || res.employeeCode || (res.employeeId ? String(res.employeeId) : "—"),
                     department: res.orgUnitName || data.department || "Chưa phân bổ",
                     orgUnitId: res.orgUnitId ? String(res.orgUnitId) : data.orgUnitId,
                     roleCode: res.roleCode || data.roleCode,

@@ -12,8 +12,8 @@ interface HeaderProps {
 
 export default function Header({ setIsSidebarOpen }: HeaderProps) {
     const user = useAuthUser();
-    const displayName = user?.fullName || user?.username || "Tài khoản";
-    const displayEmail = user?.email || (user?.username ? `${user.username}@hrm.local` : "Chưa cập nhật email");
+    const displayName = user?.fullName || user?.username || "—";
+    const displayEmail = user?.email || "—";
 
     const [currentTime, setCurrentTime] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
