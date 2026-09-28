@@ -1,0 +1,239 @@
+package com.hrm.employeemanagement.infrastructure.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.hrm.employeemanagement.application.port.inbound.allocation.AllocateResourceUseCase;
+import com.hrm.employeemanagement.application.port.inbound.allocation.GetProjectWeeklyAllocationsUseCase;
+import com.hrm.employeemanagement.application.port.inbound.allocation.SearchResourceBySkillAndAvailabilityUseCase;
+import com.hrm.employeemanagement.application.port.inbound.project.GetProjectDetailUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveWeeklyProjectAllocationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SearchResourcePort;
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.project.LoadProjectPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
+import com.hrm.employeemanagement.application.service.allocation.ResourceAllocationService;
+import com.hrm.employeemanagement.application.service.allocation.GetProjectWeeklyAllocationsService;
+import com.hrm.employeemanagement.application.service.allocation.SearchResourceBySkillAndAvailabilityService;
+import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
+import com.hrm.employeemanagement.infrastructure.transaction.allocation.RetryableAllocateResourceUseCaseDecorator;
+import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalAllocateResourceUseCase;
+
+import com.hrm.employeemanagement.application.port.inbound.allocation.GetCompanyWeeklyCapacityUseCase;
+import com.hrm.employeemanagement.application.service.allocation.GetCompanyWeeklyCapacityService;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.calendar.LoadWorkingCalendarPort;
+import com.hrm.employeemanagement.application.port.inbound.allocation.BulkAllocateResourceUseCase;
+import com.hrm.employeemanagement.application.service.allocation.BulkResourceAllocationService;
+import com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalBulkAllocateResourceUseCase;
+
+import com.hrm.employeemanagement.application.port.inbound.allocation.GetAllocationNotificationsUseCase;
+import com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.LoadAllocationNotificationPort;
+import com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort;
+import com.hrm.employeemanagement.application.service.allocation.GetAllocationNotificationsService;
+
+@Configuration
+public class ResourceAllocationUseCaseConfig {
+
+    @Bean
+    public GetCompanyWeeklyCapacityUseCase getCompanyWeeklyCapacityUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadHolidaysPort loadHolidaysPort,
+            LoadApprovedLeavesPort loadApprovedLeavesPort,
+            java.util.Optional<LoadWorkingCalendarPort> loadWorkingCalendarPort,
+            java.util.Optional<com.hrm.employeemanagement.application.port.outbound.reservation.LoadResourceReservationPort> loadReservationPort,
+            java.util.Optional<SaveAuditLogInNewTransactionPort> saveAuditLogPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort loadCapacityThresholdPort) {
+        return new GetCompanyWeeklyCapacityService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadOrgUnitPort,
+                loadAllocationPort,
+                loadWeeklyAvailabilityPort,
+                loadHolidaysPort,
+                loadApprovedLeavesPort,
+                loadWorkingCalendarPort.orElse(null),
+                loadReservationPort.orElse(null),
+                saveAuditLogPort.map(p -> (com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort) p::save).orElse(null),
+                loadCapacityThresholdPort
+        );
+    }
+
+    @Bean
+    public GetProjectWeeklyAllocationsUseCase getProjectWeeklyAllocationsUseCase(
+            GetProjectDetailUseCase getProjectDetailUseCase,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            AuthorizationService authorizationService) {
+        return new GetProjectWeeklyAllocationsService(getProjectDetailUseCase, loadAllocationPort, authorizationService);
+    }
+
+    @Bean
+    public ResourceAllocationService resourceAllocationPureService(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.threshold.LoadCapacityThresholdPort loadCapacityThresholdPort) {
+
+        return new ResourceAllocationService(
+                authorizationService,
+                loadEmployeePort,
+                loadProjectPort,
+                loadWeeklyAvailabilityPort,
+                saveAllocationPort,
+                loadAllocationPort,
+                saveAuditLogPort,
+                loadUserPort,
+                loadOrgUnitPort,
+                saveChangeLogPort,
+                notificationPort,
+                loadCapacityThresholdPort
+        );
+    }
+
+    @Bean
+    public TransactionalAllocateResourceUseCase transactionalAllocateResourceUseCase(
+            ResourceAllocationService resourceAllocationPureService) {
+        return new TransactionalAllocateResourceUseCase(resourceAllocationPureService);
+    }
+
+    @Bean
+    public AllocateResourceUseCase allocateResourceUseCase(
+            TransactionalAllocateResourceUseCase transactionalAllocateResourceUseCase) {
+        return new RetryableAllocateResourceUseCaseDecorator(transactionalAllocateResourceUseCase);
+    }
+
+    @Bean
+    public SearchResourceBySkillAndAvailabilityUseCase searchResourceBySkillAndAvailabilityUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SearchResourcePort searchResourcePort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort) {
+        return new SearchResourceBySkillAndAvailabilityService(
+                authorizationService,
+                loadUserPort,
+                loadOrgUnitPort,
+                searchResourcePort,
+                loadWeeklyAvailabilityPort,
+                loadAllocationPort,
+                saveAuditLogPort
+        );
+    }
+
+    /**
+     * NCL-06-CN-006: Đăng ký Bean cho BulkAllocateResourceUseCase được bọc Transaction trực tiếp
+     */
+    @Bean
+    public BulkAllocateResourceUseCase bulkAllocateResourceUseCase(
+            AuthorizationService authorizationService,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveAuditLogInNewTransactionPort saveAuditLogPort,
+            LoadUserPort loadUserPort,
+            LoadOrgUnitPort loadOrgUnitPort,
+            SaveAllocationChangeLogPort saveChangeLogPort,
+            AllocationNotificationPort notificationPort) {
+        BulkResourceAllocationService pureService =
+                new BulkResourceAllocationService(
+                        authorizationService,
+                        loadEmployeePort,
+                        loadProjectPort,
+                        loadWeeklyAvailabilityPort,
+                        saveAllocationPort,
+                        loadAllocationPort,
+                        saveAuditLogPort,
+                        loadUserPort,
+                        loadOrgUnitPort,
+                        saveChangeLogPort,
+                        notificationPort
+                );
+        return new TransactionalBulkAllocateResourceUseCase(pureService);
+    }
+
+    /**
+     * NCL-07-CN-003: Đăng ký Bean cho GetAllocationNotificationsUseCase
+     */
+    @Bean
+    public GetAllocationNotificationsUseCase getAllocationNotificationsUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadAllocationNotificationPort loadAllocationNotificationPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort) {
+        return new GetAllocationNotificationsService(
+                authorizationService,
+                loadUserPort,
+                loadEmployeePort,
+                loadProjectPort,
+                loadAllocationNotificationPort,
+                deniedAuditLogPort
+        );
+    }
+
+    /**
+     * NCL-06-CN-004: Đăng ký Bean cho AdjustResourceAllocationUseCase (QTN-15) được bọc Transactional Decorator
+     */
+    @Bean
+    public com.hrm.employeemanagement.application.port.inbound.allocation.AdjustResourceAllocationUseCase adjustResourceAllocationUseCase(
+            AuthorizationService authorizationService,
+            LoadUserPort loadUserPort,
+            LoadEmployeePort loadEmployeePort,
+            LoadProjectPort loadProjectPort,
+            LoadWeeklyAvailabilityPort loadWeeklyAvailabilityPort,
+            LoadWeeklyProjectAllocationPort loadAllocationPort,
+            SaveWeeklyProjectAllocationPort saveAllocationPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.DeleteWeeklyProjectAllocationPort deleteAllocationPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.SaveAllocationChangeLogPort saveChangeLogPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.LoadAllocationChangeLogPort loadChangeLogPort,
+            com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort saveAuditLogPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.CheckActualHoursPort checkActualHoursPort,
+            com.hrm.employeemanagement.application.port.outbound.allocation.AllocationNotificationPort notificationPort,
+            LoadOrgUnitPort loadOrgUnitPort) {
+        com.hrm.employeemanagement.application.service.allocation.AdjustResourceAllocationService pureService =
+                new com.hrm.employeemanagement.application.service.allocation.AdjustResourceAllocationService(
+                        authorizationService,
+                        loadUserPort,
+                        loadEmployeePort,
+                        loadProjectPort,
+                        loadWeeklyAvailabilityPort,
+                        loadAllocationPort,
+                        saveAllocationPort,
+                        deleteAllocationPort,
+                        saveChangeLogPort,
+                        loadChangeLogPort,
+                        saveAuditLogPort,
+                        deniedAuditLogPort,
+                        checkActualHoursPort,
+                        notificationPort,
+                        loadOrgUnitPort
+                );
+        return new com.hrm.employeemanagement.infrastructure.transaction.allocation.TransactionalAdjustResourceAllocationUseCase(pureService);
+    }
+}

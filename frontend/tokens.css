@@ -1,0 +1,124 @@
+/* Modern SaaS Enterprise Design Tokens - Palette: Royal Indigo & Slate */
+:root {
+  /* Surface & Background */
+  --color-paper: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f1f5f9;
+  --color-surface-muted: #e2e8f0;
+  --color-surface-inverse: #0f172a;
+  --color-surface-sidebar: #090d16;
+
+  /* Typography / Inks */
+  --color-ink: #0f172a;
+  --color-ink-strong: #020617;
+  --color-ink-soft: #334155;
+  --color-muted: #64748b;
+  --color-muted-soft: #94a3b8;
+  --color-inverse: #f8fafc;
+
+  /* Borders & Dividers */
+  --color-rule: #e2e8f0;
+  --color-rule-strong: #cbd5e1;
+
+  /* Brand / Primary Accent (Royal Indigo) */
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-active: #3730a3;
+  --color-accent-soft: #eef2ff;
+  --color-accent-ink: #ffffff;
+  --color-focus: #6366f1;
+  --color-focus-on-accent: #e0e7ff;
+  --color-focus-ring: rgba(99, 102, 241, 0.2);
+
+  /* Status Colors */
+  --color-success: #10b981;
+  --color-success-hover: #059669;
+  --color-success-soft: #ecfdf5;
+  --color-success-ink: #065f46;
+
+  --color-error: #ef4444;
+  --color-error-hover: #dc2626;
+  --color-error-soft: #fef2f2;
+  --color-error-ink: #991b1b;
+
+  --color-warning: #f59e0b;
+  --color-warning-hover: #d97706;
+  --color-warning-soft: #fffbeb;
+  --color-warning-ink: #92400e;
+
+  --color-info: #0284c7;
+  --color-info-soft: #f0f9ff;
+  --color-info-ink: #075985;
+
+  --color-graphite: #1e293b;
+  --color-graphite-raised: #334155;
+  --color-overlay: rgba(15, 23, 42, 0.55);
+  --color-transparent: transparent;
+
+  /* Typography Families */
+  --font-display: "Space Grotesk", "Segoe UI Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", monospace;
+
+  /* Font Scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.25rem;
+  --text-display: clamp(2rem, 3.5vw + 1rem, 3.5rem);
+
+  /* Spacing Scale */
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4.5rem;
+
+  /* Border Radii */
+  --radius-xs: 0.25rem;    /* 4px */
+  --radius-sm: 0.5rem;     /* 8px */
+  --radius-md: 0.75rem;    /* 12px */
+  --radius-lg: 1rem;       /* 16px */
+  --radius-xl: 1.5rem;     /* 24px */
+  --radius-full: 9999px;
+
+  /* Rules & Lines */
+  --rule-thin: 1px;
+  --rule-medium: 2px;
+
+  /* Motion & Durations */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --dur-micro: 120ms;
+  --dur-short: 200ms;
+  --dur-long: 350ms;
+  --dur-reduced: 150ms;
+
+  /* Elevation & Shadows */
+  --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.08);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  --shadow-glow: 0 0 25px -5px rgba(79, 70, 229, 0.25);
+  --shadow-whisper: var(--shadow-xs);
+
+  /* Z-Index Hierarchy */
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+}

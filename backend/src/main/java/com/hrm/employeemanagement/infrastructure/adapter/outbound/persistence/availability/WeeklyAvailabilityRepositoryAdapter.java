@@ -1,0 +1,181 @@
+package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability;
+
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadApprovedLeavesPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadHolidaysPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.LoadWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.application.port.outbound.availability.SaveWeeklyAvailabilityPort;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailability;
+import com.hrm.employeemanagement.domain.availability.WeeklyAvailabilityPolicy;
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.entity.LeaveRequestJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.entity.WeeklyAvailabilityJpaEntity;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.repository.SpringDataHolidayRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.repository.SpringDataLeaveRequestRepository;
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.availability.repository.SpringDataWeeklyAvailabilityRepository;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Component
+public class WeeklyAvailabilityRepositoryAdapter implements LoadWeeklyAvailabilityPort,
+        SaveWeeklyAvailabilityPort, LoadHolidaysPort, LoadApprovedLeavesPort {
+
+    private final SpringDataWeeklyAvailabilityRepository weeklyAvailabilityRepository;
+    private final SpringDataHolidayRepository holidayRepository;
+    private final SpringDataLeaveRequestRepository leaveRequestRepository;
+    private final WeeklyAvailabilityPersistenceMapper mapper;
+
+    public WeeklyAvailabilityRepositoryAdapter(
+            SpringDataWeeklyAvailabilityRepository weeklyAvailabilityRepository,
+            SpringDataHolidayRepository holidayRepository,
+            SpringDataLeaveRequestRepository leaveRequestRepository,
+            WeeklyAvailabilityPersistenceMapper mapper) {
+        this.weeklyAvailabilityRepository = Objects.requireNonNull(weeklyAvailabilityRepository, "weeklyAvailabilityRepository must not be null");
+        this.holidayRepository = Objects.requireNonNull(holidayRepository, "holidayRepository must not be null");
+        this.leaveRequestRepository = Objects.requireNonNull(leaveRequestRepository, "leaveRequestRepository must not be null");
+        this.mapper = Objects.requireNonNull(mapper, "mapper must not be null");
+    }
+
+    @Override
+    public Optional<WeeklyAvailability> findByEmployeeIdAndYearWeek(Long employeeId, YearWeek yearWeek) {
+        return weeklyAvailabilityRepository.findByEmployeeIdAndYearAndWeekNumber(
+                employeeId, yearWeek.year(), yearWeek.weekNumber())
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public List<WeeklyAvailability> findByEmployeeIdInAndYearWeek(List<Long> employeeIds, YearWeek yearWeek) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return List.of();
+        }
+        return weeklyAvailabilityRepository.findByEmployeeIdInAndYearAndWeekNumber(
+                employeeIds, yearWeek.year(), yearWeek.weekNumber())
+                .stream().map(mapper::toDomain).toList();
+    }
+
+    private static <T> List<List<T>> partitionList(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return partitions;
+    }
+
+    @Override
+    public List<WeeklyAvailability> loadAvailabilityForEmployeesAndWeeks(List<Long> employeeIds, List<YearWeek> targetWeeks) {
+        if (employeeIds == null || employeeIds.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, List<Integer>> weeksByYear = targetWeeks.stream()
+                .collect(Collectors.groupingBy(YearWeek::year, Collectors.mapping(YearWeek::weekNumber, Collectors.toList())));
+
+        List<WeeklyAvailability> results = new ArrayList<>();
+        List<List<Long>> chunks = partitionList(employeeIds, 500);
+        for (List<Long> chunk : chunks) {
+            for (Map.Entry<Integer, List<Integer>> entry : weeksByYear.entrySet()) {
+                Integer year = entry.getKey();
+                List<Integer> weeks = entry.getValue();
+                List<WeeklyAvailabilityJpaEntity> entities = weeklyAvailabilityRepository
+                        .findByEmployeeIdInAndYearAndWeekNumberIn(chunk, year, weeks);
+                results.addAll(entities.stream().map(mapper::toDomain).toList());
+            }
+        }
+        return results;
+    }
+
+    @Override
+    public WeeklyAvailability save(WeeklyAvailability availability) {
+        WeeklyAvailabilityJpaEntity entity = mapper.toJpaEntity(availability);
+        WeeklyAvailabilityJpaEntity saved = weeklyAvailabilityRepository.save(entity);
+        return mapper.toDomain(saved);
+    }
+
+    @Override
+    public List<LocalDate> getHolidayDatesBetween(LocalDate startDate, LocalDate endDate) {
+        return holidayRepository.findHolidayDatesBetween(startDate, endDate);
+    }
+
+    @Override
+    public List<com.hrm.employeemanagement.domain.availability.Holiday> getHolidaysBetween(LocalDate startDate, LocalDate endDate) {
+        return holidayRepository.findHolidaysBetween(startDate, endDate).stream()
+                .map(entity -> new com.hrm.employeemanagement.domain.availability.Holiday(
+                        entity.getHolidayDate(),
+                        entity.getName(),
+                        entity.getWorkingHoursDeducted() != null ? entity.getWorkingHoursDeducted() : 8
+                ))
+                .toList();
+    }
+
+    @Override
+    public BigDecimal getTotalApprovedLeaveHoursBetween(Long employeeId, LocalDate startDate, LocalDate endDate) {
+        List<LeaveRequestJpaEntity> leaves = leaveRequestRepository.findApprovedLeavesBetween(employeeId, startDate, endDate);
+        if (leaves == null || leaves.isEmpty()) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (LeaveRequestJpaEntity leave : leaves) {
+            BigDecimal allocatedHours = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                    leave.getStartDate(),
+                    leave.getEndDate(),
+                    leave.getHoursDeducted(),
+                    startDate,
+                    endDate
+            );
+            total = total.add(allocatedHours);
+        }
+        return total.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Override
+    public Map<Long, Map<YearWeek, BigDecimal>> loadApprovedLeaveHoursForEmployeesAndWeeks(
+            List<Long> employeeIds, List<YearWeek> targetWeeks) {
+        if (employeeIds == null || employeeIds.isEmpty() || targetWeeks == null || targetWeeks.isEmpty()) {
+            return Map.of();
+        }
+
+        LocalDate minStart = targetWeeks.stream().map(YearWeek::getStartDate).min(LocalDate::compareTo).orElse(LocalDate.now());
+        LocalDate maxEnd = targetWeeks.stream().map(YearWeek::getEndDate).max(LocalDate::compareTo).orElse(LocalDate.now());
+
+        List<LeaveRequestJpaEntity> allLeaves = new ArrayList<>();
+        List<List<Long>> chunks = partitionList(employeeIds, 500);
+        for (List<Long> chunk : chunks) {
+            allLeaves.addAll(leaveRequestRepository.findApprovedLeavesForEmployeesBetween(chunk, minStart, maxEnd));
+        }
+
+        Map<Long, List<LeaveRequestJpaEntity>> leavesByEmp = allLeaves.stream()
+                .collect(Collectors.groupingBy(LeaveRequestJpaEntity::getEmployeeId));
+
+        Map<Long, Map<YearWeek, BigDecimal>> resultMap = new java.util.HashMap<>();
+        for (Long empId : employeeIds) {
+            List<LeaveRequestJpaEntity> empLeaves = leavesByEmp.getOrDefault(empId, List.of());
+            Map<YearWeek, BigDecimal> weekMap = new java.util.HashMap<>();
+
+            for (YearWeek yw : targetWeeks) {
+                BigDecimal weekTotal = BigDecimal.ZERO;
+                for (LeaveRequestJpaEntity leave : empLeaves) {
+                    BigDecimal allocated = WeeklyAvailabilityPolicy.calculateLeaveHoursInWindow(
+                            leave.getStartDate(),
+                            leave.getEndDate(),
+                            leave.getHoursDeducted(),
+                            yw.getStartDate(),
+                            yw.getEndDate()
+                    );
+                    weekTotal = weekTotal.add(allocated);
+                }
+                weekMap.put(yw, weekTotal.setScale(2, RoundingMode.HALF_UP));
+            }
+            resultMap.put(empId, weekMap);
+        }
+
+        return resultMap;
+    }
+}

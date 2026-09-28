@@ -1,0 +1,11 @@
+### VS Code ###
+.vscode/
+
+.env
+.env.local
+.env.prod
+### Postman ###
+docs/postman/
+docs/plans/
+
+backend/uploads/backups

@@ -1,0 +1,5 @@
+ALTER TABLE audit_logs
+ADD COLUMN old_value VARCHAR(2000) NULL;
+
+ALTER TABLE audit_logs
+ADD COLUMN new_value VARCHAR(2000) NULL;

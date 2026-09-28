@@ -1,75 +1,77 @@
-# React + TypeScript + Vite
+# 🌐 Employee Management System - Frontend App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Ứng dụng giao diện người dùng (Single Page Application - SPA) được xây dựng bằng **React 19**, **TypeScript**, **Tailwind CSS**, và **Vite**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📋 1. Yêu cầu Hệ thống (Prerequisites)
+- **Node.js:** `v20.x` hoặc `v22.x` (khuyến nghị Node 22 LTS).
+- **npm:** Đi kèm theo Node.js (phiên bản `10.x` trở lên).
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## ⚙️ 2. Biến Môi trường (Environment Variables)
 
-## Expanding the ESLint configuration
+Tạo file `.env` (hoặc `.env.local`) tại thư mục `frontend/`:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+```env
+# Địa chỉ API của Backend (Mặc định gọi tới localhost:8080 nếu để trống)
+VITE_API_BASE_URL=http://localhost:8080/api/v1
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+# Đối với môi trường Production Cloud (Vercel):
+# VITE_API_BASE_URL=https://employeemanagementsystem-tdpn.onrender.com/api/v1
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🚀 3. Hướng dẫn Khởi chạy (Commands)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Cài đặt Dependencies:
+```bash
+npm install
+```
 
+### Chạy Development Server (HMR):
+```bash
+npm run dev
+```
+- Ứng dụng sẽ chạy tại: `http://localhost:5173` (hoặc port hiển thị trên terminal).
+
+### Chạy Unit Test Frontend:
+```bash
+npm run test
+```
+
+### Build Production & Kiểm tra Type:
+```bash
+npm run build
+```
+- Thư mục đầu ra: `dist/`.
+- File cấu hình điều hướng SPA trên Vercel: [vercel.json](vercel.json).
+
+### Preview bản Build Production:
+```bash
+npm run preview
+```
+
+---
+
+## 📁 4. Cấu trúc Thư mục (Directory Structure)
+
+```
+frontend/
+├── src/
+│   ├── app/           # App layout, routing, header, sidebar
+│   ├── components/    # Reusable UI components (buttons, modals, tables, forms)
+│   ├── features/      # Feature modules (backup, my-schedule, timesheet, wbs, ...)
+│   ├── hooks/         # Custom React hooks
+│   ├── lib/           # API client, auth session, helper utilities
+│   ├── pages/         # Top-level view pages
+│   ├── tests/         # Frontend automated test suite
+│   ├── types/         # TypeScript shared type definitions
+│   ├── App.tsx        # Router setup and providers
+│   └── main.tsx       # Application root entry point
+├── vercel.json        # Rewrite rules for SPA routing on Vercel
+├── package.json       # Project dependencies & scripts
+└── vite.config.ts     # Vite bundler configuration
 ```

@@ -1,0 +1,167 @@
+package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.entity.UserJpaEntity;
+
+@Repository
+public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, Long> {
+    Optional<UserJpaEntity> findByUsername(String username);
+    Optional<UserJpaEntity> findByEmail(String email);
+
+    @Query("SELECT u FROM UserJpaEntity u WHERE u.username = :identity OR u.email = :identity")
+    Optional<UserJpaEntity> findByUsernameOrEmail(@Param("identity") String identity);
+
+    boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
+
+    @Query("SELECT COUNT(u) FROM UserJpaEntity u WHERE u.role.code = 'VT-06' AND u.isActive = true")
+    long countActiveAdmins();
+
+    long countByIsActive(Boolean isActive);
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT u.id)
+        FROM users u
+        JOIN employees e
+            ON e.user_id = u.id
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND u.is_active = :isActive
+        """,
+        nativeQuery = true)
+    long countByOrgUnitBranchAndIsActive(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("isActive") boolean isActive
+    );
+
+    @Query(value = """
+        SELECT DISTINCT u.*
+        FROM users u
+        JOIN employees e
+            ON e.user_id = u.id
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        ORDER BY u.id DESC
+        LIMIT :size OFFSET :offset
+        """,
+        nativeQuery = true)
+     List<UserJpaEntity> findByOrgUnitBranch(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT u.id)
+        FROM users u
+        JOIN employees e
+            ON e.user_id = u.id
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        """,
+        nativeQuery = true)
+    long countByOrgUnitBranch(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId
+    );
+
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM users u
+        JOIN employees e
+            ON e.user_id = u.id
+        JOIN org_units ou
+            ON ou.id = e.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE u.id = :userId
+          AND ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+        """,
+        nativeQuery = true)
+    int countInOrgUnitBranch(
+            @Param("userId") Long userId,
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId
+    );
+
+    default boolean existsInOrgUnitBranch(Long userId, Long scopeOrgUnitId) {
+        return countInOrgUnitBranch(userId, scopeOrgUnitId) > 0;
+    }
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE users
+        SET data_scope = 'COMPANY',
+            scope_org_unit_id = NULL
+        WHERE role_id IN (
+            SELECT id
+            FROM roles
+            WHERE code IN ('VT-01', 'VT-05', 'VT-06')
+        )
+          AND (
+              data_scope <> 'COMPANY'
+              OR scope_org_unit_id IS NOT NULL
+          )
+        """,
+        nativeQuery = true)
+    int normalizeCompanyScopeUsers();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE users
+        SET data_scope = 'SELF',
+            scope_org_unit_id = NULL
+        WHERE role_id IN (
+            SELECT id
+            FROM roles
+            WHERE code IN ('VT-02', 'VT-04')
+        )
+          AND (
+              data_scope <> 'SELF'
+              OR scope_org_unit_id IS NOT NULL
+          )
+        """,
+        nativeQuery = true)
+    int normalizeSelfScopeUsers();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE users
+        SET scope_org_unit_id = COALESCE(scope_org_unit_id, (SELECT id FROM org_units ORDER BY id LIMIT 1)),
+            data_scope = 'ORGANIZATION_BRANCH'
+        WHERE role_id IN (
+            SELECT id
+            FROM roles
+            WHERE code = 'VT-03'
+        )
+          AND (data_scope <> 'ORGANIZATION_BRANCH' OR scope_org_unit_id IS NULL)
+        """,
+        nativeQuery = true)
+    int normalizeOrgBranchScopeUsers();
+
+    default void normalizeAllUsersDataScope() {
+        normalizeCompanyScopeUsers();
+        normalizeSelfScopeUsers();
+        normalizeOrgBranchScopeUsers();
+    }
+
+    default int normalizeSystemAdminDataScope() {
+        normalizeAllUsersDataScope();
+        return 0;
+    }
+}

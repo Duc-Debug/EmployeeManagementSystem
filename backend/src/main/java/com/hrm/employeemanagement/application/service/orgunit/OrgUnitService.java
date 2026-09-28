@@ -1,0 +1,345 @@
+package com.hrm.employeemanagement.application.service.orgunit;
+
+import com.hrm.employeemanagement.application.dto.orgunit.*;
+import com.hrm.employeemanagement.application.port.inbound.orgunit.*;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.orgunit.SaveOrgUnitPort;
+import com.hrm.employeemanagement.application.port.outbound.security.CurrentUserPort;
+import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePort;
+import com.hrm.employeemanagement.application.port.outbound.user.SaveAuditLogPort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
+import com.hrm.employeemanagement.domain.employee.EmployeeStatus;
+import com.hrm.employeemanagement.domain.exception.employee.EmployeeNotFoundException;
+import com.hrm.employeemanagement.domain.exception.orgunit.DuplicateUnitCodeException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InactiveParentException;
+import com.hrm.employeemanagement.domain.exception.orgunit.InvalidOrgUnitManagerException;
+import com.hrm.employeemanagement.domain.exception.orgunit.OrgUnitNotFoundException;
+import com.hrm.employeemanagement.domain.exception.orgunit.RequiredFieldMissingException;
+import com.hrm.employeemanagement.domain.orgunit.*;
+import com.hrm.employeemanagement.domain.policy.orgunit.OrgUnitTreePolicy;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+public class OrgUnitService implements
+        CreateOrgUnitUseCase,
+        UpdateOrgUnitUseCase,
+        MoveOrgUnitUseCase,
+        DeactivateOrgUnitUseCase,
+        ActivateOrgUnitUseCase,
+        GetOrgTreeUseCase {
+    private final LoadOrgUnitPort loadOrgUnitPort;
+    private final SaveOrgUnitPort saveOrgUnitPort;
+    private final LoadEmployeePort loadEmployeePort;
+    private final OrgUnitTreePolicy orgUnitTreePolicy;
+    private final SaveAuditLogPort saveAuditLogPort;
+    private final CurrentUserPort currentUserPort;
+
+    public OrgUnitService(LoadOrgUnitPort loadOrgUnitPort, SaveOrgUnitPort saveOrgUnitPort,
+            LoadEmployeePort loadEmployeePort, SaveAuditLogPort saveAuditLogPort,
+            CurrentUserPort currentUserPort) {
+        this.loadOrgUnitPort = Objects.requireNonNull(loadOrgUnitPort,"LoadOrgUnitPort is not null");
+        this.saveOrgUnitPort = saveOrgUnitPort;
+        this.loadEmployeePort = Objects.requireNonNull(loadEmployeePort,"LoadEmployeePort is not null");
+        this.orgUnitTreePolicy = new OrgUnitTreePolicy();
+        this.saveAuditLogPort = saveAuditLogPort;
+        this.currentUserPort = currentUserPort;
+    }
+
+    private Long getCurrentUserId() {
+        return currentUserPort != null ? currentUserPort.getCurrentUserId().orElse(null) : null;
+    }
+
+    private Employee validateActiveManager(Long managerId) {
+        if (managerId == null) {
+            return null;
+        }
+        Employee manager = loadEmployeePort.findById(new EmployeeId(managerId))
+                .orElseThrow(() -> new EmployeeNotFoundException(
+                        "Không tìm thấy nhân viên quản lý với ID: " + managerId));
+        if (manager.getStatus() != EmployeeStatus.ACTIVE) {
+            throw new InvalidOrgUnitManagerException(
+                    "Nhân viên quản lý (ID: " + managerId + ") hiện không ở trạng thái hoạt động.");
+        }
+        return manager;
+    }
+
+    private void validateManagerInTree(Employee manager, OrgUnit targetUnit) {
+        if (manager == null) {
+            return;
+        }
+
+        if (manager.getOrgUnitId() == null) {
+            throw new InvalidOrgUnitManagerException(
+                    "Trưởng phòng được chỉ định phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên trong cùng nhánh cơ cấu tổ chức.");
+        }
+
+        if (targetUnit != null) {
+            boolean isEligible = (targetUnit.getId() != null && Objects.equals(manager.getOrgUnitId(), targetUnit.getId().getValue()))
+                    || isManagerInAncestorTree(manager.getOrgUnitId(), targetUnit);
+
+            if (!isEligible) {
+                throw new InvalidOrgUnitManagerException(
+                        "Trưởng phòng được chỉ định phải thuộc chính đơn vị này hoặc thuộc đơn vị cấp trên trong cùng nhánh cơ cấu tổ chức.");
+            }
+        }
+    }
+
+    private boolean isManagerInAncestorTree(Long managerOrgUnitId, OrgUnit targetUnit) {
+        if (targetUnit == null || targetUnit.getTreePath() == null || managerOrgUnitId == null) {
+            return false;
+        }
+        String targetPath = targetUnit.getTreePath();
+        return targetPath.contains("/" + managerOrgUnitId + "/");
+    }
+
+    @Override
+    public OrgUnitResult execute(CreateOrgUnitCommand command) {
+        // BR-ORG-01: Check unique unit code
+        if (loadOrgUnitPort.existsByUnitCode(command.unitCode())) {
+            throw new DuplicateUnitCodeException("Mã đơn vị '" + command.unitCode() + "' đã tồn tại trong hệ thống");
+        }
+
+        // Validate business reference: Manager must exist and be ACTIVE
+        Employee manager = validateActiveManager(command.managerId());
+
+        OrgUnitId parentId = null;
+        String parentTreePath = "/";
+        int level = 1;
+        if (command.parentId() != null) {
+            OrgUnit parent = loadOrgUnitPort.findById(new OrgUnitId(command.parentId()))
+                    .orElseThrow(
+                            () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị cha với ID: " + command.parentId()));
+            orgUnitTreePolicy.validateActiveParent(parent);
+            parentId = parent.getId();
+            parentTreePath = parent.getTreePath();
+            level = parent.getLevel() + 1;
+
+            validateManagerInTree(manager, parent);
+        }
+        OrgUnit newUnit = new OrgUnit(
+                null,
+                command.unitCode(),
+                command.unitName(),
+                command.unitType(),
+                parentId,
+                parentTreePath,
+                level,
+                OrgUnitStatus.ACTIVE,
+                command.description(),
+                command.managerId(),
+                LocalDateTime.now(),
+                null);
+        OrgUnit savedUnit = saveOrgUnitPort.save(newUnit);
+        String newValue = "unitCode=" + savedUnit.getUnitCode() + ";unitName=" + savedUnit.getUnitName()
+                + ";unitType=" + savedUnit.getUnitType() + ";parentId=" + (savedUnit.getParentId() != null ? savedUnit.getParentId().getValue() : null)
+                + ";managerId=" + savedUnit.getManagerId();
+        saveAuditLogPort.save(
+                AuditLog.createChange(getCurrentUserId(), "CREATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), null, newValue));
+        return toResult(savedUnit);
+    }
+
+    @Override
+    public OrgUnitResult execute(UpdateOrgUnitCommand command) {
+        OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
+                .orElseThrow(
+                        () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
+
+        // Validate business reference: Manager must exist, be ACTIVE, and belong to unit or ancestor tree
+        Employee manager = validateActiveManager(command.managerId());
+        validateManagerInTree(manager, unit);
+
+        String oldValue = "unitName=" + unit.getUnitName() + ";unitType=" + unit.getUnitType()
+                + ";managerId=" + unit.getManagerId() + ";description=" + unit.getDescription();
+
+        unit.updateInfo(command.unitName(), command.unitType(), command.managerId(), command.description());
+        OrgUnit savedUnit = saveOrgUnitPort.save(unit);
+
+        String newValue = "unitName=" + savedUnit.getUnitName() + ";unitType=" + savedUnit.getUnitType()
+                + ";managerId=" + savedUnit.getManagerId() + ";description=" + savedUnit.getDescription();
+
+        saveAuditLogPort.save(
+                AuditLog.createChange(getCurrentUserId(), "UPDATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
+
+        return toResult(savedUnit);
+    }
+
+    @Override
+    public OrgUnitResult execute(MoveOrgUnitCommand command) {
+        OrgUnit unitToMove = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
+                .orElseThrow(
+                        () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
+
+        OrgUnit newParent = loadOrgUnitPort.findById(new OrgUnitId(command.newParentId()))
+                .orElseThrow(() -> new OrgUnitNotFoundException(
+                        "Không tìm thấy đơn vị cha mới với ID: " + command.newParentId()));
+
+        // BR-ORG-04: Active parent validation
+        orgUnitTreePolicy.validateActiveParent(newParent);
+
+        // BR-ORG-02: Non-cyclic graph check
+        orgUnitTreePolicy.validateNoCycle(unitToMove, newParent);
+
+        String oldTreePath = unitToMove.getTreePath();
+        int oldLevel = unitToMove.getLevel() != null ? unitToMove.getLevel() : 1;
+        Long oldParentId = unitToMove.getParentId() != null ? unitToMove.getParentId().getValue() : null;
+
+        String newTreePath = newParent.getTreePath() + unitToMove.getId().getValue() + "/";
+        int newLevel = newParent.getLevel() + 1;
+        int levelDelta = newLevel - oldLevel;
+
+        String oldValue = "parentId=" + oldParentId + ";treePath=" + oldTreePath + ";level=" + oldLevel;
+
+        // Cập nhật nút cha và đường dẫn của nút hiện tại
+        unitToMove.changeParent(newParent.getId(), newTreePath, newLevel);
+        OrgUnit savedUnit = saveOrgUnitPort.save(unitToMove);
+
+        // Bulk UPDATE 1 câu SQL duy nhất cho toàn bộ các nút con/cháu thuộc subtree
+        saveOrgUnitPort.updateSubTreePaths(oldTreePath, newTreePath, levelDelta);
+
+        String newValue = "parentId=" + newParent.getId().getValue() + ";treePath=" + newTreePath + ";level=" + newLevel;
+
+        saveAuditLogPort
+                .save(AuditLog.createChange(getCurrentUserId(), "MOVE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
+        return toResult(savedUnit);
+    }
+
+    @Override
+    public OrgUnitResult execute(DeactivateOrgUnitCommand command) {
+        OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
+                .orElseThrow(
+                        () -> new OrgUnitNotFoundException("Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
+
+        String oldValue = "status=" + unit.getStatus() + ";treePath=" + unit.getTreePath();
+
+        // 1. Deactivate nút cha được chọn
+        unit.deactivate();
+        OrgUnit savedUnit = saveOrgUnitPort.save(unit);
+
+        // 2. Cascading Deactivation: Bulk UPDATE 1 câu SQL duy nhất vô hiệu hóa toàn bộ các nút con/cháu thuộc nhánh subtree này
+        saveOrgUnitPort.deactivateSubTree(unit.getTreePath());
+
+        String newValue = "status=" + savedUnit.getStatus() + ";treePath=" + savedUnit.getTreePath();
+
+        saveAuditLogPort.save(
+                AuditLog.createChange(getCurrentUserId(), "DEACTIVATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
+        return toResult(savedUnit);
+    }
+
+    @Override
+    public OrgUnitResult execute(ActivateOrgUnitCommand command) {
+        if (command == null || command.id() == null) {
+            throw RequiredFieldMissingException.of("ID đơn vị tổ chức");
+        }
+        OrgUnit unit = loadOrgUnitPort.findById(new OrgUnitId(command.id()))
+                .orElseThrow(() -> new OrgUnitNotFoundException(
+                        "Không tìm thấy đơn vị tổ chức với ID: " + command.id()));
+
+        if (unit.getParentId() != null) {
+            OrgUnit parent = loadOrgUnitPort.findById(unit.getParentId())
+                    .orElseThrow(() -> new OrgUnitNotFoundException("Không tìm thấy đơn vị cha với ID: " + unit.getParentId().getValue()));
+            if (parent.getStatus() != OrgUnitStatus.ACTIVE) {
+                throw new InactiveParentException("Không thể mở khóa đơn vị khi đơn vị cấp trên đang bị khóa.");
+            }
+        }
+
+        String oldValue = "status=" + unit.getStatus() + ";treePath=" + unit.getTreePath();
+        unit.activate();
+        OrgUnit savedUnit = saveOrgUnitPort.save(unit);
+
+        String newValue = "status=" + savedUnit.getStatus() + ";treePath=" + savedUnit.getTreePath();
+        saveAuditLogPort.save(
+                AuditLog.createChange(getCurrentUserId(), "ACTIVATE_ORG_UNIT", "org_units", savedUnit.getId().getValue(), oldValue, newValue));
+        return toResult(savedUnit);
+    }
+
+    @Override
+    public List<OrgUnitNodeResult> execute() {
+        List<OrgUnit> allUnits = loadOrgUnitPort.findAll();
+        List<Employee> allEmployees = loadEmployeePort.findAllActive();
+        Map<Long, String> employeeNameMap = new HashMap<>();
+        Map<Long, List<OrgUnitMemberResult>> unitMembersMap = new HashMap<>();
+        if (allEmployees != null) {
+            for (Employee emp : allEmployees) {
+                if (emp.getId() != null) {
+                    employeeNameMap.put(emp.getId().value(), emp.getFullName());
+                }
+                if (emp.getOrgUnitId() != null) {
+                    unitMembersMap.computeIfAbsent(emp.getOrgUnitId(), k -> new ArrayList<>())
+                            .add(new OrgUnitMemberResult(
+                                    emp.getId() != null ? emp.getId().value() : null,
+                                    emp.getEmployeeCode(),
+                                    emp.getFullName(),
+                                    emp.getProfessionalRole()
+                            ));
+                }
+            }
+        }
+        return buildTreeHierarchy(allUnits, employeeNameMap, unitMembersMap);
+    }
+
+    private OrgUnitResult toResult(OrgUnit unit) {
+        return new OrgUnitResult(
+                unit.getId() != null ? unit.getId().getValue() : null,
+                unit.getUnitCode(),
+                unit.getUnitName(),
+                unit.getUnitType(),
+                unit.getParentId() != null ? unit.getParentId().getValue() : null,
+                unit.getTreePath(),
+                unit.getLevel(),
+                unit.getStatus(),
+                unit.getDescription(),
+                unit.getManagerId(),
+                unit.getCreatedAt(),
+                unit.getUpdatedAt());
+    }
+
+    private List<OrgUnitNodeResult> buildTreeHierarchy(
+            List<OrgUnit> units,
+            Map<Long, String> employeeNameMap,
+            Map<Long, List<OrgUnitMemberResult>> unitMembersMap
+    ) {
+        Map<Long, OrgUnitNodeResult> nodeMap = new LinkedHashMap<>();
+        List<OrgUnitNodeResult> rootNodes = new ArrayList<>();
+        for (OrgUnit u : units) {
+            Long id = u.getId() != null ? u.getId().getValue() : null;
+            Long managerId = u.getManagerId();
+            String managerName = managerId != null ? employeeNameMap.get(managerId) : null;
+            List<OrgUnitMemberResult> members = id != null ? unitMembersMap.getOrDefault(id, List.of()) : List.of();
+            Integer employeeCount = members.size();
+
+            OrgUnitNodeResult node = new OrgUnitNodeResult(
+                    id,
+                    u.getUnitCode(),
+                    u.getUnitName(),
+                    u.getUnitType(),
+                    u.getParentId() != null ? u.getParentId().getValue() : null,
+                    u.getTreePath(),
+                    u.getLevel(),
+                    u.getStatus(),
+                    u.getDescription(),
+                    managerId,
+                    managerName,
+                    employeeCount,
+                    members,
+                    new ArrayList<>());
+            if (id != null) {
+                nodeMap.put(id, node);
+            }
+        }
+        for (OrgUnit u : units) {
+            Long id = u.getId() != null ? u.getId().getValue() : null;
+            Long parentId = u.getParentId() != null ? u.getParentId().getValue() : null;
+            OrgUnitNodeResult currentNode = nodeMap.get(id);
+            if (parentId == null || !nodeMap.containsKey(parentId)) {
+                rootNodes.add(currentNode);
+            } else {
+                OrgUnitNodeResult parentNode = nodeMap.get(parentId);
+                parentNode.children().add(currentNode);
+            }
+        }
+        return rootNodes;
+    }
+}

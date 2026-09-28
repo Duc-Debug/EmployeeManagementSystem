@@ -1,0 +1,155 @@
+package com.hrm.employeemanagement.application.service.authorization;
+
+import java.util.Objects;
+
+import com.hrm.employeemanagement.application.port.outbound.audit.SaveAuditLogInNewTransactionPort;
+import com.hrm.employeemanagement.application.port.outbound.authorization.GetAuthenticatedUserPort;
+import com.hrm.employeemanagement.application.port.outbound.authorization.PermissionQueryPort;
+import com.hrm.employeemanagement.domain.audit.AuditLog;
+import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.exception.authorization.PermissionDeniedException;
+import com.hrm.employeemanagement.domain.user.User;
+
+public class AuthorizationService {
+
+    private final GetAuthenticatedUserPort authenticatedUserPort;
+    private final PermissionQueryPort permissionQueryPort;
+    private final SaveAuditLogInNewTransactionPort deniedAuditLogPort;
+
+    public AuthorizationService(
+            GetAuthenticatedUserPort authenticatedUserPort,
+            PermissionQueryPort permissionQueryPort,
+            SaveAuditLogInNewTransactionPort deniedAuditLogPort
+    ) {
+        this.authenticatedUserPort = Objects.requireNonNull(
+                authenticatedUserPort,
+                "GetAuthenticatedUserPort must not be null"
+        );
+
+        this.permissionQueryPort = Objects.requireNonNull(
+                permissionQueryPort,
+                "PermissionQueryPort must not be null"
+        );
+
+        this.deniedAuditLogPort = Objects.requireNonNull(
+                deniedAuditLogPort,
+                "SaveAuditLogInNewTransactionPort must not be null"
+        );
+    }
+
+    public Long require(PermissionCode permission) {
+        Objects.requireNonNull(
+                permission,
+                "PermissionCode must not be null"
+        );
+
+        User currentUser =
+                authenticatedUserPort.getAuthenticatedUser();
+
+        if (currentUser == null) {
+            throw new IllegalStateException(
+                    "Không tìm thấy người dùng đã xác thực"
+            );
+        }
+
+        Long currentUserId = currentUser.getIdValue();
+
+        if (!permissionQueryPort.hasPermission(
+                currentUserId,
+                permission
+        )) {
+            deniedAuditLogPort.save(
+                    AuditLog.createChange(
+                            currentUserId,
+                            "PERMISSION_DENIED",
+                            "permissions",
+                            null,
+                            null,
+                            "permission=" + permission.name()
+                                    + ";reason=MISSING_PERMISSION"
+                    )
+            );
+
+            throw new PermissionDeniedException(permission);
+        }
+
+        return currentUserId;
+    }
+
+    public User getAuthenticatedUser() {
+        return authenticatedUserPort.getAuthenticatedUser();
+    }
+
+    public Long requireAny(PermissionCode... permissions) {
+        Objects.requireNonNull(
+                permissions,
+                "PermissionCodes must not be null"
+        );
+        if (permissions.length == 0) {
+            throw new IllegalArgumentException("At least one PermissionCode must be provided");
+        }
+
+        User currentUser =
+                authenticatedUserPort.getAuthenticatedUser();
+
+        if (currentUser == null) {
+            throw new IllegalStateException(
+                    "Không tìm thấy người dùng đã xác thực"
+            );
+        }
+
+        Long currentUserId = currentUser.getIdValue();
+
+        for (PermissionCode permission : permissions) {
+            if (permission != null && permissionQueryPort.hasPermission(currentUserId, permission)) {
+                return currentUserId;
+            }
+        }
+
+        deniedAuditLogPort.save(
+                AuditLog.createChange(
+                        currentUserId,
+                        "PERMISSION_DENIED",
+                        "permissions",
+                        null,
+                        null,
+                        "permission=" + permissions[0].name()
+                                + ";reason=MISSING_ANY_PERMISSION"
+                )
+        );
+
+        throw new PermissionDeniedException(permissions[0]);
+    }
+
+    public boolean hasPermission(PermissionCode permission) {
+        if (permission == null) {
+            return false;
+        }
+        User currentUser = authenticatedUserPort.getAuthenticatedUser();
+        if (currentUser == null) {
+            return false;
+        }
+        return permissionQueryPort.hasPermission(currentUser.getIdValue(), permission);
+    }
+
+    public java.util.List<String> getUserPermissions(Long userId) {
+        if (userId == null) {
+            return java.util.Collections.emptyList();
+        }
+        return permissionQueryPort.findPermissionsByUserId(userId);
+    }
+
+    public static boolean isOrgUnitInUserScope(User currentUser, Long targetOrgUnitId, com.hrm.employeemanagement.application.port.outbound.orgunit.LoadOrgUnitPort loadOrgUnitPort) {
+        if (currentUser == null || targetOrgUnitId == null) {
+            return false;
+        }
+        if (currentUser.getDataScope() == com.hrm.employeemanagement.domain.authorization.DataScope.COMPANY) {
+            return true;
+        }
+        Long userScopeOrgUnitId = currentUser.getScopeOrgUnitId();
+        if (userScopeOrgUnitId == null) return false;
+        if (userScopeOrgUnitId.equals(targetOrgUnitId)) return true;
+        return loadOrgUnitPort != null && loadOrgUnitPort.existsInOrgUnitBranch(targetOrgUnitId, userScopeOrgUnitId);
+    }
+}
+

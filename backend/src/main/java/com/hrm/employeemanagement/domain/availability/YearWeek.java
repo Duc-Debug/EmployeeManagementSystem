@@ -1,0 +1,75 @@
+package com.hrm.employeemanagement.domain.availability;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
+import java.time.temporal.WeekFields;
+
+import com.hrm.employeemanagement.domain.exception.availability.InvalidWeekNumberException;
+
+public record YearWeek(int year, int weekNumber) implements Comparable<YearWeek> {
+
+    public YearWeek {
+        if (year < 2000 || year > 2100) {
+            throw new InvalidWeekNumberException("Năm không hợp lệ: " + year + ". Năm phải nằm trong khoảng từ 2000 đến 2100");
+        }
+        int maxWeeks = maxWeeksInYear(year);
+        if (weekNumber < 1 || weekNumber > maxWeeks) {
+            throw new InvalidWeekNumberException("Số tuần không hợp lệ: " + weekNumber + ". Năm " + year + " chỉ có " + maxWeeks + " tuần");
+        }
+    }
+
+    @Override
+    public int compareTo(YearWeek o) {
+        if (o == null) return 1;
+        int yearCompare = Integer.compare(this.year, o.year);
+        if (yearCompare != 0) return yearCompare;
+        return Integer.compare(this.weekNumber, o.weekNumber);
+    }
+
+    public boolean isBefore(YearWeek other) {
+        if (other == null) return false;
+        return compareTo(other) < 0;
+    }
+
+    public boolean isAfter(YearWeek other) {
+        if (other == null) return false;
+        return compareTo(other) > 0;
+    }
+
+    /**
+     * Tính tổng số tuần ISO-8601 trong một năm (52 hoặc 53 tuần).
+     * Theo chuẩn ISO-8601, tuần chứa ngày 28 tháng 12 luôn là tuần cuối cùng của năm theo tuần.
+     */
+    public static int maxWeeksInYear(int year) {
+        return LocalDate.of(year, 12, 28).get(WeekFields.ISO.weekOfWeekBasedYear());
+    }
+
+    public static YearWeek of(int year, int weekNumber) {
+        return new YearWeek(year, weekNumber);
+    }
+
+    public static YearWeek from(LocalDate date) {
+        java.util.Objects.requireNonNull(date, "date không được null");
+        WeekFields weekFields = WeekFields.ISO;
+        int weekNumber = date.get(weekFields.weekOfWeekBasedYear());
+        int year = date.get(weekFields.weekBasedYear());
+        return new YearWeek(year, weekNumber);
+    }
+
+    /**
+     * Ngày đầu tiên của tuần (Thứ Hai theo chuẩn ISO-8601).
+     */
+    public LocalDate getStartDate() {
+        return LocalDate.of(year, 2, 1)
+                .with(WeekFields.ISO.weekOfWeekBasedYear(), weekNumber)
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    }
+
+    /**
+     * Ngày cuối cùng của tuần làm việc / tuần dương lịch (Chủ Nhật theo chuẩn ISO-8601).
+     */
+    public LocalDate getEndDate() {
+        return getStartDate().plusDays(6);
+    }
+}

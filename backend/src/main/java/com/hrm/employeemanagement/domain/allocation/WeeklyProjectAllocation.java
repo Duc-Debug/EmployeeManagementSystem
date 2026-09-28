@@ -1,0 +1,285 @@
+package com.hrm.employeemanagement.domain.allocation;
+
+import java.math.BigDecimal;
+import java.util.Objects;
+
+import com.hrm.employeemanagement.domain.availability.YearWeek;
+import com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationHoursException;
+
+/**
+ * Domain Entity đại diện cho thông tin phân bổ số giờ làm việc của 1 nhân sự
+ * cho 1 dự án cụ thể trong 1 tuần.
+ */
+public class WeeklyProjectAllocation {
+
+    private Long id;
+    private Long employeeId;
+    private Long projectId;
+    private Long projectRoleId;
+    private YearWeek yearWeek;
+    private BigDecimal allocatedHours;
+    private BigDecimal allocationPercentage;
+    private boolean isOverloaded;
+    private String overloadReason;
+    private Long overloadApprovedBy;
+    private java.time.LocalDateTime overloadApprovedAt;
+    private String varianceNote;
+    private Long updatedBy;
+    private Long version;
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, null, false, null, null, null, null, null, 0L);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek, BigDecimal allocatedHours) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, false, null, null, null, null, null, 0L);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, Long version) {
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, null, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, allocationPercentage, false, null, null, null, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, Long version) {
+        this(id, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, null, null, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, String varianceNote, Long updatedBy, Long version) {
+        this(id, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, isOverloaded, overloadReason, overloadApprovedBy, overloadApprovedAt, varianceNote, updatedBy, version);
+    }
+
+    public WeeklyProjectAllocation(Long id, Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage, boolean isOverloaded, String overloadReason,
+            Long overloadApprovedBy, java.time.LocalDateTime overloadApprovedAt, String varianceNote, Long updatedBy, Long version) {
+        this.id = id;
+        this.employeeId = Objects.requireNonNull(employeeId, "ID nhân sự không được null");
+        this.projectId = Objects.requireNonNull(projectId, "ID dự án không được null");
+        this.projectRoleId = projectRoleId;
+        this.yearWeek = Objects.requireNonNull(yearWeek, "Tuần/Năm (YearWeek) không được null");
+        setAllocatedHours(allocatedHours);
+        setAllocationPercentage(allocationPercentage);
+        this.isOverloaded = isOverloaded;
+        this.overloadReason = overloadReason;
+        this.overloadApprovedBy = overloadApprovedBy;
+        this.overloadApprovedAt = overloadApprovedAt;
+        this.varianceNote = varianceNote;
+        this.updatedBy = updatedBy;
+        this.version = version != null ? version : 0L;
+    }
+
+    /**
+     * Phương thức khởi tạo một bản ghi phân bổ mới chưa có ID.
+     */
+    public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, YearWeek yearWeek, BigDecimal allocatedHours) {
+        return new WeeklyProjectAllocation(null, employeeId, projectId, null, yearWeek, allocatedHours, null, 0L);
+    }
+
+    public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek, BigDecimal allocatedHours) {
+        return new WeeklyProjectAllocation(null, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, null, 0L);
+    }
+
+    public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage) {
+        return new WeeklyProjectAllocation(null, employeeId, projectId, null, yearWeek, allocatedHours, allocationPercentage, 0L);
+    }
+
+    public static WeeklyProjectAllocation createNew(Long employeeId, Long projectId, Long projectRoleId, YearWeek yearWeek,
+            BigDecimal allocatedHours, BigDecimal allocationPercentage) {
+        return new WeeklyProjectAllocation(null, employeeId, projectId, projectRoleId, yearWeek, allocatedHours, allocationPercentage, 0L);
+    }
+
+    /**
+     * Cập nhật số giờ phân bổ mới. Tự động kiểm tra ràng buộc số giờ âm (Đáp
+     * ứng TC-03).
+     */
+    public void updateAllocatedHours(BigDecimal newAllocatedHours) {
+        setAllocatedHours(newAllocatedHours);
+    }
+
+    public void updateAllocation(BigDecimal newAllocatedHours, BigDecimal newPercentage) {
+        setAllocatedHours(newAllocatedHours);
+        setAllocationPercentage(newPercentage);
+    }
+
+    private void setAllocatedHours(BigDecimal hours) {
+        if (hours == null) {
+            this.allocatedHours = BigDecimal.ZERO;
+            return;
+        }
+
+        // [TC-03] Kiểm tra số giờ phân bổ không được là số âm
+        if (hours.compareTo(BigDecimal.ZERO) < 0) {
+            throw new InvalidAllocationHoursException("Số giờ phân bổ cho dự án không được là số âm: " + hours);
+        }
+
+        // Ràng buộc bảo vệ: 1 tuần tối đa có 168 giờ
+        if (hours.compareTo(BigDecimal.valueOf(168)) > 0) {
+            throw new InvalidAllocationHoursException("Số giờ phân bổ cho 1 dự án trong tuần không được vượt quá 168 giờ");
+        }
+
+        this.allocatedHours = hours;
+    }
+
+    public void setAllocationPercentage(BigDecimal percentage) {
+        if (percentage == null) {
+            this.allocationPercentage = null;
+            return;
+        }
+
+        if (percentage.compareTo(BigDecimal.ZERO) < 0 || percentage.compareTo(BigDecimal.valueOf(200)) > 0) {
+            throw new com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationPercentageException(
+                    "Tỷ lệ phần trăm phân bổ phải nằm trong khoảng từ 0% đến 200%: " + percentage
+            );
+        }
+
+        this.allocationPercentage = percentage;
+    }
+
+    // Các phương thức Getters
+    public Long getId() {
+        return id;
+    }
+
+    public Long getEmployeeId() {
+        return employeeId;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public Long getProjectRoleId() {
+        return projectRoleId;
+    }
+
+    public void setProjectRoleId(Long projectRoleId) {
+        this.projectRoleId = projectRoleId;
+    }
+
+    public YearWeek getYearWeek() {
+        return yearWeek;
+    }
+
+    public int getYear() {
+        return yearWeek.year();
+    }
+
+    public int getWeekNumber() {
+        return yearWeek.weekNumber();
+    }
+
+    public BigDecimal getAllocatedHours() {
+        return allocatedHours;
+    }
+
+    public BigDecimal getAllocationPercentage() {
+        return allocationPercentage;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void markOverloaded(String reason, Long approvedBy, java.time.LocalDateTime approvedAt) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do chấp nhận quá tải không được để trống theo QTN-11");
+        }
+        Objects.requireNonNull(approvedBy, "Người phê duyệt vượt tải không được để trống theo QTN-11");
+        Objects.requireNonNull(approvedAt, "Thời điểm phê duyệt vượt tải không được để trống theo QTN-11");
+        this.isOverloaded = true;
+        this.overloadReason = reason.trim();
+        this.overloadApprovedBy = approvedBy;
+        this.overloadApprovedAt = approvedAt;
+    }
+
+    public void clearOverload() {
+        this.isOverloaded = false;
+        this.overloadReason = null;
+        this.overloadApprovedBy = null;
+        this.overloadApprovedAt = null;
+    }
+
+    public boolean isOverloaded() {
+        return isOverloaded;
+    }
+
+    public String getOverloadReason() {
+        return overloadReason;
+    }
+
+    public Long getOverloadApprovedBy() {
+        return overloadApprovedBy;
+    }
+
+    public java.time.LocalDateTime getOverloadApprovedAt() {
+        return overloadApprovedAt;
+    }
+
+    public void noteVariance(String reason, Long userId) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Lý do chênh lệch không được để trống");
+        }
+        this.varianceNote = reason.trim();
+        this.updatedBy = userId;
+    }
+
+    public void updateVarianceNote(String note, Long userId) {
+        this.varianceNote = (note != null && !note.trim().isEmpty()) ? note.trim() : null;
+        this.updatedBy = userId;
+    }
+
+    public void moveWeek(YearWeek newWeek, Long userId) {
+        this.yearWeek = Objects.requireNonNull(newWeek, "Tuần mới không được null");
+        this.updatedBy = userId;
+    }
+
+    public void updateAllocation(BigDecimal newAllocatedHours, BigDecimal newPercentage, Long userId) {
+        updateAllocation(newAllocatedHours, newPercentage);
+        this.updatedBy = userId;
+    }
+
+    public String getVarianceNote() {
+        return varianceNote;
+    }
+
+    public Long getUpdatedBy() {
+        return updatedBy;
+    }
+}
