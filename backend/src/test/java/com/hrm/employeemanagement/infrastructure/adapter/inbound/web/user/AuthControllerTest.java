@@ -25,6 +25,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Re
 import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -84,6 +85,11 @@ class AuthControllerTest {
                 .setCustomArgumentResolvers(new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
                 .setControllerAdvice(new UserExceptionHandler())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @Test
