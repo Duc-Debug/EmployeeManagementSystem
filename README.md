@@ -1,4 +1,4 @@
-# 🏢 Employee Management & Resource Capacity Planning System
+#  Employee Management & Resource Capacity Planning System
 ### Hệ thống Quản trị Nhân sự & Hoạch định Năng lực Nguồn lực Toàn diện
 
 [![Release](https://img.shields.io/badge/Release-v1.0.0-blue.svg)](https://github.com/Duc-Debug/EmployeeManagementSystem/releases)
@@ -12,7 +12,7 @@
 
 ---
 
-## 📌 1. Giới thiệu Tổng quan (Overview)
+##  1. Giới thiệu Tổng quan (Overview)
 
 **Employee Management System** là nền tảng quản trị nguồn lực doanh nghiệp chuyên sâu, giải quyết bài toán cốt lõi của các tổ chức công nghệ và dịch vụ: **Tối ưu hóa năng lực nhân sự, phân bổ dự án theo kỹ năng, cảnh báo xung đột lịch trình, và mô phỏng kịch bản kinh doanh**.
 
@@ -21,7 +21,7 @@ Hệ thống được thiết kế theo chuẩn **14 Epics (`NCL-01` $\rightarro
 ### 🌐 Môi trường Triển khai Sẵn sàng (Live Deployment)
 - **Frontend App (Vercel):** [https://employee-management-system-izcr9mk17-duc-debug.vercel.app]
 - **Backend API (Render Cloud):** [https://employeemanagementsystem-tdpn.onrender.com](https://employeemanagementsystem-tdpn.onrender.com) *(API Base: `/api/v1`)*
-- **Database (Aiven Cloud / Local):** MySQL 8.0 (127 Flyway Migrations tự động).
+- **Database (Aiven Cloud / Local):** MySQL 8.0 ( Flyway Migrations tự động).
 
 ---
 
