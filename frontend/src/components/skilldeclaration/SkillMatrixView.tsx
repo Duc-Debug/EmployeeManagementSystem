@@ -5,6 +5,8 @@ import { getDepartmentSkillMatrix, type DepartmentSkillMatrixResponse } from '@/
 import { getOrgTree } from '@/lib/api/org-units';
 import type { OrgUnitTreeNode } from '@/types/hrm';
 
+import { useAuthUser } from '@/lib/auth-session';
+
 export interface SkillMatrixViewProps {
     departments?: DepartmentItem[];
     onOpenCatalog?: () => void;
@@ -149,8 +151,18 @@ function flattenOrgTree(data: OrgUnitTreeNode | OrgUnitTreeNode[] | null | undef
 const EMPTY_DEPT_LIST: DepartmentItem[] = [];
 
 export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenCatalog }: SkillMatrixViewProps) {
+    const currentUser = useAuthUser();
+    const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
+    const isAllowed = ['VT-01', 'VT-03', 'VT-05', 'VT-06'].includes(roleCode);
+    const isBranchScope = currentUser?.dataScope === 'ORGANIZATION_BRANCH' || roleCode === 'VT-03';
+
     const [deptList, setDeptList] = useState<{ id: number; name: string }[]>([]);
-    const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
+    const [selectedDeptId, setSelectedDeptId] = useState<number | null>(() => {
+        if (isBranchScope) {
+            return currentUser?.scopeOrgUnitId || currentUser?.orgUnitId || 0;
+        }
+        return 0;
+    });
     const [selectedGroupName, setSelectedGroupName] = useState('Tất cả nhóm kỹ năng');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
@@ -158,37 +170,46 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
 
     // 1. Tải danh sách phòng ban thật từ API hoặc props
     useEffect(() => {
+        if (!isAllowed) return;
+
         if (departments && departments.length > 0) {
             const parsed = departments.map((d) => ({
                 id: Number(d.id),
                 name: d.name,
             }));
-            const listWithAll = [{ id: 0, name: 'Toàn bộ' }, ...parsed];
+            const listWithAll = [{ id: 0, name: isBranchScope ? 'Toàn bộ nhánh' : 'Toàn bộ' }, ...parsed];
             setDeptList(listWithAll);
-            if (parsed.length > 0) {
-                setSelectedDeptId((prev) => prev ?? (parsed.find((d) => d.id !== 1)?.id || 0));
-            }
+            setSelectedDeptId((prev) => {
+                if (prev != null && listWithAll.some((d) => d.id === prev)) return prev;
+                if (isBranchScope) return currentUser?.scopeOrgUnitId || currentUser?.orgUnitId || 0;
+                return 0;
+            });
             return;
         }
 
         getOrgTree()
             .then((tree) => {
                 const flat = flattenOrgTree(tree);
-                const listWithAll = [{ id: 0, name: 'Toàn bộ' }, ...flat];
+                const listWithAll = [{ id: 0, name: isBranchScope ? 'Toàn bộ nhánh' : 'Toàn bộ' }, ...flat];
                 setDeptList(listWithAll);
-                if (flat.length > 0) {
-                    // Ưu tiên chọn phòng ban chuyên trách (khác nút gốc công ty) để hiển thị ma trận thực tế
-                    const preferred = flat.find((d) => d.id !== 1) || flat[0];
-                    setSelectedDeptId((prev) => prev ?? preferred.id);
-                }
+                setSelectedDeptId((prev) => {
+                    if (prev != null && listWithAll.some((d) => d.id === prev)) return prev;
+                    if (isBranchScope) return currentUser?.scopeOrgUnitId || currentUser?.orgUnitId || 0;
+                    return 0;
+                });
             })
             .catch((err) => {
                 console.error('Failed to load org tree for skill matrix:', err);
             });
-    }, [departments]);
+    }, [departments, isAllowed, isBranchScope, currentUser?.scopeOrgUnitId, currentUser?.orgUnitId]);
 
     // 2. Tải ma trận kỹ năng khi phòng ban được chọn thay đổi
     useEffect(() => {
+        if (!isAllowed) {
+            setMatrixData(null);
+            return;
+        }
+
         setLoading(true);
         const deptIdToFetch = selectedDeptId && selectedDeptId > 0 ? selectedDeptId : undefined;
         getDepartmentSkillMatrix(deptIdToFetch)
@@ -202,7 +223,7 @@ export default function SkillMatrixView({ departments = EMPTY_DEPT_LIST, onOpenC
             .finally(() => {
                 setLoading(false);
             });
-    }, [selectedDeptId]);
+    }, [selectedDeptId, isAllowed]);
 
     const deptOptions = useMemo(() => deptList.map((d) => d.name), [deptList]);
     const currentDeptName = useMemo(() => {
