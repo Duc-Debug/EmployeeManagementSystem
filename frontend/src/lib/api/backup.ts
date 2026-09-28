@@ -110,6 +110,26 @@ export function canRestoreBackup(status: BackupStatus): boolean {
   return status === "COMPLETED";
 }
 
+export function validateBackupUploadFileName(fileName?: string | null): boolean {
+  if (!fileName || typeof fileName !== "string") return false;
+  const lower = fileName.trim().toLowerCase();
+  return lower.endsWith(".json");
+}
+
+export function filterBackups(
+  items: BackupItem[] | { backupType?: string; status?: string; backupCode?: string }[],
+  type?: string,
+  status?: string,
+  search?: string
+) {
+  return items.filter((b) => {
+    if (type && type !== "ALL" && b.backupType !== type) return false;
+    if (status && status !== "ALL" && b.status !== status) return false;
+    if (search && !b.backupCode?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+}
+
 export async function fetchBackups(
   type?: BackupType,
   status?: BackupStatus,

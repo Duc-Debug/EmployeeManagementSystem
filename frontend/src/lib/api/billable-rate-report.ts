@@ -1,4 +1,4 @@
-﻿import { apiRequest } from "../api-client";
+import { apiRequest } from "../api-client";
 
 export interface BillableRateItem {
   employeeId: number;
@@ -140,4 +140,60 @@ export async function downloadBillableRateReport(
   a.click();
   a.remove();
   window.URL.revokeObjectURL(downloadUrl);
+}
+
+export interface BillableRateCalculationResult {
+  netAvailableHours: number;
+  totalActualHours: number;
+  billableRate: number | null;
+  hasAvailableHours: boolean;
+  status: string;
+}
+
+export function calculateBillableRate(
+  standardHours: number,
+  holidayHours: number,
+  approvedLeaveHours: number,
+  billableHours: number,
+  nonBillableHours: number
+): BillableRateCalculationResult {
+  const netAvailableHours = Math.max(0, standardHours - holidayHours - approvedLeaveHours);
+  const totalActualHours = billableHours + nonBillableHours;
+
+  let billableRate: number | null = null;
+  const hasAvailableHours = netAvailableHours > 0;
+
+  if (hasAvailableHours) {
+    billableRate = Number(((billableHours / netAvailableHours) * 100).toFixed(1));
+  }
+
+  let status = "LOW_UTILIZATION";
+  if (!hasAvailableHours && approvedLeaveHours >= standardHours) {
+    status = "ON_LEAVE";
+  } else if (billableRate === null || billableHours === 0) {
+    status = "NO_BILLABLE_HOURS";
+  } else if (billableRate >= 85.0) {
+    status = "HIGH_UTILIZATION";
+  } else if (billableRate >= 70.0) {
+    status = "OPTIMAL";
+  }
+
+  return {
+    netAvailableHours,
+    totalActualHours,
+    billableRate,
+    hasAvailableHours,
+    status,
+  };
+}
+
+export function canAccessBillableRateTab(
+  roleCode?: string | null,
+  permissions?: readonly string[] | null
+): boolean {
+  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+  return (
+    permissions?.includes("BILLABLE_HOURS_REPORT_READ") === true ||
+    ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)
+  );
 }

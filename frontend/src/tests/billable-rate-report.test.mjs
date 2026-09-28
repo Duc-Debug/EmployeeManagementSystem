@@ -1,44 +1,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-
-function calculateBillableRate(standardHours, holidayHours, approvedLeaveHours, billableHours, nonBillableHours) {
-  const netAvailableHours = Math.max(0, standardHours - holidayHours - approvedLeaveHours);
-  const totalActualHours = billableHours + nonBillableHours;
-
-  let billableRate = null;
-  let hasAvailableHours = netAvailableHours > 0;
-
-  if (hasAvailableHours) {
-    billableRate = Number(((billableHours / netAvailableHours) * 100).toFixed(1));
-  }
-
-  let status = "LOW_UTILIZATION";
-  if (!hasAvailableHours && approvedLeaveHours >= standardHours) {
-    status = "ON_LEAVE";
-  } else if (billableRate === null || billableHours === 0) {
-    status = "NO_BILLABLE_HOURS";
-  } else if (billableRate >= 85.0) {
-    status = "HIGH_UTILIZATION";
-  } else if (billableRate >= 70.0) {
-    status = "OPTIMAL";
-  }
-
-  return {
-    netAvailableHours,
-    totalActualHours,
-    billableRate,
-    hasAvailableHours,
-    status
-  };
-}
-
-function canAccessBillableRateTab(roleCode, permissions) {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-  return (
-    permissions?.includes("BILLABLE_HOURS_REPORT_READ") === true ||
-    ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)
-  );
-}
+import {
+  calculateBillableRate,
+  canAccessBillableRateTab,
+} from "../lib/api/billable-rate-report.ts";
 
 describe("Billable Rate Report Logic Tests (NCL-10-CN-002)", () => {
   test("TC-01: Luồng thành công - 120h tính phí trên 160h khả dụng tính ra tỷ lệ 75.0%", () => {
