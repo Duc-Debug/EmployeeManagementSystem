@@ -395,8 +395,11 @@ export function BackupManagementWorkspace() {
               </span>
               <span className="text-[10px] text-slate-400">trên máy chủ</span>
             </div>
-            <div className="mt-1 text-[10px] text-blue-700 font-medium truncate" title="Thư mục: storage/backups/">
-              Vị trí: storage/backups/
+            <div
+              className="mt-1 text-[10px] text-blue-700 font-medium truncate"
+              title={`Thư mục lưu trữ: ${summary?.storageLocation || "uploads/backups"}`}
+            >
+              Vị trí: {summary?.storageLocation || "uploads/backups"}
             </div>
           </div>
         </div>
@@ -656,7 +659,9 @@ export function BackupManagementWorkspace() {
                             {b.isAutomatic ? (
                               <span className="text-purple-600 font-semibold">Tự động</span>
                             ) : (
-                              <span className="text-slate-500 font-medium">Thủ công</span>
+                              <span className="text-slate-600 font-medium" title={`Người tạo: ${b.createdByName || "Quản trị viên"}`}>
+                                {b.createdByName || "Quản trị viên"}
+                              </span>
                             )}
                           </span>
                         </td>
