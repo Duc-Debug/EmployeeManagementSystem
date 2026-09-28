@@ -132,7 +132,9 @@ export function ProjectWeeklyMatrix({
                                 </button>
                             </div>
                         </div>
-                        <p className="text-[11px] text-slate-500">Giám sát giờ công các tuần của 1 tháng & kiểm soát tải trọng</p>
+                        <p className="text-[11px] text-slate-500">
+                            Giám sát giờ công các tuần của 1 tháng & kiểm soát tải trọng • <span className="text-slate-400 italic" title="Tuần được tính cho tháng chứa ngày Thứ Năm của tuần ISO.">Tuần được tính cho tháng chứa ngày Thứ Năm của tuần ISO.</span>
+                        </p>
                     </div>
                 </div>
 
@@ -194,7 +196,10 @@ export function ProjectWeeklyMatrix({
                                     </div>
                                 </th>
                             ))}
-                            <th className="min-w-[80px] border-l border-slate-200 bg-slate-100/90 px-2 py-3 text-center">
+                            <th
+                                className="min-w-[80px] border-l border-slate-200 bg-slate-100/90 px-2 py-3 text-center"
+                                title="Tuần được tính cho tháng chứa ngày Thứ Năm của tuần ISO."
+                            >
                                 <div>Tổng tháng</div>
                                 <div className="font-normal text-[9px] text-slate-400 lowercase">Giờ lũy kế</div>
                             </th>
