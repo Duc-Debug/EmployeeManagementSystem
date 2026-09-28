@@ -45,6 +45,7 @@ export interface BackupSummary {
   totalBackups: number;
   totalFileSizeBytes: number;
   formattedTotalSize: string;
+  storageLocation?: string;
   latestCompletedBackup?: BackupItem;
   schedule?: BackupSchedule;
 }
@@ -87,8 +88,8 @@ export function formatBackupFileSize(bytes: number): string {
 }
 
 export function validateRestoreConfirmation(code: string, reason: string): { valid: boolean; error?: string } {
-  if (!code || code.trim().toUpperCase() !== "RESTORE") {
-    return { valid: false, error: "Mã xác nhận phải là RESTORE" };
+  if (!code || code.trim() !== "RESTORE") {
+    return { valid: false, error: "Mã xác nhận phải là RESTORE (viết hoa chính xác)" };
   }
   if (!reason || reason.trim().length < 10) {
     return { valid: false, error: "Lý do phải từ 10 ký tự trở lên" };
