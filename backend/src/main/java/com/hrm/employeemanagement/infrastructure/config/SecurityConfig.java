@@ -42,13 +42,16 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
     private final boolean h2ConsoleEnabled;
+    private final String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
             CustomAccessDeniedHandler customAccessDeniedHandler,
-            @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled) {
+            @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled,
+            @Value("${app.cors.allowed-origins:}") String allowedOrigins) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.customAccessDeniedHandler = customAccessDeniedHandler;
         this.h2ConsoleEnabled = h2ConsoleEnabled;
+        this.allowedOrigins = allowedOrigins;
     }
 
     @Bean
@@ -92,10 +95,19 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of(
+        List<String> origins = new java.util.ArrayList<>(List.of(
                 "http://localhost:*",
                 "http://127.0.0.1:*"
         ));
+
+        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+            Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .forEach(origins::add);
+        }
+
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "Location"));
