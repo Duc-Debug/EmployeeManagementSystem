@@ -2,25 +2,19 @@
 
 import { useState } from "react";
 import { BriefcaseBusiness, CheckCircle2 } from "lucide-react";
-import type { AttendanceRecord } from "@/lib/hr-data";
 import { useAuthUser } from "@/lib/auth-session";
 import WorkLogView from "../timesheet/WorkLogView";
 import { TimesheetApprovalView } from "../timesheet/TimesheetApprovalView";
 
-export function AttendanceView(_props: {
-    records: AttendanceRecord[];
-    onClockIn: () => string;
-    onClockOut: () => boolean;
-    onEditRecord: (id: string) => void;
-}) {
+export function AttendanceView() {
     const user = useAuthUser();
     const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
     // Ghi giờ công: CHỈ dành cho VT-04 (Nhân viên chuyên môn)
-    const canAccessWorkLog = role === "VT-04";
-    // Duyệt giờ công: dành cho VT-02 (PM) hoặc Admin có quyền WORK_LOG_APPROVE
+    const canAccessWorkLog = role === "VT-04" || (user?.permissions?.includes("WORK_LOG_CREATE") ?? false);
+    // Duyệt giờ công: dành cho VT-02 (PM) có quyền WORK_LOG_APPROVE
     const canApproveWorkLog = user?.permissions
         ? user.permissions.includes("WORK_LOG_APPROVE")
-        : role === "VT-02" || role === "VT-06";
+        : role === "VT-02";
 
     const [selectedTab, setSelectedTab] = useState<"work-logs" | "approvals">(
         canAccessWorkLog ? "work-logs" : "approvals",
