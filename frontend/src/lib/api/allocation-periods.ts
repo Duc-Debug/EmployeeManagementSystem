@@ -184,7 +184,7 @@ export function isWeekWithinPeriod(
 
 export function validateCreatePeriodForm({
   name,
-  periodType,
+  periodType: _periodType,
   year,
   startWeek,
   endWeek,
@@ -250,7 +250,7 @@ export function checkPeriodPermissions(roleCode?: string | null) {
   };
 }
 
-export function generateSnapshotCSV(snapshot?: { items?: AllocationPlanSnapshotItemResult[] } | null, periodName?: string): string {
+export function generateSnapshotCSV(snapshot?: { items?: AllocationPlanSnapshotItemResult[] } | null, _periodName?: string): string {
   if (!snapshot || !snapshot.items) return "";
   const headers = [
     "Mã Nhân Viên",

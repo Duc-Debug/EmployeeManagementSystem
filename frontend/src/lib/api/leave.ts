@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import type { OrgUnitType } from "@/types/hrm";
 
 export interface LeaveRequestDto {
   id: number;
@@ -168,7 +169,7 @@ export interface OrgUnitTreeNodeLike {
   id: number;
   unitCode: string;
   unitName: string;
-  unitType?: string;
+  unitType?: OrgUnitType;
   children?: readonly OrgUnitTreeNodeLike[];
 }
 
@@ -176,7 +177,7 @@ export interface FlatOrgUnitOption {
   id: number;
   unitCode: string;
   unitName: string;
-  unitType?: string;
+  unitType?: OrgUnitType;
   depth: number;
 }
 

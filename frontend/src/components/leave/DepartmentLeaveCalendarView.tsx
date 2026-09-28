@@ -25,7 +25,6 @@ import {
     type DailyLeaveSummaryDto,
 } from "@/lib/api/leave";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
-import type { OrgUnitTreeNode } from "@/types/hrm";
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
     ANNUAL: "Nghỉ phép năm",
