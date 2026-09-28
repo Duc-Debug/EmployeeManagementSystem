@@ -1,3 +1,5 @@
+import { getIsoWeeksForMonth, formatIsoWeekDateRange, getIsoWeekDetails } from '@/lib/iso-week';
+
 export interface TaskItem {
     id: string;
     code: string;
@@ -64,54 +66,28 @@ export interface ProjectMonth {
 }
 
 export function getIsoWeekNumber(date: Date): { year: number; weekNumber: number } {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-    return { year: d.getUTCFullYear(), weekNumber };
+    const details = getIsoWeekDetails(date);
+    return { year: details.year, weekNumber: details.week };
 }
 
-export function generateProjectMonth(year: number, monthZeroIndexed: number): ProjectMonth {
+export function buildProjectMonth(year: number, month1Indexed: number, currentDate = new Date()): ProjectMonth {
     const pad = (n: number) => String(n).padStart(2, '0');
-    const monthId = `${year}-${pad(monthZeroIndexed + 1)}`;
-    const monthName = `Tháng ${pad(monthZeroIndexed + 1)}/${year}`;
+    const monthId = `${year}-${pad(month1Indexed)}`;
+    const monthName = `Tháng ${pad(month1Indexed)}/${year}`;
+    const currentIso = getIsoWeekDetails(currentDate);
 
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-    const currentDate = today.getDate();
-
-    const lastDayOfMonth = new Date(year, monthZeroIndexed + 1, 0).getDate();
-    const weeks: MonthWeek[] = [];
-
-    let day = 1;
-    let weekIndex = 1;
-
-    while (day <= lastDayOfMonth) {
-        const startDay = day;
-        const endDay = Math.min(day + 6, lastDayOfMonth);
-        const middleDate = new Date(year, monthZeroIndexed, Math.min(startDay + 3, endDay));
-        const { year: isoYear, weekNumber } = getIsoWeekNumber(middleDate);
-
-        const isCurrent =
-            year === currentYear &&
-            monthZeroIndexed === currentMonth &&
-            currentDate >= startDay &&
-            currentDate <= endDay;
-
-        weeks.push({
-            key: `W${weekIndex}`,
-            label: `Tuần ${weekIndex}`,
-            dates: `${pad(startDay)}/${pad(monthZeroIndexed + 1)} - ${pad(endDay)}/${pad(monthZeroIndexed + 1)}`,
+    const isoWeeks = getIsoWeeksForMonth(year, month1Indexed);
+    const weeks: MonthWeek[] = isoWeeks.map((w) => {
+        const isCurrent = w.year === currentIso.year && w.week === currentIso.week;
+        return {
+            key: `W${w.week}`,
+            label: `W${w.week}`,
+            dates: formatIsoWeekDateRange(w.startDate, w.endDate),
             isCurrent,
-            year: isoYear,
-            weekNumber,
-        });
-
-        day = endDay + 1;
-        weekIndex++;
-    }
+            year: w.year,
+            weekNumber: w.week,
+        };
+    });
 
     return {
         id: monthId,
@@ -120,13 +96,17 @@ export function generateProjectMonth(year: number, monthZeroIndexed: number): Pr
     };
 }
 
-export function generateProjectMonthsAroundCurrent(spanMonths = 6): ProjectMonth[] {
+export function generateProjectMonth(year: number, monthZeroIndexed: number): ProjectMonth {
+    return buildProjectMonth(year, monthZeroIndexed + 1);
+}
+
+export function generateProjectMonthsAroundCurrent(pastMonths = 12, futureMonths = 12): ProjectMonth[] {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const list: ProjectMonth[] = [];
 
-    for (let offset = 0; offset < spanMonths; offset++) {
+    for (let offset = -pastMonths; offset <= futureMonths; offset++) {
         const d = new Date(currentYear, currentMonth + offset, 1);
         list.push(generateProjectMonth(d.getFullYear(), d.getMonth()));
     }
