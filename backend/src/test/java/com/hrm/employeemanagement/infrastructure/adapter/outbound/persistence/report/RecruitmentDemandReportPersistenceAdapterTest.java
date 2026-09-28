@@ -105,6 +105,8 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         ProjectDemandByRoleProjection demand = new ProjectDemandByRoleProjection() {
             @Override public Long getRoleId() { return 100L; }
             @Override public BigDecimal getRequiredHours() { return BigDecimal.valueOf(120); }
+            @Override public String getProjectCode() { return "PJ-001"; }
+            @Override public String getProjectName() { return "Project 1"; }
         };
         ProjectRoleSkillJpaEntity mapping = org.mockito.Mockito.mock(ProjectRoleSkillJpaEntity.class);
         when(mapping.getRoleId()).thenReturn(100L);
@@ -242,6 +244,8 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         ProjectDemandByRoleProjection demand = new ProjectDemandByRoleProjection() {
             @Override public Long getRoleId() { return 200L; }
             @Override public BigDecimal getRequiredHours() { return BigDecimal.valueOf(100); }
+            @Override public String getProjectCode() { return null; }
+            @Override public String getProjectName() { return null; }
         };
         when(projectResourceDemandRepository.sumDemandsByRoleFiltered(null, 2026, 1, 2026, 4)).thenReturn(List.of(demand));
         when(projectRoleSkillRepository.findActiveMappingsByRoleIdIn(List.of(200L))).thenReturn(List.of());
@@ -258,6 +262,8 @@ class RecruitmentDemandReportPersistenceAdapterTest {
         ProjectDemandByRoleProjection demand = new ProjectDemandByRoleProjection() {
             @Override public Long getRoleId() { return 300L; }
             @Override public BigDecimal getRequiredHours() { return BigDecimal.valueOf(100); }
+            @Override public String getProjectCode() { return "PJ-002"; }
+            @Override public String getProjectName() { return "Project 2"; }
         };
         ProjectRoleSkillJpaEntity java = org.mockito.Mockito.mock(ProjectRoleSkillJpaEntity.class);
         ProjectRoleSkillJpaEntity spring = org.mockito.Mockito.mock(ProjectRoleSkillJpaEntity.class);

@@ -12,6 +12,7 @@ export interface RecruitmentSkillDemandItem {
   availableCapacityHours: number;
   shortfallHours: number;
   status: "DEFICIT" | "SUFFICIENT";
+  demandingProjects?: string[];
 }
 
 export interface RecruitmentDemandReportData {
