@@ -1031,7 +1031,8 @@ public UserResult updateUserRole(
                 orgUnitName,
                 user.getDataScope(),
                 user.getScopeOrgUnitId(),
-                permissions
+                permissions,
+                user.getPasswordChangedAt() == null
         );
     }
 

@@ -97,6 +97,15 @@ export async function apiRequest<T = unknown>(
         }
       }
 
+      if (response.status === 403 && payload && typeof payload === "object") {
+        const p = payload as Record<string, unknown>;
+        if (p.errorCode === "PASSWORD_CHANGE_REQUIRED" || p.code === "PASSWORD_CHANGE_REQUIRED") {
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/change-password")) {
+            window.location.href = "/change-password";
+          }
+        }
+      }
+
       if (response.status === 403 && errorMessage === "Access Denied") {
         errorMessage = "Tài khoản hiện tại không có quyền xem hoặc thao tác trên kịch bản này.";
       }

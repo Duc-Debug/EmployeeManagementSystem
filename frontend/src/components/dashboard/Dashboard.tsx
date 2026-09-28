@@ -59,6 +59,12 @@ export default function Dashboard() {
         navigate(targetPath);
     };
 
+    useEffect(() => {
+        if (user?.requiresPasswordChange) {
+            navigate("/change-password", { replace: true });
+        }
+    }, [user, navigate]);
+
     // Điều hướng trang Không sẵn sàng độc lập: Nhúng vào lịch tuần của VT-04, các vai trò khác về trang chủ
     useEffect(() => {
         if (activeTab === "unavailability") {
