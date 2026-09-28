@@ -217,8 +217,8 @@ public class BackupService implements
 
     @Override
     public void restoreBackup(Long backupId, RestoreBackupRequest request, Long currentUserId, String currentUserEmail, String clientIp) {
-        if (request == null || !"RESTORE".equalsIgnoreCase(request.getConfirmationCode())) {
-            throw new InvalidRestoreConfirmationException("Mã xác nhận không chính xác. Vui lòng nhập đúng 'RESTORE' để tiến hành phục hồi dữ liệu.");
+        if (request == null || request.getConfirmationCode() == null || !"RESTORE".equals(request.getConfirmationCode().trim())) {
+            throw new InvalidRestoreConfirmationException("Mã xác nhận không chính xác. Vui lòng nhập đúng 'RESTORE' (viết hoa) để tiến hành phục hồi dữ liệu.");
         }
         if (request.getReason() == null || request.getReason().trim().length() < 10) {
             throw new InvalidRestoreConfirmationException("Vui lòng cung cấp lý do giải trình phục hồi tối thiểu 10 ký tự.");
@@ -558,6 +558,10 @@ public class BackupService implements
             }
             throw new IllegalArgumentException("Xử lý tệp sao lưu tải lên thất bại: " + e.getMessage(), e);
         }
+    }
+
+    public String getStorageDirectory() {
+        return backupStoragePort.getStorageDirectory();
     }
 
     public void recordAccessDenied(Long userId, String userEmail, String action, String reason, String clientIp) {

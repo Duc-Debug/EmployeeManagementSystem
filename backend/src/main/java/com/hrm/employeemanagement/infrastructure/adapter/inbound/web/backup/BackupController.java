@@ -44,6 +44,7 @@ public class BackupController {
     private static class CurrentUserInfo {
         Long id;
         String email;
+        String name;
         boolean isAdmin;
     }
 
@@ -64,6 +65,7 @@ public class BackupController {
         if (principal instanceof User user) {
             info.id = user.getIdValue();
             info.email = user.getEmail();
+            info.name = (user.getUsername() != null && !user.getUsername().isBlank()) ? user.getUsername() : user.getEmail();
             String roleCode = user.getRole() != null && user.getRole().getCode() != null ? user.getRole().getCode().getCode() : "";
             isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
                     || "ROLE_ADMIN".equalsIgnoreCase(roleCode)
@@ -71,6 +73,9 @@ public class BackupController {
         } else if (principal instanceof UserPrincipal up) {
             info.id = up.getId();
             info.email = up.getUsername();
+            info.name = (up.getDomainUser() != null && up.getDomainUser().getUsername() != null && !up.getDomainUser().getUsername().isBlank())
+                    ? up.getDomainUser().getUsername()
+                    : up.getUsername();
             String roleCode = up.getDomainUser() != null && up.getDomainUser().getRole() != null && up.getDomainUser().getRole().getCode() != null
                     ? up.getDomainUser().getRole().getCode().getCode() : "";
             isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
@@ -81,9 +86,14 @@ public class BackupController {
                     || hasAuthority(auth, "ADMIN");
         } else {
             info.email = auth.getName();
+            info.name = auth.getName();
             isAdminRole = hasAuthority(auth, "VT-06")
                     || hasAuthority(auth, "ROLE_ADMIN")
                     || hasAuthority(auth, "ADMIN");
+        }
+
+        if (info.name == null || info.name.isBlank()) {
+            info.name = (info.email != null && !info.email.isBlank()) ? info.email : "admin";
         }
 
         info.isAdmin = isAdminRole && hasBackupPermission;
@@ -152,6 +162,7 @@ public class BackupController {
         BackupSummaryResponse summary = new BackupSummaryResponse(
                 totalCount,
                 totalBytes,
+                backupService.getStorageDirectory(),
                 BackupResponse.fromDomain(latestCompleted),
                 BackupScheduleResponse.fromDomain(backupService.getSchedule())
         );
@@ -173,7 +184,7 @@ public class BackupController {
     ) {
         CurrentUserInfo user = checkPermissionAndGetUserInfo(request, "CREATE_BACKUP");
         String ip = resolveClientIp(request);
-        Backup created = backupService.createBackup(body, user.id, user.email, ip);
+        Backup created = backupService.createBackup(body, user.id, user.name, ip);
         return ResponseEntity.ok(ApiResponse.success("Tạo bản sao lưu thành công", BackupResponse.fromDomain(created)));
     }
 
@@ -266,7 +277,7 @@ public class BackupController {
                     is,
                     file.getSize(),
                     user.id,
-                    user.email,
+                    user.name,
                     ip
             );
             return ResponseEntity.ok(ApiResponse.success("Tải lên bản sao lưu thành công", BackupResponse.fromDomain(uploaded)));

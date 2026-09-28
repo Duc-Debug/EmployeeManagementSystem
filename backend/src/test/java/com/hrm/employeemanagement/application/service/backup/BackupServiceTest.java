@@ -161,6 +161,19 @@ class BackupServiceTest {
         }
 
         @Test
+        @DisplayName("P3-5 Test: Chặn phục hồi khi mã xác nhận viết thường (yêu cầu chính xác RESTORE viết hoa)")
+        void testRestoreBackup_LowerCaseConfirmationCode_ThrowsException() {
+                RestoreBackupRequest request = new RestoreBackupRequest("restore", "Khắc phục lỗi dữ liệu phân bổ");
+
+                assertThatThrownBy(
+                                () -> backupService.restoreBackup(50L, request, 1L, "admin@company.com", "127.0.0.1"))
+                                .isInstanceOf(InvalidRestoreConfirmationException.class)
+                                .hasMessageContaining("RESTORE");
+
+                verifyNoInteractions(backupRestoreEnginePort);
+        }
+
+        @Test
         @DisplayName("Chặn phục hồi khi lý do giải trình ngắn dưới 10 ký tự")
         void testRestoreBackup_ReasonTooShort_ThrowsException() {
                 RestoreBackupRequest request = new RestoreBackupRequest("RESTORE", "Lỗi");
