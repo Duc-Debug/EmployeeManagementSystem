@@ -69,6 +69,8 @@ class DepartmentSkillMatrixServiceTest {
 
     private DepartmentSkillMatrixService service;
     private User rmUser;
+    private User companyUser;
+    private User devUser;
     private OrgUnit department;
 
     @BeforeEach
@@ -84,6 +86,12 @@ class DepartmentSkillMatrixServiceTest {
 
         Role rmRole = new Role(new RoleId(3L), RoleCode.VT_03, "Quản lý nguồn lực");
         rmUser = new User(new UserId(2L), "rm_user", "hash", rmRole, UserStatus.ACTIVE, new EmployeeId(2L), DataScope.ORGANIZATION_BRANCH, 10L, 0L);
+
+        Role directorRole = new Role(new RoleId(1L), RoleCode.VT_01, "Ban Giám Đốc");
+        companyUser = new User(new UserId(1L), "director_user", "hash", directorRole, UserStatus.ACTIVE, new EmployeeId(1L), DataScope.COMPANY, null, 0L);
+
+        Role devRole = new Role(new RoleId(4L), RoleCode.VT_04, "Nhân viên chuyên môn");
+        devUser = new User(new UserId(4L), "dev_user", "hash", devRole, UserStatus.ACTIVE, new EmployeeId(4L), DataScope.SELF, null, 0L);
 
         department = new OrgUnit(
                 new OrgUnitId(10L), "DEV-TEAM", "Đội ngũ Phát triển", OrgUnitType.TEAM,
@@ -131,7 +139,6 @@ class DepartmentSkillMatrixServiceTest {
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
         when(loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))).thenReturn(Optional.of(department));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, 10L)).thenReturn(true);
         when(loadEmployeePort.findActiveByOrgUnitId(orgUnitId)).thenReturn(fiveEmployees);
         when(skillCatalogRepository.findAll()).thenReturn(eightSkills);
         when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L, 102L, 103L, 104L, 105L)))
@@ -194,7 +201,6 @@ class DepartmentSkillMatrixServiceTest {
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
         when(loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))).thenReturn(Optional.of(department));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, 10L)).thenReturn(true);
         when(loadEmployeePort.findActiveByOrgUnitId(orgUnitId)).thenReturn(employees);
         when(skillCatalogRepository.findAll()).thenReturn(skills);
         when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L, 102L)))
@@ -234,7 +240,6 @@ class DepartmentSkillMatrixServiceTest {
 
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
-        when(loadOrgUnitPort.findById(new OrgUnitId(outOfScopeUnitId))).thenReturn(Optional.of(outOfScopeUnit));
         when(loadOrgUnitPort.existsInOrgUnitBranch(outOfScopeUnitId, 10L)).thenReturn(false);
 
         assertThrows(PermissionDeniedException.class, () -> service.execute(outOfScopeUnitId));
@@ -262,7 +267,6 @@ class DepartmentSkillMatrixServiceTest {
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
         when(loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))).thenReturn(Optional.of(department));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, 10L)).thenReturn(true);
         when(loadEmployeePort.findActiveByOrgUnitId(orgUnitId)).thenReturn(employees);
         when(skillCatalogRepository.findAll()).thenReturn(skills);
         when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L)))
@@ -282,7 +286,6 @@ class DepartmentSkillMatrixServiceTest {
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
         when(loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))).thenReturn(Optional.of(department));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, 10L)).thenReturn(true);
         when(loadEmployeePort.findActiveByOrgUnitId(orgUnitId)).thenReturn(List.of());
         when(skillCatalogRepository.findAll()).thenReturn(List.of(new Skill(1L, "JAVA", "Java", "Backend", "Java", LocalDateTime.now())));
 
@@ -299,17 +302,204 @@ class DepartmentSkillMatrixServiceTest {
     void getMatrix_OrgUnitNotFound_ThrowsException() {
         Long nonExistentId = 999L;
 
-        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
-        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(companyUser));
         when(loadOrgUnitPort.findById(new OrgUnitId(nonExistentId))).thenReturn(Optional.empty());
 
         assertThrows(OrgUnitNotFoundException.class, () -> service.execute(nonExistentId));
     }
 
     @Test
-    @DisplayName("Edge Case: orgUnitId là null -> Ném IllegalArgumentException")
-    void getMatrix_NullOrgUnitId_ThrowsIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> service.execute(null));
+    @DisplayName("Test 1: COMPANY + null -> execute(null) trả toàn bộ nhân sự toàn công ty")
+    void getMatrix_CompanyScope_NullOrgUnitId_ReturnsAllCompanyEmployees_Test1() {
+        List<Employee> allEmployees = List.of(
+                new Employee(new EmployeeId(101L), new UserId(11L), 10L, "EMP001", "Nguyễn Văn A", "Backend Dev", null, null, false, 40, EmployeeStatus.ACTIVE),
+                new Employee(new EmployeeId(102L), new UserId(12L), 20L, "EMP002", "Trần Thị B", "Frontend Dev", null, null, false, 40, EmployeeStatus.ACTIVE),
+                new Employee(new EmployeeId(103L), new UserId(13L), 30L, "EMP003", "Lê Văn C", "QA", null, null, false, 40, EmployeeStatus.ACTIVE)
+        );
+
+        List<Skill> skills = List.of(
+                new Skill(1L, "JAVA", "Java", "Backend", "Java", LocalDateTime.now()),
+                new Skill(2L, "REACT", "React.js", "Frontend", "React", LocalDateTime.now())
+        );
+
+        List<EmployeeSkill> approvedSkills = List.of(
+                new EmployeeSkill(1L, 101L, 1L, ProficiencyLevel.EXPERT, new BigDecimal("4.0"), SkillStatus.APPROVED, 1L, LocalDateTime.now(), null, "Tốt", LocalDateTime.now(), LocalDateTime.now()),
+                new EmployeeSkill(2L, 102L, 2L, ProficiencyLevel.ADVANCED, new BigDecimal("3.0"), SkillStatus.APPROVED, 1L, LocalDateTime.now(), null, "Tốt", LocalDateTime.now(), LocalDateTime.now())
+        );
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(1L);
+        when(loadUserPort.findById(new UserId(1L))).thenReturn(Optional.of(companyUser));
+        when(loadEmployeePort.findAllActive()).thenReturn(allEmployees);
+        when(skillCatalogRepository.findAll()).thenReturn(skills);
+        when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L, 102L, 103L)))
+                .thenReturn(approvedSkills);
+
+        DepartmentSkillMatrixResult result = service.execute(null);
+
+        assertNotNull(result);
+        assertNull(result.orgUnitId());
+        assertEquals("ALL", result.orgUnitCode());
+        assertEquals("Toàn công ty", result.orgUnitName());
+        assertEquals(3, result.rows().size());
+        assertEquals(3, result.summary().totalEmployees());
+
+        verify(loadOrgUnitPort, never()).findById(any());
+        verify(loadEmployeePort).findAllActive();
+        verify(loadEmployeePort, never()).findActiveByOrgUnitId(any());
+        verify(loadEmployeePort, never()).findActiveByOrgUnitIds(any());
+    }
+
+    @Test
+    @DisplayName("Test 2: VT-03 + null -> execute(null) chỉ trả nhân sự thuộc branch của VT-03")
+    void getMatrix_BranchScope_NullOrgUnitId_ReturnsBranchEmployees_Test2() {
+        Long branchId = 10L;
+
+        List<Employee> branchEmployees = List.of(
+                new Employee(new EmployeeId(101L), new UserId(11L), branchId, "EMP001", "Nguyễn Văn A", "Backend Dev", null, null, false, 40, EmployeeStatus.ACTIVE),
+                new Employee(new EmployeeId(102L), new UserId(12L), branchId, "EMP002", "Trần Thị B", "Frontend Dev", null, null, false, 40, EmployeeStatus.ACTIVE)
+        );
+
+        List<Skill> skills = List.of(
+                new Skill(1L, "JAVA", "Java", "Backend", "Java", LocalDateTime.now())
+        );
+
+        List<EmployeeSkill> approvedSkills = List.of(
+                new EmployeeSkill(1L, 101L, 1L, ProficiencyLevel.ADVANCED, new BigDecimal("3.0"), SkillStatus.APPROVED, 2L, LocalDateTime.now(), null, "Tốt", LocalDateTime.now(), LocalDateTime.now())
+        );
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(branchId))).thenReturn(Optional.of(department));
+        when(loadEmployeePort.findActiveByOrgUnitId(branchId)).thenReturn(branchEmployees);
+        when(skillCatalogRepository.findAll()).thenReturn(skills);
+        when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L, 102L)))
+                .thenReturn(approvedSkills);
+
+        DepartmentSkillMatrixResult result = service.execute(null);
+
+        assertNotNull(result);
+        assertEquals(branchId, result.orgUnitId());
+        assertEquals("DEV-TEAM", result.orgUnitCode());
+        assertEquals("Đội ngũ Phát triển", result.orgUnitName());
+        assertEquals(2, result.rows().size());
+
+        verify(loadEmployeePort, never()).findAllActive();
+        verify(loadOrgUnitPort).findById(new OrgUnitId(branchId));
+    }
+
+    @Test
+    @DisplayName("Test 3: VT-03 chọn phòng ban trong branch -> execute(childOrgUnitId) thành công")
+    void getMatrix_BranchScope_ChildOrgUnitInScope_Success_Test3() {
+        Long childOrgUnitId = 20L;
+        OrgUnit childUnit = new OrgUnit(
+                new OrgUnitId(childOrgUnitId), "DEV-SUBTEAM", "Đội ngũ Backend Con", OrgUnitType.TEAM,
+                new OrgUnitId(10L), "/1/10/20/", 3, OrgUnitStatus.ACTIVE,
+                "Nhóm Backend con", 2L, LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        List<Employee> childEmployees = List.of(
+                new Employee(new EmployeeId(101L), new UserId(11L), childOrgUnitId, "EMP001", "Nguyễn Văn A", "Backend", null, null, false, 40, EmployeeStatus.ACTIVE)
+        );
+
+        List<Skill> skills = List.of(
+                new Skill(1L, "JAVA", "Java", "Backend", "Java", LocalDateTime.now())
+        );
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(childOrgUnitId))).thenReturn(Optional.of(childUnit));
+        when(loadOrgUnitPort.existsInOrgUnitBranch(childOrgUnitId, 10L)).thenReturn(true);
+        when(loadEmployeePort.findActiveByOrgUnitId(childOrgUnitId)).thenReturn(childEmployees);
+        when(skillCatalogRepository.findAll()).thenReturn(skills);
+        when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L)))
+                .thenReturn(List.of());
+
+        DepartmentSkillMatrixResult result = service.execute(childOrgUnitId);
+
+        assertNotNull(result);
+        assertEquals(childOrgUnitId, result.orgUnitId());
+        assertEquals("DEV-SUBTEAM", result.orgUnitCode());
+        assertEquals("Đội ngũ Backend Con", result.orgUnitName());
+        assertEquals(1, result.rows().size());
+    }
+
+    @Test
+    @DisplayName("Test 5: Branch có nhiều cấp con (Branch A -> Team A1, Team A2 -> Team A2.1) -> Chọn Branch A lấy đúng toàn bộ cây con")
+    void getMatrix_BranchWithMultipleDescendantLevels_ResolvesFullSubtree_Test5() {
+        Long branchAId = 10L;
+        Long teamA1Id = 11L;
+        Long teamA2Id = 12L;
+        Long teamA21Id = 13L;
+
+        OrgUnit branchA = new OrgUnit(
+                new OrgUnitId(branchAId), "BRANCH-A", "Khối Phát triển A", OrgUnitType.DEPARTMENT,
+                null, "/10/", 1, OrgUnitStatus.ACTIVE, "Branch A", 2L, LocalDateTime.now(), LocalDateTime.now()
+        );
+        OrgUnit teamA1 = new OrgUnit(
+                new OrgUnitId(teamA1Id), "TEAM-A1", "Nhóm A1", OrgUnitType.TEAM,
+                new OrgUnitId(branchAId), "/10/11/", 2, OrgUnitStatus.ACTIVE, "Team A1", 2L, LocalDateTime.now(), LocalDateTime.now()
+        );
+        OrgUnit teamA2 = new OrgUnit(
+                new OrgUnitId(teamA2Id), "TEAM-A2", "Nhóm A2", OrgUnitType.TEAM,
+                new OrgUnitId(branchAId), "/10/12/", 2, OrgUnitStatus.ACTIVE, "Team A2", 2L, LocalDateTime.now(), LocalDateTime.now()
+        );
+        OrgUnit teamA21 = new OrgUnit(
+                new OrgUnitId(teamA21Id), "TEAM-A2.1", "Tổ kỹ thuật A2.1", OrgUnitType.TEAM,
+                new OrgUnitId(teamA2Id), "/10/12/13/", 3, OrgUnitStatus.ACTIVE, "Team A2.1", 2L, LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        List<OrgUnit> allUnits = List.of(branchA, teamA1, teamA2, teamA21);
+
+        List<Employee> treeEmployees = List.of(
+                new Employee(new EmployeeId(101L), new UserId(11L), branchAId, "EMP001", "Trưởng khối A", "Manager", null, null, false, 40, EmployeeStatus.ACTIVE),
+                new Employee(new EmployeeId(102L), new UserId(12L), teamA1Id, "EMP002", "Dev A1", "Developer", null, null, false, 40, EmployeeStatus.ACTIVE),
+                new Employee(new EmployeeId(103L), new UserId(13L), teamA2Id, "EMP003", "Dev A2", "Developer", null, null, false, 40, EmployeeStatus.ACTIVE),
+                new Employee(new EmployeeId(104L), new UserId(14L), teamA21Id, "EMP004", "Dev A2.1", "Developer", null, null, false, 40, EmployeeStatus.ACTIVE)
+        );
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
+        when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
+        when(loadOrgUnitPort.findById(new OrgUnitId(branchAId))).thenReturn(Optional.of(branchA));
+        when(loadOrgUnitPort.findAll()).thenReturn(allUnits);
+        when(loadEmployeePort.findActiveByOrgUnitIds(argThat(ids -> ids != null
+                && ids.size() == 4
+                && ids.containsAll(List.of(branchAId, teamA1Id, teamA2Id, teamA21Id)))))
+                .thenReturn(treeEmployees);
+        when(skillCatalogRepository.findAll()).thenReturn(List.of());
+
+        DepartmentSkillMatrixResult result = service.execute(null);
+
+        assertNotNull(result);
+        assertEquals(branchAId, result.orgUnitId());
+        assertEquals("BRANCH-A", result.orgUnitCode());
+        assertEquals(4, result.rows().size());
+        assertEquals(4, result.summary().totalEmployees());
+
+        verify(loadEmployeePort).findActiveByOrgUnitIds(argThat(ids -> ids.containsAll(List.of(10L, 11L, 12L, 13L))));
+    }
+
+    @Test
+    @DisplayName("DataScope SELF -> Ném PermissionDeniedException")
+    void getMatrix_SelfScope_ThrowsPermissionDenied() {
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(4L);
+        when(loadUserPort.findById(new UserId(4L))).thenReturn(Optional.of(devUser));
+
+        assertThrows(PermissionDeniedException.class, () -> service.execute(null));
+        assertThrows(PermissionDeniedException.class, () -> service.execute(10L));
+    }
+
+    @Test
+    @DisplayName("DataScope ORGANIZATION_BRANCH nhưng scopeOrgUnitId là null -> Ném PermissionDeniedException")
+    void getMatrix_BranchScopeWithNullScopeOrgUnitId_ThrowsPermissionDenied() {
+        User userWithoutScope = mock(User.class);
+        when(userWithoutScope.getDataScope()).thenReturn(DataScope.ORGANIZATION_BRANCH);
+        when(userWithoutScope.getScopeOrgUnitId()).thenReturn(null);
+
+        when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(99L);
+        when(loadUserPort.findById(new UserId(99L))).thenReturn(Optional.of(userWithoutScope));
+
+        assertThrows(PermissionDeniedException.class, () -> service.execute(null));
     }
 
     @Test
@@ -334,7 +524,6 @@ class DepartmentSkillMatrixServiceTest {
         when(authorizationService.require(PermissionCode.EMPLOYEE_SKILL_READ)).thenReturn(2L);
         when(loadUserPort.findById(new UserId(2L))).thenReturn(Optional.of(rmUser));
         when(loadOrgUnitPort.findById(new OrgUnitId(orgUnitId))).thenReturn(Optional.of(department));
-        when(loadOrgUnitPort.existsInOrgUnitBranch(orgUnitId, 10L)).thenReturn(true);
         when(loadEmployeePort.findActiveByOrgUnitId(orgUnitId)).thenReturn(employees);
         when(skillCatalogRepository.findAll()).thenReturn(skills);
         when(employeeSkillRepository.findByStatusAndEmployeeIdIn(SkillStatus.APPROVED, List.of(101L)))
