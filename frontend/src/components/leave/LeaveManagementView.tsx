@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
     Calendar as CalendarIcon,
     Plus,
@@ -113,13 +113,28 @@ export default function LeaveManagementView() {
 
     const [filterStatus, setFilterStatus] = useState<string>("ALL");
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const showToast = (msg: string, type: "success" | "error" = "success") => {
+    const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+        }
         setToast({ message: msg, type });
-        setTimeout(() => setToast(null), 3500);
-    };
+        toastTimerRef.current = setTimeout(() => {
+            setToast(null);
+            toastTimerRef.current = null;
+        }, 3500);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current) {
+                clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
 
     // Tải dữ liệu từ Backend theo vai trò
     const loadLeaveData = async () => {

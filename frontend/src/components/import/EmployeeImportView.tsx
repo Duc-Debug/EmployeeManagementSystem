@@ -532,104 +532,131 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((row) => (
-                      <tr
-                        key={row.rowNumber}
-                        className={cn(
-                          "transition hover:bg-slate-50/80",
-                          !row.valid ? "bg-rose-50/30" : ""
-                        )}
-                      >
-                        <td className="py-3 px-4 text-center font-mono text-slate-500 font-medium">
-                          {row.rowNumber}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {row.valid ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <Check className="h-3 w-3" /> Hợp lệ
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                              <AlertTriangle className="h-3 w-3" /> Có lỗi
-                            </span>
+                    filteredRows.map((row) => {
+                      const hasFieldError = (field: string) => {
+                        if (row.valid) return false;
+                        if (row.errorFields && row.errorFields.length > 0) {
+                          return row.errorFields.includes(field);
+                        }
+                        return false;
+                      };
+
+                      return (
+                        <tr
+                          key={row.rowNumber}
+                          className={cn(
+                            "transition hover:bg-slate-50/80",
+                            !row.valid ? "bg-rose-50/30" : ""
                           )}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                          {row.employeeCode ? (
-                            <span>{row.employeeCode}</span>
-                          ) : !row.valid && row.errors?.some((e) => e.toLowerCase().includes("mã")) ? (
-                            <span className="text-rose-600 font-semibold italic">Trống</span>
-                          ) : (
-                            <span className="text-slate-400 italic">--</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 font-medium text-slate-800">
-                          {row.fullName ? (
-                            <span>{row.fullName}</span>
-                          ) : !row.valid && row.errors?.some((e) => e.toLowerCase().includes("tên")) ? (
-                            <span className="text-rose-600 font-medium italic">Trống</span>
-                          ) : (
-                            <span className="text-slate-400 italic">--</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-slate-600 font-mono">
-                          {row.username || <span className="text-slate-400 italic">--</span>}
-                        </td>
-                        <td className="py-3 px-4 text-slate-600">
-                          {row.email || <span className="text-slate-400 italic">--</span>}
-                        </td>
-                        <td className="py-3 px-4 text-slate-700">
-                          {row.resolvedOrgUnitName ? (
-                            <span className="font-medium text-slate-800">{row.resolvedOrgUnitName}</span>
-                          ) : !row.valid && (!row.orgUnitIdentifier || row.errors?.some((e) => {
-                              const l = e.toLowerCase();
-                              return l.includes("đơn vị") || l.includes("phòng ban") || l.includes("tổ chức") || l.includes("org");
-                            })) ? (
-                            <span className="text-rose-600 font-medium">{row.orgUnitIdentifier || "Trống"}</span>
-                          ) : (
-                            <span className="font-medium text-slate-800">{row.orgUnitIdentifier || "--"}</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-600">
-                          {row.roleCode || "VT-04"}
-                        </td>
-                        <td className="py-3 px-4 text-slate-600">
-                          {row.professionalRole || "--"}
-                        </td>
-                        <td className="py-3 px-4 text-center font-mono text-slate-700">
-                          {row.standardHoursPerWeek ?? 40}h
-                        </td>
-                        <td className="py-3 px-4 text-slate-600">
-                          {row.startDate || "--"}
-                        </td>
-                        <td className="py-3 px-4 text-slate-600">
-                          {row.isOutsourced ? (
-                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
-                              Thuê ngoài
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">Nội bộ</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
-                          {row.errors && row.errors.length > 0 ? (
-                            <div className="space-y-1">
-                              {row.errors.map((err, idx) => (
-                                <p
-                                  key={idx}
-                                  className="text-rose-700 text-[11px] leading-tight flex items-start gap-1"
-                                >
-                                  <span className="text-rose-500 font-bold">•</span>
-                                  {err}
-                                </p>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-emerald-600 text-[11px]">Sẵn sàng nhập</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                        >
+                          <td className="py-3 px-4 text-center font-mono text-slate-500 font-medium">
+                            {row.rowNumber}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {row.valid ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <Check className="h-3 w-3" /> Hợp lệ
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                <AlertTriangle className="h-3 w-3" /> Có lỗi
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                            {hasFieldError("employeeCode") ? (
+                              <span className="text-rose-600 font-semibold">{row.employeeCode || <span className="italic">Trống</span>}</span>
+                            ) : (
+                              <span>{row.employeeCode || <span className="text-slate-400 italic">--</span>}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-medium text-slate-800">
+                            {hasFieldError("fullName") ? (
+                              <span className="text-rose-600 font-medium">{row.fullName || <span className="italic">Trống</span>}</span>
+                            ) : (
+                              <span>{row.fullName || <span className="text-slate-400 italic">--</span>}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600 font-mono">
+                            {hasFieldError("username") ? (
+                              <span className="text-rose-600 font-medium">{row.username || <span className="italic">Trống</span>}</span>
+                            ) : (
+                              <span>{row.username || <span className="text-slate-400 italic">--</span>}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {hasFieldError("email") ? (
+                              <span className="text-rose-600 font-medium">{row.email || <span className="italic">Trống</span>}</span>
+                            ) : (
+                              <span>{row.email || <span className="text-slate-400 italic">--</span>}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-700">
+                            {row.resolvedOrgUnitName ? (
+                              <span className="font-medium text-slate-800">{row.resolvedOrgUnitName}</span>
+                            ) : hasFieldError("orgUnitIdentifier") ? (
+                              <span className="text-rose-600 font-medium">{row.orgUnitIdentifier || <span className="italic">Trống</span>}</span>
+                            ) : (
+                              <span className="font-medium text-slate-800">{row.orgUnitIdentifier || <span className="text-slate-400 italic">--</span>}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-600">
+                            {hasFieldError("roleCode") ? (
+                              <span className="text-rose-600 font-semibold">{row.roleCode || "VT-04"}</span>
+                            ) : (
+                              <span>{row.roleCode || "VT-04"}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {row.professionalRole || "--"}
+                          </td>
+                          <td className="py-3 px-4 text-center font-mono text-slate-700">
+                            {hasFieldError("standardHoursPerWeek") ? (
+                              <span className="text-rose-600 font-semibold">{row.standardHoursPerWeek ?? "--"}h</span>
+                            ) : (
+                              <span>{row.standardHoursPerWeek ?? 40}h</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {hasFieldError("startDate") || hasFieldError("contractEndDate") ? (
+                              <span className="text-rose-600 font-medium">{row.startDate || "--"}</span>
+                            ) : (
+                              <span>{row.startDate || "--"}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {hasFieldError("isOutsourced") ? (
+                              <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[10px] font-bold border border-rose-200">
+                                Lỗi định dạng
+                              </span>
+                            ) : row.isOutsourced ? (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+                                Thuê ngoài
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">Nội bộ</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {row.errors && row.errors.length > 0 ? (
+                              <div className="space-y-1">
+                                {row.errors.map((err, idx) => (
+                                  <p
+                                    key={idx}
+                                    className="text-rose-700 text-[11px] leading-tight flex items-start gap-1"
+                                  >
+                                    <span className="text-rose-500 font-bold">•</span>
+                                    {err}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-emerald-600 text-[11px]">Sẵn sàng nhập</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

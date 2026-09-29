@@ -19,6 +19,7 @@ export interface ImportEmployeeRowDto {
   isOutsourced: boolean;
   valid: boolean;
   errors: string[];
+  errorFields?: string[];
 }
 
 export interface ImportEmployeePreviewResult {
