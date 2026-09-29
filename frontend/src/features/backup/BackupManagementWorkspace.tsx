@@ -18,7 +18,7 @@ import { BackupScheduleModal } from "./BackupScheduleModal";
 import { UploadBackupModal } from "./UploadBackupModal";
 import { BackupAuditLogsTable } from "./BackupAuditLogsTable";
 import { API_BASE_URL } from "@/lib/api-client";
-import { getAuthToken, useAuthUser } from "@/lib/auth-session";
+import { useAuthUser } from "@/lib/auth-session";
 import { normalizeRoleCode } from "@/lib/role-utils";
 import {
   Database,
@@ -138,16 +138,13 @@ export function BackupManagementWorkspace() {
   };
 
   const handleDownload = (backup: BackupItem) => {
-    const token = getAuthToken();
     const url = `${API_BASE_URL}/backups/${backup.id}/download`;
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = backup.fileName;
 
     fetch(url, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-      },
+      credentials: "include",
     })
       .then((res) => {
         if (!res.ok) throw new Error("Tải file thất bại hoặc phiên làm việc đã hết hạn");

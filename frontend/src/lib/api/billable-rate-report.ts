@@ -1,5 +1,4 @@
-import { apiRequest } from "../api-client";
-import { getAuthToken } from "../auth-session";
+import { API_BASE_URL, apiRequest } from "../api-client";
 import { normalizeRoleCode } from "../role-utils";
 
 export interface BillableRateItem {
@@ -111,14 +110,9 @@ export async function downloadBillableRateReport(
   const queryStr = params.toString();
   const url = `/reports/billable-rate/export${queryStr ? `?${queryStr}` : ""}`;
 
-  const token = getAuthToken();
-  const baseUrl = "/api/v1";
-
-  const response = await fetch(`${baseUrl}${url}`, {
+  const response = await fetch(`${API_BASE_URL}${url}`, {
     method: "GET",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    credentials: "include",
   });
 
   if (!response.ok) {

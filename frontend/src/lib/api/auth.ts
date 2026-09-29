@@ -3,7 +3,6 @@
 import { apiRequest } from "../api-client";
 import {
   clearAuthSession,
-  getAuthToken,
   getStoredUser,
   setAuthToken,
   setStoredUser,
@@ -149,15 +148,9 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<stri
 }
 
 export async function logout(): Promise<void> {
-  const token = getAuthToken();
   try {
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
     await apiRequest<void>("/auth/logout", {
       method: "POST",
-      headers,
     });
   } catch {
     // Backend logout failure should not block clearing local session

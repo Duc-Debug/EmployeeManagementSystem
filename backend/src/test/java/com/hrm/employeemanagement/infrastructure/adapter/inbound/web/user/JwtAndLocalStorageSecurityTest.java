@@ -312,7 +312,8 @@ class JwtAndLocalStorageSecurityTest {
         assertThat(setCookieHeader).isNotNull();
         assertThat(setCookieHeader).contains("nexushrm_jwt=");
         assertThat(setCookieHeader).containsIgnoringCase("HttpOnly");
-        assertThat(setCookieHeader).containsIgnoringCase("SameSite=Lax");
+        assertThat(setCookieHeader).containsIgnoringCase("SameSite=None");
+        assertThat(setCookieHeader).containsIgnoringCase("Secure");
         assertThat(setCookieHeader).containsIgnoringCase("Path=/");
 
         Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");

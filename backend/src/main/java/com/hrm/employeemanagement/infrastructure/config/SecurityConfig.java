@@ -105,7 +105,9 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         List<String> origins = new java.util.ArrayList<>(List.of(
                 "http://localhost:*",
-                "http://127.0.0.1:*"
+                "http://127.0.0.1:*",
+                "https://*.vercel.app",
+                "https://employee-management-system-izcr9mk17-duc-debug.vercel.app"
         ));
 
         if (allowedOrigins != null && !allowedOrigins.isBlank()) {

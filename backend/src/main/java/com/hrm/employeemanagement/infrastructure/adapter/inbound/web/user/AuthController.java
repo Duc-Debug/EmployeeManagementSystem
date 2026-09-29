@@ -133,8 +133,8 @@ public class AuthController {
 
             ResponseCookie cookie = ResponseCookie.from(JwtAuthenticationFilter.COOKIE_NAME, result.getToken())
                     .httpOnly(true)
-                    .secure(httpRequest != null && httpRequest.isSecure())
-                    .sameSite("Lax")
+                    .secure(true)
+                    .sameSite("None")
                     .path("/")
                     .maxAge(maxAgeSeconds)
                     .build();
@@ -189,8 +189,8 @@ public class AuthController {
 
         ResponseCookie clearCookie = ResponseCookie.from(JwtAuthenticationFilter.COOKIE_NAME, "")
                 .httpOnly(true)
-                .secure(httpRequest != null && httpRequest.isSecure())
-                .sameSite("Lax")
+                .secure(true)
+                .sameSite("None")
                 .path("/")
                 .maxAge(0)
                 .build();
