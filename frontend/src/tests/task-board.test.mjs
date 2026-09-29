@@ -1,5 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+  groupCardsByStatus,
+  handleCardDrop,
+  filterCardsBySearch,
+  resolveEmployeeId,
+} from "../lib/api/taskBoard.ts";
 
 describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
     // Mock sample task cards
@@ -49,58 +55,6 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
             assignees: [{ employeeId: 101, employeeCode: "EMP-01", fullName: "Nguyễn Văn A", isPrimary: true }],
         },
     ];
-
-    // Helper to group cards by status
-    function groupCardsByStatus(cards) {
-        return {
-            TODO: cards.filter((c) => c.status === "TODO"),
-            IN_PROGRESS: cards.filter((c) => c.status === "IN_PROGRESS"),
-            IN_REVIEW: cards.filter((c) => c.status === "IN_REVIEW"),
-            DONE: cards.filter((c) => c.status === "DONE"),
-            CANCELLED: cards.filter((c) => c.status === "CANCELLED"),
-        };
-    }
-
-    // Helper to simulate card drop & optimistic update
-    function handleCardDrop(boardData, taskId, newStatus) {
-        const allCards = [
-            ...boardData.TODO,
-            ...boardData.IN_PROGRESS,
-            ...boardData.IN_REVIEW,
-            ...boardData.DONE,
-            ...boardData.CANCELLED,
-        ];
-        const card = allCards.find((c) => c.taskId === taskId);
-        if (!card) return { success: false, reason: "NOT_FOUND", boardData };
-        if (card.status === newStatus) return { success: false, reason: "SAME_STATUS", boardData };
-        if (!card.canMove) return { success: false, reason: "FORBIDDEN", boardData };
-
-        // Optimistic move
-        const updated = {
-            TODO: boardData.TODO.filter((c) => c.taskId !== taskId),
-            IN_PROGRESS: boardData.IN_PROGRESS.filter((c) => c.taskId !== taskId),
-            IN_REVIEW: boardData.IN_REVIEW.filter((c) => c.taskId !== taskId),
-            DONE: boardData.DONE.filter((c) => c.taskId !== taskId),
-            CANCELLED: boardData.CANCELLED.filter((c) => c.taskId !== taskId),
-        };
-        const movedCard = { ...card, status: newStatus };
-        updated[newStatus].push(movedCard);
-
-        return { success: true, movedCard, boardData: updated };
-    }
-
-    // Helper to filter cards by search
-    function filterCardsBySearch(cards, query) {
-        if (!query || !query.trim()) return cards;
-        const q = query.toLowerCase().trim();
-        return cards.filter(
-            (c) =>
-                c.taskCode.toLowerCase().includes(q) ||
-                c.name.toLowerCase().includes(q) ||
-                (c.projectCode && c.projectCode.toLowerCase().includes(q)) ||
-                c.assignees.some((a) => a.fullName.toLowerCase().includes(q))
-        );
-    }
 
     test("TC-01: Grouping cards into 5 standard status columns (TODO, IN_PROGRESS, IN_REVIEW, DONE, CANCELLED)", () => {
         const columns = groupCardsByStatus(sampleCards);
@@ -223,13 +177,6 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         // Empty paginated list (user not found on page 1)
         const paginatedEmployees = [{ id: 1, userId: 10 }, { id: 2, userId: 20 }];
         const directUserProfile = { id: 555, userId: 99 };
-
-        const resolveEmployeeId = (user, directProfile, empList) => {
-            if (directProfile) return directProfile.id;
-            if (!user) return null;
-            const found = empList.find((e) => e.userId === user.id);
-            return found ? found.id : null;
-        };
 
         const resolvedId = resolveEmployeeId(currentUser, directUserProfile, paginatedEmployees);
         assert.equal(resolvedId, 555);

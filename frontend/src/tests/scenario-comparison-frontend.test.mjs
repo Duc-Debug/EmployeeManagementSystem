@@ -1,141 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-/**
- * Helper logic mirroring frontend recommendation algorithm
- */
-function findRecommendedScenario(scenarios) {
-  if (!scenarios || scenarios.length === 0) return null;
-  const sorted = [...scenarios].sort((a, b) => {
-    // 1. Ít nhân sự quá tải hơn
-    if (a.overloadedEmployeesCount !== b.overloadedEmployeesCount) {
-      return a.overloadedEmployeesCount - b.overloadedEmployeesCount;
-    }
-    // 2. Tổng giờ thiếu hụt ít hơn
-    if (a.totalShortfallHours !== b.totalShortfallHours) {
-      return a.totalShortfallHours - b.totalShortfallHours;
-    }
-    // 3. Đỉnh tải thấp hơn
-    if (a.peakUtilizationPercentage !== b.peakUtilizationPercentage) {
-      return a.peakUtilizationPercentage - b.peakUtilizationPercentage;
-    }
-    // 4. Giờ làm thêm cần thiết ít hơn
-    if (a.totalRequiredAdditionalHours !== b.totalRequiredAdditionalHours) {
-      return a.totalRequiredAdditionalHours - b.totalRequiredAdditionalHours;
-    }
-    // 5. Tỷ lệ tải trung bình tối ưu hơn
-    return (a.averageUtilizationPercentage ?? 0) - (b.averageUtilizationPercentage ?? 0);
-  });
-  return sorted[0]?.scenarioId ?? null;
-}
-
-/**
- * Helper logic validating scenario selection bounds (min 2, max 10)
- */
-function validateScenarioSelection(scenarioIds) {
-  if (!Array.isArray(scenarioIds)) {
-    return { valid: false, error: "Danh sách kịch bản không hợp lệ." };
-  }
-  if (scenarioIds.length < 2) {
-    return { valid: false, error: "Cần chọn tối thiểu 2 kịch bản để thực hiện so sánh." };
-  }
-  if (scenarioIds.length > 10) {
-    return { valid: false, error: "Chỉ được phép so sánh tối đa 10 kịch bản cùng lúc." };
-  }
-  return { valid: true, error: null };
-}
-
-/**
- * Helper logic checking role permission for scenario comparison (VT-01 or RESOURCE_SCENARIO_COMPARE)
- */
-function canUserCompareScenarios(roleCode, permissions = []) {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const isVT01 =
-    normalized === "VT-01" ||
-    normalized === "ROLE-BGD" ||
-    normalized === "BGD" ||
-    normalized === "DIRECTOR";
-  return isVT01 || permissions.includes("RESOURCE_SCENARIO_COMPARE");
-}
-
-/**
- * Alignment checking helper
- */
-function checkScenariosAlignment(scenarios) {
-  if (!scenarios || scenarios.length <= 1) {
-    return { isTimeframeAligned: true, isOrgUnitAligned: true };
-  }
-  const first = scenarios[0];
-  const isTimeframeAligned = scenarios.every(
-    (s) =>
-      s.fromYear === first.fromYear &&
-      s.fromWeek === first.fromWeek &&
-      s.durationWeeks === first.durationWeeks
-  );
-  const isOrgUnitAligned = scenarios.every((s) => s.orgUnitId === first.orgUnitId);
-  return { isTimeframeAligned, isOrgUnitAligned };
-}
-
-/**
- * Helper generating comparison CSV string
- */
-function buildComparisonCsv(data, recommendedId) {
-  const rows = [
-    ["BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC (NCL-08-CN-004)"],
-    [`Thời gian đối chiếu: ${data.comparedAt}`],
-    ["Nguyên tắc QTN-14 Sandbox: Dữ liệu mô phỏng độc lập, không làm thay đổi phân bổ thật."],
-    [],
-    [
-      "Mã kịch bản",
-      "Tên kịch bản",
-      "Đơn vị / Phòng ban",
-      "Trạng thái",
-      "Tuần bắt đầu",
-      "Năm",
-      "Số tuần",
-      "Số nhân sự quá tải",
-      "Tổng giờ thiếu hụt (h)",
-      "Giờ làm thêm cần thiết (h)",
-      "Giờ nhu cầu giả định (h)",
-      "Tổng khối lượng (h)",
-      "Giờ khả dụng (h)",
-      "Tải trung bình (%)",
-      "Đỉnh tải (%)",
-      "Khuyến nghị",
-    ],
-  ];
-
-  for (const scn of data.scenarios) {
-    const isRec = scn.scenarioId === recommendedId;
-    rows.push([
-      `"${scn.scenarioCode}"`,
-      `"${scn.scenarioName}"`,
-      `"${scn.orgUnitName}"`,
-      `"${scn.status}"`,
-      `${scn.fromWeek}`,
-      `${scn.fromYear}`,
-      `${scn.durationWeeks}`,
-      `${scn.overloadedEmployeesCount}`,
-      `${scn.totalShortfallHours ?? 0}`,
-      `${scn.totalRequiredAdditionalHours ?? 0}`,
-      `${scn.totalDemandHours ?? 0}`,
-      `${scn.totalWorkloadHours ?? 0}`,
-      `${scn.totalAvailableHours ?? 0}`,
-      `${Number(scn.averageUtilizationPercentage ?? 0).toFixed(1)}%`,
-      `${Number(scn.peakUtilizationPercentage ?? 0).toFixed(1)}%`,
-      isRec ? "Tối ưu nhất" : "Phương án",
-    ]);
-  }
-
-  return "\uFEFF" + rows.map((r) => r.join(",")).join("\r\n");
-}
-
-/**
- * Safe clamping helper for progress bar
- */
-function clampUtilization(val) {
-  return Math.max(0, Math.min(Number(val || 0), 100));
-}
+import {
+  findRecommendedScenario,
+  validateScenarioSelection,
+  canUserCompareScenarios,
+  checkScenariosAlignment,
+  buildComparisonCsv,
+  clampUtilization,
+} from "../lib/scenario-comparison.ts";
 
 test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async (t) => {
   await t.test("TC-01: Validation rule on number of scenarios (min 2, max 10)", () => {

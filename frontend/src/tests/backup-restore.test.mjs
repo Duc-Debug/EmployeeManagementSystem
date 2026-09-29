@@ -12,7 +12,6 @@ import {
 } from "../lib/api/backup.ts";
 
 describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
-
   test("TC-01: formatBackupFileSize helper converts bytes to human-readable string correctly", () => {
     assert.equal(formatBackupFileSize(0), "0 B");
     assert.equal(formatBackupFileSize(-10), "0 B");
@@ -24,8 +23,9 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
 
   test("TC-02: validateRestoreConfirmation enforces exact 'RESTORE' string and minimum 10 char reason", () => {
     assert.equal(validateRestoreConfirmation("RESTORE", "Phục hồi kế hoạch dự án tuần 38").valid, true);
-    assert.equal(validateRestoreConfirmation("restore", "Phục hồi kế hoạch dự án tuần 38").valid, true);
-    assert.equal(validateRestoreConfirmation("  restore  ", "Phục hồi kế hoạch dự án tuần 38").valid, true);
+    assert.equal(validateRestoreConfirmation("  RESTORE  ", "Phục hồi kế hoạch dự án tuần 38").valid, true);
+    assert.equal(validateRestoreConfirmation("restore", "Phục hồi kế hoạch dự án tuần 38").valid, false);
+    assert.equal(validateRestoreConfirmation("Restore", "Phục hồi kế hoạch dự án tuần 38").valid, false);
     assert.equal(validateRestoreConfirmation("WRONG", "Phục hồi kế hoạch dự án tuần 38").valid, false);
     assert.equal(validateRestoreConfirmation("RESTORE", "Quá ngắn").valid, false);
     assert.equal(validateRestoreConfirmation("", "").valid, false);

@@ -19,17 +19,24 @@ public class FileSystemBackupStorageAdapter implements BackupStoragePort {
 
     private static final Logger log = LoggerFactory.getLogger(FileSystemBackupStorageAdapter.class);
 
+    private final String storageDir;
     private final Path backupDirectory;
 
     public FileSystemBackupStorageAdapter(
             @Value("${app.backup.storage-dir:uploads/backups}") String storageDir
     ) {
-        this.backupDirectory = Paths.get(storageDir).toAbsolutePath().normalize();
+        this.storageDir = (storageDir != null && !storageDir.isBlank()) ? storageDir : "uploads/backups";
+        this.backupDirectory = Paths.get(this.storageDir).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.backupDirectory);
         } catch (IOException e) {
             log.error("Không thể tạo thư mục lưu trữ sao lưu: {}", this.backupDirectory, e);
         }
+    }
+
+    @Override
+    public String getStorageDirectory() {
+        return storageDir;
     }
 
     private Path resolveExistingPath(String filePath) {

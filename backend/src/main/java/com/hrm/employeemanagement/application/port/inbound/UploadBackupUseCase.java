@@ -13,7 +13,21 @@ public interface UploadBackupUseCase {
             long fileSizeBytes,
             Long currentUserId,
             String currentUserEmail,
+            String createdByName,
             String clientIp
     );
+
+    default Backup uploadBackup(
+            String originalFileName,
+            String title,
+            String description,
+            InputStream inputStream,
+            long fileSizeBytes,
+            Long currentUserId,
+            String currentUserEmail,
+            String clientIp
+    ) {
+        return uploadBackup(originalFileName, title, description, inputStream, fileSizeBytes, currentUserId, currentUserEmail, currentUserEmail, clientIp);
+    }
 }
 

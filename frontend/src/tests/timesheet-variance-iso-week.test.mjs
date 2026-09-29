@@ -1,36 +1,12 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 
-function getIsoWeekPartsFromYMD(year, month, dayOfMonth) {
-  const target = new Date(Date.UTC(year, month, dayOfMonth));
-  const dayOfWeek = target.getUTCDay() || 7;
-  target.setUTCDate(target.getUTCDate() + 4 - dayOfWeek);
-  const isoYear = target.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  return {
-    year: isoYear,
-    week: Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7),
-  };
-}
-
-function getIsoWeeksInYear(year) {
-  return getIsoWeekPartsFromYMD(year, 11, 28).week;
-}
-
-function addIsoWeeks(year, week, weeksToAdd) {
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const dayOfWeek = jan4.getUTCDay() || 7;
-  const targetDate = new Date(Date.UTC(year, 0, 4 - dayOfWeek + 1 + (week - 1 + weeksToAdd) * 7));
-  return getIsoWeekPartsFromYMD(
-    targetDate.getUTCFullYear(),
-    targetDate.getUTCMonth(),
-    targetDate.getUTCDate()
-  );
-}
-
-function getIsoWeekDetails(date) {
-  return getIsoWeekPartsFromYMD(date.getFullYear(), date.getMonth(), date.getDate());
-}
+import {
+  getIsoWeekPartsFromYMD,
+  getIsoWeeksInYear,
+  addIsoWeeks,
+  getIsoWeekDetails,
+} from "../lib/iso-week.ts";
 
 test("Timesheet Variance ISO-8601 Week & Year Calculations", async (t) => {
   await t.test("TC-01: Year transition edge case - Jan 1st 2027 belongs to 2026-W53", () => {

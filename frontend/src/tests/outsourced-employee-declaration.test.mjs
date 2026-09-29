@@ -1,37 +1,12 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+  validateOutsourcedForm,
+  canDeclareOutsourced,
+  searchEmployeeProfiles as search,
+} from "../lib/api/outsourced-contracts.ts";
 
 describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Validation Tests", () => {
-
-    const validateOutsourcedForm = (data) => {
-        if (!data.fullName || !data.fullName.trim()) {
-            return "Vui lòng nhập họ và tên nhân sự.";
-        }
-        if (!data.providerName || !data.providerName.trim()) {
-            return "Vui lòng nhập tên đơn vị cung cấp.";
-        }
-        if (!data.orgUnitId) {
-            return "Vui lòng chọn đơn vị phòng ban tiếp nhận.";
-        }
-        if (!data.startDate) {
-            return "Vui lòng chọn ngày bắt đầu hợp đồng thuê.";
-        }
-        if (!data.contractEndDate) {
-            return "Vui lòng chọn ngày kết thúc hợp đồng thuê.";
-        }
-        if (data.contractEndDate < data.startDate) {
-            return "Ngày kết thúc hợp đồng thuê không được trước ngày bắt đầu.";
-        }
-        if (!data.standardHoursPerWeek || data.standardHoursPerWeek < 1 || data.standardHoursPerWeek > 168) {
-            return "Số giờ chuẩn làm việc mỗi tuần phải từ 1 đến 168 giờ.";
-        }
-        return null;
-    };
-
-    const canDeclareOutsourced = (roleCode) => {
-        const normalized = (roleCode || "").toUpperCase().replace(/_/g, "-");
-        return normalized === "VT-05";
-    };
 
     test("TC-01: Luồng thành công - Khai báo chuyên gia thuê ngoài 3 tháng hợp lệ", () => {
         const formData = {
@@ -157,31 +132,21 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
             { id: "3", fullName: "Nguyễn Thị Chi", employeeCode: "EXT-002", department: "Phòng Phần mềm 2", providerName: "TMA Solutions", isOutsourced: true },
         ];
 
-        const search = (term) => {
-            const q = term.trim().toLowerCase();
-            return profiles.filter((p) =>
-                p.fullName.toLowerCase().includes(q) ||
-                p.employeeCode.toLowerCase().includes(q) ||
-                p.department.toLowerCase().includes(q) ||
-                (p.providerName && p.providerName.toLowerCase().includes(q))
-            );
-        };
-
         // Search by provider
-        const fptResults = search("FPT");
+        const fptResults = search(profiles, "FPT");
         assert.equal(fptResults.length, 1);
         assert.equal(fptResults[0].employeeCode, "EXT-001");
 
-        const tmaResults = search("TMA Solutions");
+        const tmaResults = search(profiles, "TMA Solutions");
         assert.equal(tmaResults.length, 1);
         assert.equal(tmaResults[0].employeeCode, "EXT-002");
 
         // Search by employee code
-        const codeResults = search("EXT");
+        const codeResults = search(profiles, "EXT");
         assert.equal(codeResults.length, 2);
 
         // Search by internal person
-        const internalResults = search("Lê Văn An");
+        const internalResults = search(profiles, "Lê Văn An");
         assert.equal(internalResults.length, 1);
         assert.equal(internalResults[0].isOutsourced, false);
     });

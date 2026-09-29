@@ -139,7 +139,7 @@ export default function PageQuickSearch() {
     const handleSelectPage = (page: SearchablePageItem) => {
         setIsOpen(false);
         setSearchQuery("");
-        const targetPath = page.id === "overview" ? "/" : `/${page.id}`;
+        const targetPath = page.id === "overview" ? "/dashboard/overview" : `/dashboard/${page.id}`;
         navigate(targetPath);
     };
 
