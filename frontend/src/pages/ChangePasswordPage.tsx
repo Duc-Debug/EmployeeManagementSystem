@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, ArrowRight, LogOut } from "lucide-react";
 import { changePassword } from "@/lib/api/auth";
 import { useAuthUser, setStoredUser, clearAuthSession } from "@/lib/auth-session";
+import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 export default function ChangePasswordPage() {
     const user = useAuthUser();
@@ -33,8 +34,8 @@ export default function ChangePasswordPage() {
             return;
         }
 
-        if (newPassword.length < 6) {
-            setError("Mật khẩu mới phải chứa ít nhất 6 ký tự.");
+        if (!isValidPassword(newPassword)) {
+            setError(PASSWORD_POLICY_MESSAGE);
             return;
         }
 

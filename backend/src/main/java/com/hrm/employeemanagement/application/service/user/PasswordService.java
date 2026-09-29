@@ -13,6 +13,7 @@ import com.hrm.employeemanagement.domain.audit.AuditLog;
 import com.hrm.employeemanagement.domain.exception.user.InvalidPasswordException;
 import com.hrm.employeemanagement.domain.exception.user.InvalidResetTokenException;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
+import com.hrm.employeemanagement.domain.user.PasswordPolicyValidator;
 import com.hrm.employeemanagement.domain.user.PasswordResetToken;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
@@ -147,8 +148,8 @@ public class PasswordService implements ChangePasswordUseCase, RequestPasswordRe
         if (newPassword == null || newPassword.isBlank()) {
             throw new InvalidPasswordException("Mật khẩu mới không được để trống");
         }
-        if (newPassword.length() < 8) {
-            throw new InvalidPasswordException("Mật khẩu mới phải có độ dài tối thiểu 8 ký tự");
+        if (!PasswordPolicyValidator.isValid(newPassword)) {
+            throw new InvalidPasswordException("Mật khẩu mới phải có tối thiểu 8 ký tự, bao gồm cả chữ cái và chữ số");
         }
         if (!newPassword.equals(confirmPassword)) {
             throw new InvalidPasswordException("Mật khẩu mới và mật khẩu xác nhận không trùng khớp");
