@@ -1,5 +1,4 @@
 import { API_BASE_URL, apiRequest } from "../api-client";
-import { getAuthToken } from "../auth-session";
 import { normalizeRoleCode } from "../role-utils";
 
 export interface ImportEmployeeRowDto {
@@ -70,17 +69,11 @@ export async function confirmEmployeeImport(rows: ImportEmployeeRowDto[]): Promi
  * Tải tệp biểu mẫu chuẩn (.xlsx)
  */
 export async function downloadEmployeeTemplate(format: "xlsx" = "xlsx"): Promise<void> {
-  const token = getAuthToken();
   const url = `${API_BASE_URL}/imports/employees/template?format=${format}`;
-
-  const headers: HeadersInit = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
 
   const response = await fetch(url, {
     method: "GET",
-    headers,
+    credentials: "include",
   });
 
   if (!response.ok) {

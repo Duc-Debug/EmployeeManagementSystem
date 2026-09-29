@@ -29,6 +29,8 @@ const listeners = new Set<() => void>();
 let cachedUserRaw: string | null = null;
 let cachedUserSnapshot: AuthUser | null = null;
 
+// Security architecture: Access tokens are exclusively stored in HttpOnly SameSite cookies.
+// JavaScript runtime NEVER receives, handles, or stores raw JWT tokens to completely eliminate XSS token theft.
 function notify() {
   listeners.forEach((listener) => listener());
 }
@@ -36,22 +38,6 @@ function notify() {
 export function subscribeAuth(callback: () => void) {
   listeners.add(callback);
   return () => listeners.delete(callback);
-}
-
-export function getAuthToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("accessToken");
-}
-
-export function setAuthToken(token: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem("accessToken", token);
-  notify();
 }
 
 export function getStoredUser(): AuthUser | null {
@@ -98,22 +84,34 @@ export function setStoredUser(user: AuthUser): void {
   cachedUserRaw = serialized;
   cachedUserSnapshot = canonicalUser;
   localStorage.setItem(USER_KEY, serialized);
-  localStorage.setItem("currentUser", serialized);
+  // Remove redundant legacy key if present
+  localStorage.removeItem("currentUser");
   notify();
 }
 
+/**
+ * Purges all authentication tokens, user state, and temporary session keys
+ * from localStorage and sessionStorage.
+ */
 export function clearAuthSession(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
   cachedUserRaw = null;
   cachedUserSnapshot = null;
+  if (typeof window === "undefined") {
+    notify();
+    return;
+  }
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+
+  // Defense-in-depth: Thoroughly clean legacy and duplicate credentials
   localStorage.removeItem("accessToken");
-  localStorage.removeItem("token");
   localStorage.removeItem("currentUser");
-  sessionStorage.clear();
+  localStorage.removeItem("token");
+  try {
+    sessionStorage.clear();
+  } catch {
+    // Ignore restricted environment errors
+  }
   notify();
 }
 

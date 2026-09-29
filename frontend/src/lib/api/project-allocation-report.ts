@@ -1,6 +1,6 @@
 "use client";
 
-import { apiRequest } from "../api-client";
+import { API_BASE_URL, apiRequest } from "../api-client";
 
 export interface AllocatedMemberDetailItem {
   employeeId: number;
@@ -133,14 +133,9 @@ export async function downloadProjectAllocationReport(
   const queryStr = params.toString();
   const url = `/reports/project-allocation/${query.projectId}/export${queryStr ? `?${queryStr}` : ""}`;
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  const baseUrl = "/api/v1";
-
-  const response = await fetch(`${baseUrl}${url}`, {
+  const response = await fetch(`${API_BASE_URL}${url}`, {
     method: "GET",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    credentials: "include",
   });
 
   if (!response.ok) {

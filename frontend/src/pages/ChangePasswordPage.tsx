@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, ArrowRight, LogOut } from "lucide-react";
-import { changePassword } from "@/lib/api/auth";
-import { useAuthUser, setStoredUser, clearAuthSession } from "@/lib/auth-session";
+import { changePassword, logout } from "@/lib/api/auth";
+import { useAuthUser, setStoredUser } from "@/lib/auth-session";
 import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 export default function ChangePasswordPage() {
@@ -69,13 +69,13 @@ export default function ChangePasswordPage() {
         }
     };
 
-    const handleLogout = () => {
-        clearAuthSession();
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("token");
-        localStorage.removeItem("currentUser");
-        sessionStorage.clear();
-        navigate("/login", { replace: true });
+    const handleLogout = async () => {
+        try {
+            await logout();
+        } catch (error) {
+            console.error("Đăng xuất thất bại:", error);
+            alert("Đăng xuất thất bại từ máy chủ. Vui lòng kiểm tra lại kết nối và thử lại.");
+        }
     };
 
     return (

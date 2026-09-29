@@ -201,9 +201,10 @@ class LeaveRequestControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(
                                 java.util.Map.of("username", username, "password", PASSWORD))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.token").isNotEmpty())
                 .andReturn();
-        return responseData(result).path("token").asText();
+        jakarta.servlet.http.Cookie cookie = result.getResponse().getCookie(
+                com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter.COOKIE_NAME);
+        return cookie != null ? cookie.getValue() : "";
     }
 
     private JsonNode responseData(MvcResult result) throws Exception {

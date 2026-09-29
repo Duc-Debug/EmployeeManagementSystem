@@ -4,7 +4,6 @@ import { apiRequest } from "../api-client";
 import {
   clearAuthSession,
   getStoredUser,
-  setAuthToken,
   setStoredUser,
   type AuthUser,
 } from "../auth-session";
@@ -15,10 +14,8 @@ export interface LoginPayload {
   username: string;
 }
 
-export interface AuthTokenResponse {
+export interface LoginResponse {
   roleCode: string;
-  token: string;
-  tokenType: string;
   userId: number;
   username: string;
   requiresPasswordChange?: boolean;
@@ -70,20 +67,17 @@ export function mapAuthUser(userRes: UserResultDto, requiresPasswordChange?: boo
 }
 
 export async function login(payload: LoginPayload): Promise<AuthUser> {
-  const loginRes = await apiRequest<AuthTokenResponse>("/auth/login", {
+  const loginRes = await apiRequest<LoginResponse>("/auth/login", {
     body: JSON.stringify(payload),
     method: "POST",
   });
 
-  const token = loginRes.token;
-  setAuthToken(token);
+  // Access token is held exclusively by browser HttpOnly cookie.
+  // JavaScript runtime NEVER receives, handles, or stores the raw JWT token.
 
-  // Fetch full user profile after login - strictly require /auth/me to succeed
+  // Fetch full user profile after login - authenticated via HttpOnly cookie
   try {
     const userRes = await apiRequest<UserResultDto>("/auth/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
       method: "GET",
     });
 
@@ -151,9 +145,14 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<stri
   return "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.";
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
+  // Fail-fast logout: Must invalidate server session and clear HttpOnly cookie before purging client state
+  await apiRequest<void>("/auth/logout", {
+    method: "POST",
+  });
   clearAuthSession();
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }
 }
+

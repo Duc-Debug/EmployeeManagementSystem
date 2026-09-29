@@ -23,6 +23,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import jakarta.servlet.http.Cookie;
+import com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -126,11 +128,12 @@ class AuthLogoutIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.token").isNotEmpty())
+                .andExpect(jsonPath("$.data.token").doesNotExist())
                 .andReturn();
 
-        JsonNode rootNode = objectMapper.readTree(loginResult.getResponse().getContentAsString());
-        String token = rootNode.path("data").path("token").asText();
+        Cookie jwtCookie = loginResult.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME);
+        assertThat(jwtCookie).isNotNull();
+        String token = jwtCookie.getValue();
         assertThat(token).isNotBlank();
 
         // 2. Call protected API (/api/v1/users/{id}) -> Should be 200 OK
@@ -170,8 +173,7 @@ class AuthLogoutIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-        String token1 = objectMapper.readTree(loginResult1.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String token1 = loginResult1.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         // Session 2
         MvcResult loginResult2 = mockMvc.perform(post("/api/v1/auth/login")
@@ -179,8 +181,7 @@ class AuthLogoutIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-        String token2 = objectMapper.readTree(loginResult2.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String token2 = loginResult2.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         // Both sessions can access protected API
         mockMvc.perform(get("/api/v1/users/" + testUserId).header("Authorization", "Bearer " + token1))
@@ -219,8 +220,7 @@ class AuthLogoutIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-        String oldToken = objectMapper.readTree(oldLoginResult.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String oldToken = oldLoginResult.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         // 2. Perform Logout All Devices
         mockMvc.perform(post("/api/v1/auth/logout?allDevices=true")
@@ -239,8 +239,7 @@ class AuthLogoutIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-        String newToken = objectMapper.readTree(newLoginResult.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String newToken = newLoginResult.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         // 5. New token must work cleanly
         mockMvc.perform(get("/api/v1/users/" + testUserId).header("Authorization", "Bearer " + newToken))
@@ -260,8 +259,7 @@ class AuthLogoutIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-        String token = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String token = loginResult.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         // First logout -> 200 OK
         mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + token))
@@ -283,7 +281,9 @@ class AuthLogoutIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         // Malformed header
-        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "NotABearerToken"))
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "NotABearerToken")
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
