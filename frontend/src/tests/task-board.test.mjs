@@ -1,7 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+  groupCardsByStatus,
+  handleCardDrop,
+  filterCardsBySearch,
+  resolveEmployeeId,
+} from "../lib/api/taskBoard.ts";
 
-describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
+describe("Task Board Frontend Logic & Permissions", () => {
     // Mock sample task cards
     const sampleCards = [
         {
@@ -102,7 +108,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         );
     }
 
-    test("TC-01: Grouping cards into 5 standard status columns (TODO, IN_PROGRESS, IN_REVIEW, DONE, CANCELLED)", () => {
+    test("Grouping cards into 5 standard status columns (TODO, IN_PROGRESS, IN_REVIEW, DONE, CANCELLED)", () => {
         const columns = groupCardsByStatus(sampleCards);
 
         assert.equal(columns.TODO.length, 1);
@@ -120,7 +126,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         assert.equal(columns.CANCELLED.length, 0);
     });
 
-    test("TC-01: Drag card to IN_REVIEW updates immediately when canMove is true", () => {
+    test("Drag card to IN_REVIEW updates immediately when canMove is true", () => {
         const initial = groupCardsByStatus(sampleCards);
         const result = handleCardDrop(initial, 2, "IN_REVIEW");
 
@@ -130,7 +136,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         assert.equal(result.boardData.IN_REVIEW.length, 2);
     });
 
-    test("TC-02: Moving someone else's card is blocked when canMove is false and status is preserved", () => {
+    test("Moving someone else's card is blocked when canMove is false and status is preserved", () => {
         const initial = groupCardsByStatus(sampleCards);
         // Task 3 has canMove: false
         const result = handleCardDrop(initial, 3, "DONE");
@@ -143,7 +149,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         assert.equal(result.boardData.DONE.length, 1);
     });
 
-    test("TC-02: Dropping card into the same column does nothing", () => {
+    test("Dropping card into the same column does nothing", () => {
         const initial = groupCardsByStatus(sampleCards);
         const result = handleCardDrop(initial, 1, "TODO");
 
@@ -151,7 +157,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         assert.equal(result.reason, "SAME_STATUS");
     });
 
-    test("TC-02: Optimistic update rollbacks to snapshot when API call fails", async () => {
+    test("Optimistic update rollbacks to snapshot when API call fails", async () => {
         const initial = groupCardsByStatus(sampleCards);
         const snapshot = structuredClone(initial);
 
@@ -174,7 +180,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         assert.equal(activeBoard.IN_PROGRESS.length, 1);
     });
 
-    test("TC-03: Search query filters cards by code, title, and assignee name", () => {
+    test("Search query filters cards by code, title, and assignee name", () => {
         // Search by code
         const resCode = filterCardsBySearch(sampleCards, "TSK-002");
         assert.equal(resCode.length, 1);
@@ -191,7 +197,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         assert.equal(resAssignee[0].taskId, 3);
     });
 
-    test("TC-04: 'Việc của tôi' filter extracts current employee's tasks correctly", () => {
+    test("'Việc của tôi' filter extracts current employee's tasks correctly", () => {
         const currentEmployeeId = 101;
         const myTasks = sampleCards.filter((c) =>
             c.assignees.some((a) => a.employeeId === currentEmployeeId)
@@ -204,7 +210,7 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         );
     });
 
-    test("TC-05: Quick move triggers the exact same status move and permission guard", () => {
+    test("Quick move triggers the exact same status move and permission guard", () => {
         const initial = groupCardsByStatus(sampleCards);
 
         // Allowed card (Task 1 has canMove: true)
@@ -218,18 +224,11 @@ describe("NCL-04-CN-006: Task Board Frontend Logic & Permissions", () => {
         assert.equal(blockedMove.reason, "FORBIDDEN");
     });
 
-    test("TC-06: Direct employee profile lookup has priority over paginated employees list", () => {
+    test("Direct employee profile lookup has priority over paginated employees list", () => {
         const currentUser = { id: 99 };
         // Empty paginated list (user not found on page 1)
         const paginatedEmployees = [{ id: 1, userId: 10 }, { id: 2, userId: 20 }];
         const directUserProfile = { id: 555, userId: 99 };
-
-        const resolveEmployeeId = (user, directProfile, empList) => {
-            if (directProfile) return directProfile.id;
-            if (!user) return null;
-            const found = empList.find((e) => e.userId === user.id);
-            return found ? found.id : null;
-        };
 
         const resolvedId = resolveEmployeeId(currentUser, directUserProfile, paginatedEmployees);
         assert.equal(resolvedId, 555);

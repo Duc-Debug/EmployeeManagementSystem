@@ -1,32 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// Helper logic mimicking RBAC check in CompanyWeeklyCapacityView (BR-05, AC-03)
-function checkCanAccessAllocationNotifications(roleCode) {
-  if (!roleCode) return false;
-  const normalized = roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "");
-  return normalized === "VT-02" || normalized === "VT-03";
-}
+import {
+  checkCanAccessAllocationNotifications,
+  buildNotificationQuery,
+  formatConsecutiveWeekRange,
+} from "../lib/api/allocations.ts";
 
-// Helper logic mimicking URL query construction in getAllocationNotifications
-function buildNotificationQuery(params) {
-  const searchParams = new URLSearchParams();
-  if (params?.projectId != null) searchParams.append("projectId", String(params.projectId));
-  if (params?.page != null) searchParams.append("page", String(params.page));
-  if (params?.size != null) searchParams.append("size", String(params.size));
-  const queryStr = searchParams.toString();
-  return `/allocations/notifications${queryStr ? `?${queryStr}` : ""}`;
-}
-
-// Helper logic mimicking consecutive week range display formatting (BR-04, TC-02)
-function formatConsecutiveWeekRange(startYear, startWeek, endYear, endWeek) {
-  if (startYear === endYear && startWeek === endWeek) {
-    return `tuần ${startWeek}/${startYear}`;
-  }
-  return `từ tuần ${startWeek}/${startYear} đến tuần ${endWeek}/${endYear}`;
-}
-
-test("RBAC: VT-02 (PM) và VT-03 (RM) được phép truy cập màn hình thông báo phân bổ (BR-05, AC-03)", () => {
+test("RBAC: VT-02 (PM) và VT-03 (RM) được phép truy cập màn hình thông báo phân bổ", () => {
   assert.equal(checkCanAccessAllocationNotifications("VT-02"), true);
   assert.equal(checkCanAccessAllocationNotifications("ROLE_VT_02"), true);
   assert.equal(checkCanAccessAllocationNotifications("vt_02"), true);
@@ -36,7 +17,7 @@ test("RBAC: VT-02 (PM) và VT-03 (RM) được phép truy cập màn hình thôn
   assert.equal(checkCanAccessAllocationNotifications("vt_03"), true);
 });
 
-test("RBAC: Các vai trò khác (VT-01, VT-04, VT-05, VT-06) bị chặn truy cập màn hình thông báo (BR-05, AC-03, TC-03)", () => {
+test("RBAC: Các vai trò khác (VT-01, VT-04, VT-05, VT-06) bị chặn truy cập màn hình thông báo ", () => {
   assert.equal(checkCanAccessAllocationNotifications("VT-01"), false);
   assert.equal(checkCanAccessAllocationNotifications("VT-04"), false);
   assert.equal(checkCanAccessAllocationNotifications("VT-05"), false);
@@ -58,7 +39,7 @@ test("API Query: Tạo URL truy vấn phân trang và lọc dự án chính xác
   );
 });
 
-test("Hiển thị chuỗi tuần liên tiếp: Đơn tuần và đa tuần (BR-04, TC-02)", () => {
+test("Hiển thị chuỗi tuần liên tiếp: Đơn tuần và đa tuần", () => {
   assert.equal(formatConsecutiveWeekRange(2026, 38, 2026, 38), "tuần 38/2026");
   assert.equal(
     formatConsecutiveWeekRange(2026, 38, 2026, 42),

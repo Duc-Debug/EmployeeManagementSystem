@@ -122,12 +122,12 @@ export function validateBackupUploadFileName(fileName?: string | null): boolean 
   return lower.endsWith(".json");
 }
 
-export function filterBackups(
-  items: BackupItem[] | { backupType?: string; status?: string; backupCode?: string }[],
+export function filterBackups<T extends { backupType?: string; status?: string; backupCode?: string }>(
+  items: T[],
   type?: string,
   status?: string,
   search?: string
-) {
+): T[] {
   return items.filter((b) => {
     if (type && type !== "ALL" && b.backupType !== type) return false;
     if (status && status !== "ALL" && b.status !== status) return false;

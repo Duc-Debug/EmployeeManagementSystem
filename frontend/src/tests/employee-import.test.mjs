@@ -1,9 +1,14 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+    escapeCsv,
+    generateErrorRowsCsvContent,
+    canAccessDataImport,
+} from "../lib/api/employee-import.ts";
 
-describe("Employee Data Import (NCL-12-CN-004) Frontend Unit Tests", () => {
+describe("Employee Data Import Frontend Unit Tests", () => {
 
-    test("TC-01: CSV Error Row Generator formats fields with quotes and semicolon errors properly", () => {
+    test("CSV Error Row Generator formats fields with quotes and semicolon errors properly", () => {
         const rows = [
             {
                 rowNumber: 2,
@@ -46,42 +51,10 @@ describe("Employee Data Import (NCL-12-CN-004) Frontend Unit Tests", () => {
         const invalidRows = rows.filter((r) => !r.valid);
         assert.equal(invalidRows.length, 1);
 
-        const escapeCsv = (val) => {
-            if (val === null || val === undefined) return '""';
-            const str = String(val).replace(/"/g, '""');
-            return `"${str}"`;
-        };
+        assert.equal(escapeCsv(null), '""');
+        assert.equal(escapeCsv('Tran "Binh" Thi'), '"Tran ""Binh"" Thi"');
 
-        const headers = [
-            "Dòng", "Mã nhân viên", "Họ và tên", "Tên đăng nhập", "Email",
-            "Phòng ban / Đơn vị", "Mã vai trò", "Chức danh chuyên môn", "Giờ chuẩn",
-            "Ngày bắt đầu", "Ngày kết thúc HĐ", "Thuê ngoài", "Chi tiết lỗi",
-        ];
-
-        const csvRows = [
-            headers.map(escapeCsv).join(","),
-            ...invalidRows.map((r) =>
-                [
-                    r.rowNumber,
-                    r.employeeCode || "",
-                    r.fullName || "",
-                    r.username || "",
-                    r.email || "",
-                    r.orgUnitIdentifier || "",
-                    r.roleCode || "",
-                    r.professionalRole || "",
-                    r.standardHoursPerWeek ?? "",
-                    r.startDate || "",
-                    r.contractEndDate || "",
-                    r.isOutsourced ? "TRUE" : "FALSE",
-                    r.errors.join("; "),
-                ]
-                    .map(escapeCsv)
-                    .join(",")
-            ),
-        ];
-
-        const csvContent = "\uFEFF" + csvRows.join("\r\n");
+        const csvContent = generateErrorRowsCsvContent(rows);
 
         assert.ok(csvContent.startsWith("\uFEFF"));
         assert.ok(csvContent.includes('"Tran ""Binh"" Thi"'));
@@ -89,7 +62,7 @@ describe("Employee Data Import (NCL-12-CN-004) Frontend Unit Tests", () => {
         assert.ok(csvContent.includes("Email 'invalid-email' không đúng định dạng chuẩn; Phòng ban 'Phòng Không Tồn Tại' không tồn tại trong hệ thống"));
     });
 
-    test("TC-02: Permission check for Data Import tab", () => {
+    test("Permission check for Data Import tab", () => {
         const canAccessDataImport = (roleCode, permissions) => {
             const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
             return permissions?.includes("DATA_IMPORT") === true ||
@@ -106,7 +79,7 @@ describe("Employee Data Import (NCL-12-CN-004) Frontend Unit Tests", () => {
         assert.equal(canAccessDataImport("VT-05", []), false);
     });
 
-    test("TC-03: Filter tabs count calculation and row partitioning", () => {
+    test("Filter tabs count calculation and row partitioning", () => {
         const sampleRows = [
             { id: 1, valid: true },
             { id: 2, valid: true },

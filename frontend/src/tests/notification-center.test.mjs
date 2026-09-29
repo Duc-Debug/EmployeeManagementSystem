@@ -1,8 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  formatBadge,
+  getLevelStyle,
+  buildNotificationQueryParams as buildQueryParams,
+  resolveDeepLink,
+  deleteNotificationFromList as deleteItem,
+} from "../lib/api/notifications.ts";
 
-test("NCL-11-CN-001: Trung tâm thông báo Frontend Logic & Formatting Tests", async (t) => {
-  await t.test("TC-01: Định dạng số lượng badge chưa đọc (unreadCount)", () => {
+test(" Trung tâm thông báo Frontend Logic & Formatting Tests", async (t) => {
+  await t.test("Định dạng số lượng badge chưa đọc (unreadCount)", () => {
     const formatBadge = (count) => {
       if (count <= 0) return null;
       if (count > 99) return "99+";
@@ -16,7 +23,7 @@ test("NCL-11-CN-001: Trung tâm thông báo Frontend Logic & Formatting Tests", 
     assert.equal(formatBadge(999), "99+");
   });
 
-  await t.test("TC-02: Phân loại 3 mức độ (CAO = Đỏ, TRUNG_BINH = Vàng, THAP = Xanh)", () => {
+  await t.test("Phân loại 3 mức độ (CAO = Đỏ, TRUNG_BINH = Vàng, THAP = Xanh)", () => {
     const getLevelStyle = (level) => {
       switch (level) {
         case "CAO":
@@ -35,7 +42,7 @@ test("NCL-11-CN-001: Trung tâm thông báo Frontend Logic & Formatting Tests", 
     assert.deepEqual(getLevelStyle("UNKNOWN"), { color: "sky", label: "Thấp" });
   });
 
-  await t.test("TC-03: Xây dựng Query Parameters URL cho API Trung tâm thông báo", () => {
+  await t.test("Xây dựng Query Parameters URL cho API Trung tâm thông báo", () => {
     const buildQueryParams = (params) => {
       const query = new URLSearchParams();
       if (params.status && params.status !== "ALL") query.append("status", params.status);
@@ -50,7 +57,7 @@ test("NCL-11-CN-001: Trung tâm thông báo Frontend Logic & Formatting Tests", 
     assert.equal(buildQueryParams({ status: "READ", level: "TRUNG_BINH" }), "status=READ&level=TRUNG_BINH");
   });
 
-  await t.test("TC-04: Ánh xạ Deep Link URL từ relatedEntityType và relatedEntityId", () => {
+  await t.test("Ánh xạ Deep Link URL từ relatedEntityType và relatedEntityId", () => {
     const resolveDeepLink = (entityType, entityId) => {
       if (!entityType || !entityId) return null;
       switch (entityType.toUpperCase()) {
@@ -74,14 +81,12 @@ test("NCL-11-CN-001: Trung tâm thông báo Frontend Logic & Formatting Tests", 
     assert.equal(resolveDeepLink(null, null), null);
   });
 
-  await t.test("TC-05: Cập nhật state lạc quan khi xóa mềm (Soft-delete)", () => {
+  await t.test("Cập nhật state lạc quan khi xóa mềm (Soft-delete)", () => {
     const initialItems = [
       { id: 1, title: "Item 1", isRead: false },
       { id: 2, title: "Item 2", isRead: true },
       { id: 3, title: "Item 3", isRead: false },
     ];
-
-    const deleteItem = (items, idToDelete) => items.filter((n) => n.id !== idToDelete);
 
     const updated = deleteItem(initialItems, 2);
     assert.equal(updated.length, 2);

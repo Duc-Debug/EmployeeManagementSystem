@@ -171,7 +171,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
     if (entityType === "TASK" || eventType.includes("TASK")) {
       const taskIdNum = Number(id);
       if (id) {
-        navigate(`/project?taskId=${encodeURIComponent(id)}`);
+        navigate(`/dashboard/project?taskId=${encodeURIComponent(id)}`);
       }
       if (onSelectTask && !isNaN(taskIdNum)) {
         onSelectTask(taskIdNum);
@@ -184,29 +184,29 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
         );
       }, 150);
     } else if (entityType === "CAPACITY_WEEK" || entityType === "CAPACITY" || eventType.includes("CAPACITY")) {
-      navigate(`/capacity${id ? `?week=${encodeURIComponent(id)}` : ""}`);
+      navigate(`/dashboard/capacity${id ? `?week=${encodeURIComponent(id)}` : ""}`);
     } else if (entityType === "PROJECT" || entityType === "PROJECT_ALLOCATION" || entityType === "ALLOCATION" || eventType.includes("ALLOCATION")) {
       if (isEmployee) {
-        navigate(`/my-schedule`);
+        navigate(`/dashboard/my-schedule`);
       } else {
-        navigate(id ? `/project?projectId=${encodeURIComponent(id)}` : "/project");
+        navigate(id ? `/dashboard/project?projectId=${encodeURIComponent(id)}` : "/dashboard/project");
       }
     } else if (entityType === "LEAVE_REQUEST" || entityType === "LEAVE" || eventType.includes("LEAVE")) {
       if (isEmployee) {
-        navigate(id ? `/leave?requestId=${encodeURIComponent(id)}&view=my` : `/leave?view=my`);
+        navigate(id ? `/dashboard/leave?requestId=${encodeURIComponent(id)}&view=my` : `/dashboard/leave?view=my`);
       } else {
-        navigate(id ? `/leave?requestId=${encodeURIComponent(id)}&view=pending` : `/leave?view=pending`);
+        navigate(id ? `/dashboard/leave?requestId=${encodeURIComponent(id)}&view=pending` : `/dashboard/leave?view=pending`);
       }
     } else if (entityType === "SCHEDULE_CONFLICT" || eventType.includes("SCHEDULE_CONFLICT")) {
-      navigate(`/schedule-conflict`);
+      navigate(`/dashboard/schedule-conflict`);
     } else if (entityType === "OUTSOURCED_CONTRACT" || eventType.includes("OUTSOURCED_CONTRACT")) {
-      navigate(`/outsourced-contracts`);
+      navigate(`/dashboard/outsourced-contracts`);
     } else if (entityType === "SKILL" || entityType === "SKILL_DECLARATION" || eventType.includes("SKILL")) {
-      navigate("/skills");
+      navigate("/dashboard/skills");
     } else if (entityType === "TIMESHEET" || entityType === "WORK_LOG" || eventType.includes("TIMESHEET") || eventType.includes("WORK_LOG")) {
-      navigate("/attendance");
+      navigate("/dashboard/attendance");
     } else if (entityType === "UNAVAILABILITY" || entityType === "UNAVAILABILITY_DECLARATION" || eventType.includes("UNAVAILABILITY")) {
-      navigate(isEmployee ? "/my-schedule" : "/unavailability");
+      navigate(isEmployee ? "/dashboard/my-schedule" : "/dashboard/unavailability");
     }
   };
 

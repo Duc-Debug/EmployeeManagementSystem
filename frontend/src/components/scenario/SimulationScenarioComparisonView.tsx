@@ -24,6 +24,7 @@ import {
   compareScenarios,
   type ScenarioComparisonResult,
 } from "@/lib/api/simulation-scenarios";
+import { findRecommendedScenario } from "@/lib/scenario-comparison";
 import { cn } from "@/lib/utils";
 
 interface SimulationScenarioComparisonViewProps {
@@ -68,28 +69,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
 
   // Logic phát hiện kịch bản tối ưu nhất (Khuyến nghị cho BGĐ)
   const recommendedScenarioId = useMemo<number | null>(() => {
-    if (!data || data.scenarios.length === 0) return null;
-    const sorted = [...data.scenarios].sort((a, b) => {
-      // 1. Ít nhân sự quá tải hơn
-      if (a.overloadedEmployeesCount !== b.overloadedEmployeesCount) {
-        return a.overloadedEmployeesCount - b.overloadedEmployeesCount;
-      }
-      // 2. Tổng giờ thiếu hụt ít hơn
-      if (a.totalShortfallHours !== b.totalShortfallHours) {
-        return a.totalShortfallHours - b.totalShortfallHours;
-      }
-      // 3. Đỉnh tải thấp hơn
-      if (a.peakUtilizationPercentage !== b.peakUtilizationPercentage) {
-        return a.peakUtilizationPercentage - b.peakUtilizationPercentage;
-      }
-      // 4. Giờ làm thêm cần thiết ít hơn
-      if (a.totalRequiredAdditionalHours !== b.totalRequiredAdditionalHours) {
-        return a.totalRequiredAdditionalHours - b.totalRequiredAdditionalHours;
-      }
-      // 5. Tỷ lệ tải trung bình tối ưu hơn
-      return (a.averageUtilizationPercentage ?? 0) - (b.averageUtilizationPercentage ?? 0);
-    });
-    return sorted[0]?.scenarioId ?? null;
+    return findRecommendedScenario(data?.scenarios);
   }, [data]);
 
   const formatNumber = (num: number | undefined | null, decimals = 1) => {
@@ -295,9 +275,6 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
                 <h1 className="text-xl font-bold text-slate-900">
                   So Sánh Đa Kịch Bản Mô Phỏng
                 </h1>
-                <span className="font-mono text-xs font-semibold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">
-                  NCL-08-CN-004
-                </span>
               </div>
               <p className="text-xs text-slate-500">
                 Đối chiếu năng lực, nhân sự quá tải và tổng giờ thiếu hụt giữa {scenarioIds.length} phương án kịch bản
@@ -331,7 +308,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
       <div className="flex items-center space-x-2.5 text-xs text-slate-600 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200">
         <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
         <span>
-          <strong>Nguyên tắc QTN-14 Sandbox:</strong> Việc so sánh và đánh giá các kịch bản này hoàn toàn độc lập, không làm thay đổi các phân bổ dự án và dữ liệu năng lực thực tế trong hệ thống.
+          <strong>Nguyên tắc Sandbox:</strong> Việc so sánh và đánh giá các kịch bản này hoàn toàn độc lập, không làm thay đổi các phân bổ dự án và dữ liệu năng lực thực tế trong hệ thống.
         </span>
       </div>
 

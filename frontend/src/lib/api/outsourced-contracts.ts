@@ -148,7 +148,7 @@ export function exportOutsourcedContractsToCsv(contracts: ExpiringOutsourcedCont
     "Ngày Hết Hạn",
     "Số Ngày Còn Lại",
     "Trạng Thái Hợp Đồng",
-    "Số Phân Bổ Vi Phạm QTN-21",
+    "Số Phân Bổ Vi Phạm",
   ];
 
   const rows = contracts.map((c) => [
@@ -164,4 +164,96 @@ export function exportOutsourcedContractsToCsv(contracts: ExpiringOutsourcedCont
 
   const csvRows = [headers.join(","), ...rows.map((r) => r.join(","))];
   return "\uFEFF" + csvRows.join("\r\n");
+}
+
+export function isWeekWithinOutsourcedContract(
+  weekStartDate: string,
+  weekEndDate: string,
+  contractStartDate?: string | null,
+  contractEndDate?: string | null
+): { valid: boolean; reasonCode?: string; reasonMessage?: string } {
+  if (!contractStartDate && !contractEndDate) return { valid: true };
+  if (contractStartDate && weekEndDate < contractStartDate) {
+    return {
+      valid: false,
+      reasonCode: "CONTRACT_OUT_OF_BOUNDS",
+      reasonMessage: `Hợp đồng thuê ngoài chưa có hiệu lực (bắt đầu từ ${contractStartDate})`,
+    };
+  }
+  if (contractEndDate && weekStartDate > contractEndDate) {
+    return {
+      valid: false,
+      reasonCode: "CONTRACT_OUT_OF_BOUNDS",
+      reasonMessage: `Hợp đồng thuê ngoài đã hết hạn (kết thúc ngày ${contractEndDate})`,
+    };
+  }
+  return { valid: true };
+}
+
+export function filterEmployeesByType<T extends { isOutsourced?: boolean }>(
+  rows: T[],
+  typeFilter: string
+): T[] {
+  if (typeFilter === "INTERNAL") {
+    return rows.filter((r) => !r.isOutsourced);
+  }
+  if (typeFilter === "OUTSOURCED") {
+    return rows.filter((r) => r.isOutsourced);
+  }
+  return rows;
+}
+
+export function canManageResourceAllocation(roleCode?: string | null): boolean {
+  const normalized = (roleCode || "").toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "");
+  return normalized === "VT-03";
+}
+
+export function validateOutsourcedForm(data: {
+  fullName?: string;
+  providerName?: string;
+  orgUnitId?: number | string;
+  startDate?: string;
+  contractEndDate?: string;
+  standardHoursPerWeek?: number;
+}): string | null {
+  if (!data.fullName || !data.fullName.trim()) {
+    return "Vui lòng nhập họ và tên nhân sự.";
+  }
+  if (!data.providerName || !data.providerName.trim()) {
+    return "Vui lòng nhập tên đơn vị cung cấp.";
+  }
+  if (!data.orgUnitId) {
+    return "Vui lòng chọn đơn vị phòng ban tiếp nhận.";
+  }
+  if (!data.startDate) {
+    return "Vui lòng chọn ngày bắt đầu hợp đồng thuê.";
+  }
+  if (!data.contractEndDate) {
+    return "Vui lòng chọn ngày kết thúc hợp đồng thuê.";
+  }
+  if (data.contractEndDate < data.startDate) {
+    return "Ngày kết thúc hợp đồng thuê không được trước ngày bắt đầu.";
+  }
+  if (!data.standardHoursPerWeek || data.standardHoursPerWeek < 1 || data.standardHoursPerWeek > 168) {
+    return "Số giờ chuẩn làm việc mỗi tuần phải từ 1 đến 168 giờ.";
+  }
+  return null;
+}
+
+export function canDeclareOutsourced(roleCode?: string | null): boolean {
+  const normalized = (roleCode || "").toUpperCase().replace(/_/g, "-");
+  return normalized === "VT-05";
+}
+
+export function searchEmployeeProfiles<T extends { fullName: string; employeeCode: string; department?: string; providerName?: string }>(
+  profiles: T[],
+  term: string
+): T[] {
+  const q = term.trim().toLowerCase();
+  return profiles.filter((p) =>
+    p.fullName.toLowerCase().includes(q) ||
+    p.employeeCode.toLowerCase().includes(q) ||
+    (p.department && p.department.toLowerCase().includes(q)) ||
+    (p.providerName && p.providerName.toLowerCase().includes(q))
+  );
 }

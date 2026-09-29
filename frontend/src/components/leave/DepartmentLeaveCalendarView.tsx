@@ -20,11 +20,11 @@ import { useAuthUser } from "@/lib/auth-session";
 import { getOrgTree } from "@/lib/api/org-units";
 import {
     getDepartmentMonthlyLeaveCalendar,
+    flattenOrgTree,
     type DepartmentMonthlyLeaveCalendarDto,
     type DailyLeaveSummaryDto,
 } from "@/lib/api/leave";
 import { OrgUnitCombobox, type OrgUnitOption } from "@/components/ui/OrgUnitCombobox";
-import type { OrgUnitTreeNode } from "@/types/hrm";
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
     ANNUAL: "Nghỉ phép năm",
@@ -49,23 +49,6 @@ const WEEKDAY_NAMES = [
     "Thứ 7",
     "Chủ Nhật",
 ];
-
-function flattenOrgTree(nodes: readonly OrgUnitTreeNode[], depth = 0): OrgUnitOption[] {
-    const result: OrgUnitOption[] = [];
-    for (const node of nodes) {
-        result.push({
-            id: node.id,
-            unitCode: node.unitCode,
-            unitName: node.unitName,
-            unitType: node.unitType,
-            depth,
-        });
-        if (node.children && node.children.length > 0) {
-            result.push(...flattenOrgTree(node.children, depth + 1));
-        }
-    }
-    return result;
-}
 
 export default function DepartmentLeaveCalendarView() {
     const user = useAuthUser();

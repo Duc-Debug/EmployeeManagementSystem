@@ -81,9 +81,9 @@ function checkScenariosAlignment(scenarios) {
  */
 function buildComparisonCsv(data, recommendedId) {
   const rows = [
-    ["BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC (NCL-08-CN-004)"],
+    ["BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC"],
     [`Thời gian đối chiếu: ${data.comparedAt}`],
-    ["Nguyên tắc QTN-14 Sandbox: Dữ liệu mô phỏng độc lập, không làm thay đổi phân bổ thật."],
+    ["Nguyên tắc Sandbox: Dữ liệu mô phỏng độc lập, không làm thay đổi phân bổ thật."],
     [],
     [
       "Mã kịch bản",
@@ -137,8 +137,8 @@ function clampUtilization(val) {
   return Math.max(0, Math.min(Number(val || 0), 100));
 }
 
-test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async (t) => {
-  await t.test("TC-01: Validation rule on number of scenarios (min 2, max 10)", () => {
+test("Scenario Comparison Frontend Logic Tests", async (t) => {
+  await t.test("Validation rule on number of scenarios (min 2, max 10)", () => {
     assert.equal(validateScenarioSelection([]).valid, false);
     assert.equal(validateScenarioSelection([1]).valid, false);
     assert.equal(validateScenarioSelection([1, 2]).valid, true);
@@ -146,14 +146,14 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     assert.equal(validateScenarioSelection([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).valid, false);
   });
 
-  await t.test("TC-02: API payload format matching backend contract", () => {
+  await t.test("API payload format matching backend contract", () => {
     const selected = [101, 102, 103];
     const payload = { scenarioIds: selected };
     assert.deepEqual(payload, { scenarioIds: [101, 102, 103] });
     assert.equal(payload.scenarioIds.length, 3);
   });
 
-  await t.test("TC-03: Recommendation algorithm picks scenario with lowest overloaded headcount and shortfall", () => {
+  await t.test("Recommendation algorithm picks scenario with lowest overloaded headcount and shortfall", () => {
     const mockScenarios = [
       {
         scenarioId: 1,
@@ -188,7 +188,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     assert.equal(recommendedId, 2);
   });
 
-  await t.test("TC-04: Tie-breaking in recommendation algorithm by peak utilization", () => {
+  await t.test("Tie-breaking in recommendation algorithm by peak utilization", () => {
     const mockScenarios = [
       {
         scenarioId: 10,
@@ -212,7 +212,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     assert.equal(recommendedId, 20); // Lower peak utilization (105% vs 115%)
   });
 
-  await t.test("TC-05: Alignment detection for timeframe and department", () => {
+  await t.test("Alignment detection for timeframe and department", () => {
     const alignedScenarios = [
       { fromYear: 2026, fromWeek: 10, durationWeeks: 4, orgUnitId: 5 },
       { fromYear: 2026, fromWeek: 10, durationWeeks: 4, orgUnitId: 5 },
@@ -230,7 +230,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     assert.equal(resMisaligned.isOrgUnitAligned, false);
   });
 
-  await t.test("TC-06: RBAC permission check allows VT-01 / RESOURCE_SCENARIO_COMPARE and blocks unauthorized roles", () => {
+  await t.test("RBAC permission check allows VT-01 / RESOURCE_SCENARIO_COMPARE and blocks unauthorized roles", () => {
     assert.equal(canUserCompareScenarios("VT-01"), true);
     assert.equal(canUserCompareScenarios("ROLE_BGD"), true);
     assert.equal(canUserCompareScenarios("VT-02", ["RESOURCE_SCENARIO_COMPARE"]), true);
@@ -239,7 +239,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     assert.equal(canUserCompareScenarios("VT-05"), false);
   });
 
-  await t.test("TC-07: CSV export generates UTF-8 BOM and correct columns with recommendation tag", () => {
+  await t.test("CSV export generates UTF-8 BOM and correct columns with recommendation tag", () => {
     const mockData = {
       comparedAt: "2026-09-16T10:00:00Z",
       scenarios: [
@@ -285,14 +285,14 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     const csvStr = buildComparisonCsv(mockData, 10);
     assert.ok(csvStr.startsWith("\uFEFF"), "CSV must begin with UTF-8 BOM");
     assert.ok(csvStr.includes("BÁO CÁO ĐỐI CHIẾU KỊCH BẢN MÔ PHỎNG NGUỒN LỰC"));
-    assert.ok(csvStr.includes("QTN-14 Sandbox"));
+    assert.ok(csvStr.includes("Sandbox"));
     assert.ok(csvStr.includes('"SCN-10"'));
     assert.ok(csvStr.includes('"Kịch bản A"'));
     assert.ok(csvStr.includes("Tối ưu nhất"));
     assert.ok(csvStr.includes("Phương án"));
   });
 
-  await t.test("TC-08: Utilization clamp protects against NaN, null, and negative values", () => {
+  await t.test("Utilization clamp protects against NaN, null, and negative values", () => {
     assert.equal(clampUtilization(null), 0);
     assert.equal(clampUtilization(undefined), 0);
     assert.equal(clampUtilization(NaN), 0);
@@ -301,7 +301,7 @@ test("Scenario Comparison Frontend Logic Tests (NCL-08-CN-004 / QTN-14)", async 
     assert.equal(clampUtilization(120), 100);
   });
 
-  await t.test("TC-09: Tie-breaker with averageUtilizationPercentage when all other metrics are equal", () => {
+  await t.test("Tie-breaker with averageUtilizationPercentage when all other metrics are equal", () => {
     const mockScenarios = [
       {
         scenarioId: 100,

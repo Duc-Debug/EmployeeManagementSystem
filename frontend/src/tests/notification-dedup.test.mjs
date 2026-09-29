@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  buildDedupKey,
+  canAccessDedupConfig,
+  validateDedupConfig,
+  formatChangeSummary,
+} from "../lib/api/notification-dedup.ts";
 
-test("NCL-11-CN-003: Chống gửi trùng thông báo Frontend Logic & Validation Tests", async (t) => {
-  await t.test("TC-01 / QTN-19: Khóa chống trùng dedup_key đúng format", () => {
+test("Chống gửi trùng thông báo Frontend Logic & Validation Tests", async (t) => {
+  await t.test("Khóa chống trùng dedup_key đúng format", () => {
     const buildDedupKey = (eventType, entityType, entityId, yearWeek, recipientId) => {
       return `${eventType.trim().toUpperCase()}:${entityType.trim().toUpperCase()}:${entityId.toString().trim()}:${yearWeek.trim()}:USER:${recipientId}`;
     };
@@ -11,7 +17,7 @@ test("NCL-11-CN-003: Chống gửi trùng thông báo Frontend Logic & Validatio
     assert.equal(key, "OVERLOAD_WARNING:EMPLOYEE:101:2026-W38:USER:201");
   });
 
-  await t.test("TC-03: Kiểm tra quyền mở cấu hình chống gửi trùng (Chỉ VT-06 hoặc quyền NOTIFICATION_DEDUPLICATION_MANAGE)", () => {
+  await t.test("Kiểm tra quyền mở cấu hình chống gửi trùng (Chỉ VT-06 hoặc quyền NOTIFICATION_DEDUPLICATION_MANAGE)", () => {
     const canAccessDedupConfig = (user) => {
       if (!user) return false;
       const normalizedRole = (user.roleCode || "").toUpperCase().replace(/_/g, "-");
@@ -28,7 +34,7 @@ test("NCL-11-CN-003: Chống gửi trùng thông báo Frontend Logic & Validatio
     assert.equal(canAccessDedupConfig({ roleCode: "VT-02", permissions: ["NOTIFICATION_DEDUPLICATION_MANAGE"] }), true);
   });
 
-  await t.test("TC-04: Validate dữ liệu cấu hình trước khi xác nhận lưu", () => {
+  await t.test("Validate dữ liệu cấu hình trước khi xác nhận lưu", () => {
     const validateDedupConfig = (windowDays, intervalMinutes) => {
       const errors = [];
       if (typeof windowDays !== "number" || isNaN(windowDays) || windowDays < 1 || windowDays > 90) {
@@ -55,7 +61,7 @@ test("NCL-11-CN-003: Chống gửi trùng thông báo Frontend Logic & Validatio
     assert.equal(validateDedupConfig(7, 1441).isValid, false);
   });
 
-  await t.test("TC-04: Định dạng bản ghi thay đổi cấu hình cho Modal xác nhận", () => {
+  await t.test("Định dạng bản ghi thay đổi cấu hình cho Modal xác nhận", () => {
     const formatChangeSummary = (isEnabled, windowDays, scanInterval) => {
       return {
         statusText: isEnabled ? "Bật" : "Tắt",
