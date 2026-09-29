@@ -5,6 +5,7 @@ import HrProfileCard from "./HrProfileCard";
 import HrProfileForm from "./HrProfileForm";
 import OutsourcedEmployeeModal from "./OutsourcedEmployeeModal";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import { getEmployees, getEmployeeProfile, updateEmployeeProfile } from "@/lib/api/employees";
 import { getUsers } from "@/lib/api/users";
 import { getOrgTree } from "@/lib/api/org-units";
@@ -15,7 +16,7 @@ import { DEFAULT_ORG_UNIT_OPTIONS } from "../employee/form/employeeForm.constant
 
 export default function HrProfilePage() {
     const currentUser = useAuthUser();
-    const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
+    const roleCode = normalizeRoleCode(currentUser?.roleCode);
     const canManage = roleCode === "VT-05";
     const isSelfOnly = roleCode === "VT-04" || currentUser?.dataScope === "SELF";
 
@@ -66,14 +67,12 @@ export default function HrProfilePage() {
             if (empRes.status === "fulfilled" && empRes.value && empRes.value.content) {
                 const nonAdminEmps = empRes.value.content.filter((p) => {
                     const u = (p.userId && userMap.get(p.userId)) || userMap.get(p.id);
-                    const role = (u?.roleCode || "").toUpperCase().replace(/_/g, "-");
+                    const role = normalizeRoleCode(u?.roleCode);
                     const roleName = (u?.roleName || p.professionalRole || "").toLowerCase();
                     const username = (u?.username || "").toLowerCase();
                     const fullName = (p.fullName || u?.fullName || "").toLowerCase();
                     if (
                         role === "VT-06" ||
-                        role === "ROLE-ADMIN" ||
-                        role === "ADMIN" ||
                         username === "admin" ||
                         username.includes("admin") ||
                         roleName.includes("quản trị") ||

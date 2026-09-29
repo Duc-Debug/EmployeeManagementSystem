@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import { normalizeRoleCode } from "../role-utils";
 
 export interface UpcomingDueTaskResult {
   taskId: number;
@@ -116,9 +117,9 @@ export function buildDirectUrl(projectId: number | string, taskId: number | stri
 
 export function checkIsSpecialist(currentUser?: { roleCode?: string | null; roleName?: string | null } | null): boolean {
   if (!currentUser) return false;
-  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const role = normalizeRoleCode(currentUser?.roleCode);
   return (
-    ["VT-04", "ROLE-EMPLOYEE", "EMPLOYEE", "MEMBER", "DEVELOPER"].includes(normalizedRole) ||
+    role === "VT-04" ||
     (currentUser.roleName
       ? currentUser.roleName.toLowerCase().includes("chuyên môn") || currentUser.roleName.toLowerCase().includes("nhân viên")
       : false)

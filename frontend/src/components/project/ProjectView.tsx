@@ -3,6 +3,7 @@ import { can } from '@/lib/permissions';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getEmployees, getEmployeeProfileByUserId } from '@/lib/api/employees';
 import { useAuthUser } from '@/lib/auth-session';
+import { normalizeRoleCode } from '@/lib/role-utils';
 import {
     allocateProjectHours,
     fetchMonthProjectAllocations,
@@ -258,20 +259,20 @@ export default function ProjectView() {
         }).catch(() => { if (active) setCurrentEmployeeId(null); });
         return () => { active = false; };
     }, [currentUser?.id]);
-    const userRoleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, '-') || '';
-    const isExecutive = userRoleCode === 'VT-01' || userRoleCode === 'ROLE-EXECUTIVE' || userRoleCode === 'EXECUTIVE' || userRoleCode === 'DIRECTOR';
-    const isPm = userRoleCode === 'VT-02' || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-PM' || userRoleCode === 'PM' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
-    const isRm = userRoleCode === 'VT-03' || userRoleCode === 'ROLE-RM' || userRoleCode === 'RM' || currentUser?.roleName === 'Quản lý nguồn lực';
+    const role = normalizeRoleCode(currentUser?.roleCode);
+    const isExecutive = role === 'VT-01';
+    const isPm = role === 'VT-02' || role === 'VT-06' || currentUser?.roleName === 'Quản lý dự án' || currentUser?.roleName === 'Quản trị viên';
+    const isRm = role === 'VT-03' || currentUser?.roleName === 'Quản lý nguồn lực';
 
     // Quyền đọc phân bổ & nhu cầu: VT-01, VT-02, VT-03, VT-06
-    const canReadAllocations = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
-    const canReadDemands = ['VT-01', 'VT-02', 'VT-03', 'VT-06', 'ROLE-ADMIN', 'ADMIN', 'ROLE-PM', 'PM', 'ROLE-RM', 'RM', 'ROLE-EXECUTIVE'].includes(userRoleCode);
+    const canReadAllocations = ['VT-01', 'VT-02', 'VT-03', 'VT-06'].includes(role || '');
+    const canReadDemands = ['VT-01', 'VT-02', 'VT-03', 'VT-06'].includes(role || '');
 
     // Quy định RBAC theo docs/ROLE_BASED_ACCESS_CONTROL_GUIDE.md:
     const canManageAllocations = isRm;
     const canManageProject = isPm;
-    const canManageProjectMembers = isPm || isRm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
-    const canManageMilestones = isPm || userRoleCode === 'VT-06' || userRoleCode === 'ROLE-ADMIN' || userRoleCode === 'ADMIN';
+    const canManageProjectMembers = isPm || isRm;
+    const canManageMilestones = isPm;
     const [viewMode, setViewMode] = useState<'wbs' | 'workload' | 'demand' | 'milestones' | 'board' | 'tracking'>(() => {
         return isRm ? 'workload' : 'wbs';
     });
@@ -345,14 +346,14 @@ export default function ProjectView() {
     // Selected project object & Closed/Planned status (QTN-08)
     const selectedProject = projectsList.find((p) => p.id === selectedProjectId) || null;
     const isProjectClosed = selectedProject?.status === 'CLOSED';
-    const canManageWbs = isPm && selectedProject !== null && (userRoleCode !== 'VT-02' || (currentEmployeeId !== null && selectedProject.managerId === currentEmployeeId));
+    const canManageWbs = isPm && selectedProject !== null && (role !== 'VT-02' || (currentEmployeeId !== null && selectedProject.managerId === currentEmployeeId));
     const isProjectPlanned = selectedProject?.status === 'PLANNED';
 
     // Quyền thao tác trạng thái dự án (NCL-03-CN-004)
     const canCloseProject = (isExecutive || isPm) && selectedProject?.status === 'ACTIVE';
     const canReopenProject = (isExecutive || isPm) && isProjectClosed && selectedProject !== null;
-    const canApproveProject = (isRm || userRoleCode === 'VT-06') && isProjectPlanned && selectedProject !== null;
-    const canCancelProject = (isRm || isPm || userRoleCode === 'VT-06') && isProjectPlanned && selectedProject !== null;
+    const canApproveProject = (isRm || role === 'VT-06') && isProjectPlanned && selectedProject !== null;
+    const canCancelProject = (isRm || isPm) && isProjectPlanned && selectedProject !== null;
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);

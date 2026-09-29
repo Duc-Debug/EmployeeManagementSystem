@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import { normalizeRoleCode } from "../role-utils";
 
 export interface NotificationDedupConfig {
   isEnabled: boolean;
@@ -77,9 +78,9 @@ export function buildDedupKey(
 
 export function canAccessDedupConfig(user?: { roleCode?: string | null; permissions?: string[] | null } | null): boolean {
   if (!user) return false;
-  const normalizedRole = (user.roleCode || "").toUpperCase().replace(/_/g, "-");
+  const canonical = normalizeRoleCode(user.roleCode);
   const hasPermission = Array.isArray(user.permissions) && user.permissions.includes("NOTIFICATION_DEDUPLICATION_MANAGE");
-  return normalizedRole === "VT-06" || normalizedRole === "ROLE-ADMIN" || normalizedRole === "ADMIN" || hasPermission;
+  return canonical === "VT-06" || hasPermission;
 }
 
 export function validateDedupConfig(windowDays: number, intervalMinutes: number) {

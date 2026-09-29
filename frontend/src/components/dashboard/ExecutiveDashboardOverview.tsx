@@ -180,12 +180,12 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Quy mô Tổ chức
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{totalStaff}</span>
-                            <span className="text-[10px] text-slate-400">nhân sự</span>
+                            <span className="text-[10px] text-slate-600">nhân sự</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-emerald-700">
                             {orgUnitsCount || 11} đơn vị / phòng ban trực thuộc
@@ -202,24 +202,24 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600">
                             <FolderKanban className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-700 group-hover:translate-x-0.5 transition">
                             Dự án <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Danh mục Dự án
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{totalProjects}</span>
-                            <span className="text-[10px] text-slate-400">tổng số dự án</span>
+                            <span className="text-[10px] text-slate-600">tổng số dự án</span>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium">
                             <span className="text-emerald-700 font-bold">{activeProjectsCount} Chạy</span>
-                            <span className="text-slate-300">·</span>
+                            <span className="text-slate-400">·</span>
                             <span className="text-blue-700 font-bold">{plannedProjectsCount} KH</span>
-                            <span className="text-slate-300">·</span>
-                            <span className="text-slate-500 font-bold">{closedProjectsCount} Đóng</span>
+                            <span className="text-slate-400">·</span>
+                            <span className="text-slate-600 font-bold">{closedProjectsCount} Đóng</span>
                         </div>
                     </div>
                 </div>
@@ -233,22 +233,22 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
                             <TrendingUp className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-700 group-hover:translate-x-0.5 transition">
                             Bảng điều khiển <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Hiệu suất Công suất Tuần {currentIso.weekNumber}
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{avgUtilization}%</span>
-                            <span className="text-[10px] text-slate-400">sử dụng</span>
+                            <span className="text-[10px] text-slate-600">sử dụng</span>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-blue-700">
                             <span>{totalHours.toLocaleString("vi-VN")}h kế hoạch</span>
                             {overloadedStaffCount > 0 && (
-                                <span className="text-rose-600 font-bold">({overloadedStaffCount} quá tải)</span>
+                                <span className="text-rose-700 font-bold">({overloadedStaffCount} quá tải)</span>
                             )}
                         </div>
                     </div>
@@ -263,17 +263,17 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 border border-purple-100 text-purple-600">
                             <BookOpen className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-700 group-hover:translate-x-0.5 transition">
                             Ma trận <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Năng lực & Kỹ năng Chuẩn
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{skillsCount || 15}</span>
-                            <span className="text-[10px] text-slate-400">kỹ năng chuẩn hóa</span>
+                            <span className="text-[10px] text-slate-600">kỹ năng chuẩn hóa</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-purple-700">
                             Ma trận năng lực Level 1 → 5
@@ -301,7 +301,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Cây Cơ cấu Tổ chức</span>
-                            <p className="text-[9px] text-slate-400 truncate">Phòng ban, nhân sự</p>
+                            <p className="text-[9px] text-slate-600 truncate">Phòng ban, nhân sự</p>
                         </div>
                     </button>
 
@@ -315,7 +315,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Bảng Điều khiển Năng lực</span>
-                            <p className="text-[9px] text-slate-400 truncate">Tổng quan công suất & xung đột</p>
+                            <p className="text-[9px] text-slate-600 truncate">Tổng quan công suất & xung đột</p>
                         </div>
                     </button>
 
@@ -329,7 +329,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Danh mục Dự án</span>
-                            <p className="text-[9px] text-slate-400 truncate">Tiến độ & Giám sát WBS</p>
+                            <p className="text-[9px] text-slate-600 truncate">Tiến độ & Giám sát WBS</p>
                         </div>
                     </button>
 
@@ -343,7 +343,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Tỷ lệ Giờ tính phí</span>
-                            <p className="text-[9px] text-slate-400 truncate">Hiệu quả sinh lời</p>
+                            <p className="text-[9px] text-slate-600 truncate">Hiệu quả sinh lời</p>
                         </div>
                     </button>
 
@@ -357,7 +357,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Ma trận Kỹ năng</span>
-                            <p className="text-[9px] text-slate-400 truncate">Năng lực đội ngũ</p>
+                            <p className="text-[9px] text-slate-600 truncate">Năng lực đội ngũ</p>
                         </div>
                     </button>
                 </div>
@@ -370,7 +370,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                             Danh mục Dự án Chiến lược Đang Hoạt động
                         </h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-[11px] text-slate-600 mt-0.5">
                             Các dự án đang triển khai trên toàn doanh nghiệp
                         </p>
                     </div>
@@ -386,7 +386,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                 <div className="overflow-x-auto rounded-xl border border-slate-100">
                     <table className="w-full min-w-[650px] text-left text-xs border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                                 <th className="px-4 py-2.5">Dự án</th>
                                 <th className="px-4 py-2.5">Mã DA</th>
                                 <th className="px-4 py-2.5">Thời gian thực hiện</th>
@@ -398,7 +398,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         <tbody className="divide-y divide-slate-100">
                             {projects.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                                    <td colSpan={6} className="py-8 text-center text-slate-600 text-xs">
                                         Chưa có dự án nào được ghi nhận.
                                     </td>
                                 </tr>
@@ -414,16 +414,16 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                                                     </div>
                                                     <div className="min-w-0 max-w-[260px]">
                                                         <p className="font-semibold text-slate-900 truncate">{p.projectName}</p>
-                                                        <p className="text-[10px] text-slate-400 truncate">{p.description || "Chưa có mô tả"}</p>
+                                                        <p className="text-[10px] text-slate-600 truncate">{p.description || "Chưa có mô tả"}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700">
                                                 {p.projectCode}
                                             </td>
-                                            <td className="px-4 py-2.5 text-slate-600 text-[11px]">
+                                            <td className="px-4 py-2.5 text-slate-700 text-[11px]">
                                                 <div className="flex items-center gap-1.5">
-                                                    <CalendarIcon className="h-3 w-3 text-slate-400" />
+                                                    <CalendarIcon className="h-3 w-3 text-slate-500" />
                                                     <span>{p.startDate || "--"}</span>
                                                     <span>→</span>
                                                     {hasNoEndDate ? (
@@ -524,7 +524,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                                         {dept.count} nv
                                     </span>
                                 </div>
-                                <p className="mt-1 text-[10px] text-slate-400 truncate">
+                                <p className="mt-1 text-[10px] text-slate-600 truncate">
                                     Trưởng phòng: {dept.managerName || "Chưa bổ nhiệm"}
                                 </p>
                             </div>

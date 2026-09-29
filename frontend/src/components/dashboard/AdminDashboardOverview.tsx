@@ -141,18 +141,18 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Tài khoản Người dùng
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{totalUsers}</span>
-                            <span className="text-[10px] text-slate-400">tổng số</span>
+                            <span className="text-[10px] text-slate-600">tổng số</span>
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-[10px]">
-                            <span className="inline-flex items-center gap-0.5 text-emerald-600 font-semibold">
+                            <span className="inline-flex items-center gap-0.5 text-emerald-700 font-semibold">
                                 <UserCheck className="h-3 w-3" /> {activeUsersCount} Active
                             </span>
-                            <span className="inline-flex items-center gap-0.5 text-rose-500 font-semibold">
+                            <span className="inline-flex items-center gap-0.5 text-rose-700 font-semibold">
                                 <Lock className="h-3 w-3" /> {lockedUsersCount} Khóa
                             </span>
                         </div>
@@ -173,12 +173,12 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Cơ cấu Tổ chức
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{orgUnitsCount || 11}</span>
-                            <span className="text-[10px] text-slate-400">đơn vị / phòng</span>
+                            <span className="text-[10px] text-slate-600">đơn vị / phòng</span>
                         </div>
                         <div className="mt-1 text-[10px] text-emerald-700 font-medium">
                             Cây tổ chức phân cấp
@@ -200,12 +200,12 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Vai trò Dự án & Kỹ năng
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{projectRolesCount}</span>
-                            <span className="text-[10px] text-slate-400">vai trò</span>
+                            <span className="text-[10px] text-slate-600">vai trò</span>
                         </div>
                         <div className="mt-1 flex items-center gap-1 text-[10px] text-purple-700 font-medium">
                             <Layers className="h-2.5 w-2.5 text-purple-500" />
@@ -228,7 +228,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Kiểm soát Phân quyền
                         </p>
                     </div>
@@ -254,7 +254,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Quản lý Tài khoản</span>
-                            <p className="text-[9px] text-slate-400 truncate">Tạo, sửa, khóa</p>
+                            <p className="text-[9px] text-slate-600 truncate">Tạo, sửa, khóa</p>
                         </div>
                     </button>
 
@@ -268,7 +268,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Phân quyền Truy cập</span>
-                            <p className="text-[9px] text-slate-400 truncate">Vai trò & DataScope</p>
+                            <p className="text-[9px] text-slate-600 truncate">Vai trò & DataScope</p>
                         </div>
                     </button>
 
@@ -282,7 +282,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Cơ cấu Tổ chức</span>
-                            <p className="text-[9px] text-slate-400 truncate">Cây phòng ban</p>
+                            <p className="text-[9px] text-slate-600 truncate">Cây phòng ban</p>
                         </div>
                     </button>
 
@@ -296,7 +296,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Sao lưu & Phục hồi</span>
-                            <p className="text-[9px] text-slate-400 truncate">Snapshot dữ liệu</p>
+                            <p className="text-[9px] text-slate-600 truncate">Snapshot dữ liệu</p>
                         </div>
                     </button>
 
@@ -310,7 +310,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Lịch & Ngày lễ</span>
-                            <p className="text-[9px] text-slate-400 truncate">Giờ chuẩn & Lễ</p>
+                            <p className="text-[9px] text-slate-600 truncate">Giờ chuẩn & Lễ</p>
                         </div>
                     </button>
 
@@ -324,7 +324,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Kỹ năng & Ma trận</span>
-                            <p className="text-[9px] text-slate-400 truncate">Danh mục & Rà soát</p>
+                            <p className="text-[9px] text-slate-600 truncate">Danh mục & Rà soát</p>
                         </div>
                     </button>
                 </div>
@@ -337,7 +337,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                             Danh sách Tài khoản gần đây
                         </h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-[11px] text-slate-600 mt-0.5">
                             Các tài khoản người dùng đang được quản trị trên hệ thống
                         </p>
                     </div>
@@ -353,7 +353,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                 <div className="overflow-x-auto rounded-xl border border-slate-100">
                     <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                                 <th className="px-4 py-2.5">Người dùng</th>
                                 <th className="px-4 py-2.5">Tên đăng nhập</th>
                                 <th className="px-4 py-2.5">Vai trò</th>
@@ -371,7 +371,7 @@ export default function AdminDashboardOverview({ onNavigate }: AdminDashboardOve
                                             </div>
                                             <div>
                                                 <p className="font-semibold text-slate-900">{u.fullName || u.username}</p>
-                                                <p className="text-[10px] text-slate-400">{u.employeeId ? `Mã NV: ${u.employeeId}` : "Chưa gán hồ sơ"}</p>
+                                                <p className="text-[10px] text-slate-600">{u.employeeId ? `Mã NV: ${u.employeeId}` : "Chưa gán hồ sơ"}</p>
                                             </div>
                                         </div>
                                     </td>

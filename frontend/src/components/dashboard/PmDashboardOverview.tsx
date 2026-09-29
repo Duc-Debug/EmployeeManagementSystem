@@ -141,14 +141,14 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Dự án đang thực hiện
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{activeProjects.length}</span>
-                            <span className="text-[10px] text-slate-400">/ {projects.length} tổng dự án</span>
+                            <span className="text-[10px] text-slate-600">/ {projects.length} tổng dự án</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium text-indigo-600">
+                        <div className="mt-1 text-[10px] font-medium text-indigo-700">
                             {projects.filter(p => p.status === "ACTIVE").length} Đang chạy · {projects.filter(p => p.status === "PLANNED").length} Kế hoạch
                         </div>
                     </div>
@@ -163,19 +163,19 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
                             <Clock className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-700 group-hover:translate-x-0.5 transition">
                             WBS <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Tổng Giờ Kế hoạch (WBS)
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{totalEstimatedHours.toLocaleString("vi-VN")}</span>
-                            <span className="text-[10px] text-slate-400">giờ</span>
+                            <span className="text-[10px] text-slate-600">giờ</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium text-blue-600">
+                        <div className="mt-1 text-[10px] font-medium text-blue-700">
                             Theo khối lượng công việc
                         </div>
                     </div>
@@ -190,19 +190,19 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 border border-purple-100 text-purple-600">
                             <Users className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-700 group-hover:translate-x-0.5 transition">
                             Phân bổ <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Giữ chỗ Nguồn lực
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{activeReservationsCount}</span>
-                            <span className="text-[10px] text-slate-400">yêu cầu active</span>
+                            <span className="text-[10px] text-slate-600">yêu cầu active</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium text-purple-600">
+                        <div className="mt-1 text-[10px] font-medium text-purple-700">
                             {reservations.length} lượt giữ chỗ tổng cộng
                         </div>
                     </div>
@@ -217,19 +217,19 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 border border-amber-100 text-amber-600">
                             <AlertTriangle className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 group-hover:translate-x-0.5 transition">
                             Kiểm tra <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Cần cập nhật ngày kết thúc
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className={`text-lg font-bold ${missingEndDateProjects.length > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                            <span className={`text-lg font-bold ${missingEndDateProjects.length > 0 ? "text-amber-700" : "text-emerald-700"}`}>
                                 {missingEndDateProjects.length}
                             </span>
-                            <span className="text-[10px] text-slate-400">dự án thiếu ngày KT</span>
+                            <span className="text-[10px] text-slate-600">dự án thiếu ngày KT</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-amber-700">
                             {missingEndDateProjects.length > 0 ? "Ảnh hưởng ước lượng nhân lực" : "Dữ liệu thời gian đầy đủ"}
@@ -257,7 +257,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Quản lý Dự án & WBS</span>
-                            <p className="text-[9px] text-slate-400 truncate">Phân rã việc, gán task</p>
+                            <p className="text-[9px] text-slate-600 truncate">Phân rã việc, gán task</p>
                         </div>
                     </button>
 
@@ -271,7 +271,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Bảng Năng lực & Giữ chỗ</span>
-                            <p className="text-[9px] text-slate-400 truncate">Giữ chỗ theo tuần</p>
+                            <p className="text-[9px] text-slate-600 truncate">Giữ chỗ theo tuần</p>
                         </div>
                     </button>
 
@@ -285,7 +285,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Tìm kiếm Kỹ năng</span>
-                            <p className="text-[9px] text-slate-400 truncate">Tra cứu nhân sự phù hợp</p>
+                            <p className="text-[9px] text-slate-600 truncate">Tra cứu nhân sự phù hợp</p>
                         </div>
                     </button>
 
@@ -299,7 +299,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Giờ Khả dụng Cá nhân</span>
-                            <p className="text-[9px] text-slate-400 truncate">Xem giờ trống theo tuần</p>
+                            <p className="text-[9px] text-slate-600 truncate">Xem giờ trống theo tuần</p>
                         </div>
                     </button>
                 </div>
@@ -312,7 +312,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                             Danh sách Dự án Đang Phụ Trách
                         </h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-[11px] text-slate-600 mt-0.5">
                             Các dự án đang hoạt động và được phân quyền quản lý
                         </p>
                     </div>
@@ -328,7 +328,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                 <div className="overflow-x-auto rounded-xl border border-slate-100">
                     <table className="w-full min-w-[650px] text-left text-xs border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                                 <th className="px-4 py-2.5">Dự án</th>
                                 <th className="px-4 py-2.5">Mã DA</th>
                                 <th className="px-4 py-2.5">Thời gian thực hiện</th>
@@ -340,7 +340,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         <tbody className="divide-y divide-slate-100">
                             {projects.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                                    <td colSpan={6} className="py-8 text-center text-slate-600 text-xs">
                                         Chưa có dữ liệu dự án nào. Bấm <b>+ Dự án mới</b> để bắt đầu.
                                     </td>
                                 </tr>
@@ -356,16 +356,16 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                                                     </div>
                                                     <div className="min-w-0 max-w-[240px]">
                                                         <p className="font-semibold text-slate-900 truncate">{p.projectName}</p>
-                                                        <p className="text-[10px] text-slate-400 truncate">{p.description || "Chưa có mô tả"}</p>
+                                                        <p className="text-[10px] text-slate-600 truncate">{p.description || "Chưa có mô tả"}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700">
                                                 {p.projectCode}
                                             </td>
-                                            <td className="px-4 py-2.5 text-slate-600 text-[11px]">
+                                            <td className="px-4 py-2.5 text-slate-700 text-[11px]">
                                                 <div className="flex items-center gap-1.5">
-                                                    <CalendarIcon className="h-3 w-3 text-slate-400" />
+                                                    <CalendarIcon className="h-3 w-3 text-slate-500" />
                                                     <span>{p.startDate || "--"}</span>
                                                     <span>→</span>
                                                     {hasNoEndDate ? (
@@ -448,7 +448,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">1</span>
                                 <h4 className="text-xs font-bold text-slate-900">Thiết lập Dự án & WBS</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Tạo dự án, cập nhật ngày bắt đầu - kết thúc và phân rã các hạng mục công việc (Task).
                             </p>
                         </div>
@@ -458,7 +458,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">2</span>
                                 <h4 className="text-xs font-bold text-slate-900">Ước lượng Nhu cầu Nguồn lực</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Khai báo số giờ cần thiết theo từng vai trò chuyên môn (Dev, Tester, BA, UI/UX).
                             </p>
                         </div>
@@ -468,7 +468,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">3</span>
                                 <h4 className="text-xs font-bold text-slate-900">Giữ chỗ Nguồn lực</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Đăng ký giữ chỗ trước nhân sự theo tuần tại bảng năng lực để đảm bảo nguồn lực cho dự án.
                             </p>
                         </div>
@@ -478,7 +478,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">4</span>
                                 <h4 className="text-xs font-bold text-slate-900">Giao việc & Theo dõi</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Phân công công việc cụ thể cho các thành viên trong dự án và theo dõi tiến độ hoàn thành.
                             </p>
                         </div>
