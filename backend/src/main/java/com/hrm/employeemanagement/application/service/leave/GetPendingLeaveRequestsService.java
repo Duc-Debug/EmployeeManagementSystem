@@ -9,13 +9,20 @@ import com.hrm.employeemanagement.application.port.outbound.user.LoadEmployeePor
 import com.hrm.employeemanagement.application.port.outbound.user.LoadUserPort;
 import com.hrm.employeemanagement.application.service.authorization.AuthorizationService;
 import com.hrm.employeemanagement.domain.authorization.PermissionCode;
+import com.hrm.employeemanagement.domain.employee.Employee;
+import com.hrm.employeemanagement.domain.employee.EmployeeId;
 import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import com.hrm.employeemanagement.domain.leave.LeaveRequest;
+import com.hrm.employeemanagement.domain.orgunit.OrgUnit;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.domain.user.UserId;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * NCL-05-CN-003: Lấy danh sách đơn nghỉ phép chờ duyệt theo DataScope của người dùng (TC-01, TC-03).
@@ -24,7 +31,9 @@ import java.util.Objects;
 public class GetPendingLeaveRequestsService implements GetPendingLeaveRequestsUseCase {
 
     private final LoadLeaveRequestPort loadLeaveRequestPort;
+    private final LoadEmployeePort loadEmployeePort;
     private final LoadUserPort loadUserPort;
+    private final LoadOrgUnitPort loadOrgUnitPort;
     private final AuthorizationService authorizationService;
 
     public GetPendingLeaveRequestsService(
@@ -32,9 +41,7 @@ public class GetPendingLeaveRequestsService implements GetPendingLeaveRequestsUs
             LoadUserPort loadUserPort,
             AuthorizationService authorizationService
     ) {
-        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
-        this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
-        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
+        this(loadLeaveRequestPort, null, loadUserPort, null, authorizationService);
     }
 
     public GetPendingLeaveRequestsService(
@@ -44,7 +51,11 @@ public class GetPendingLeaveRequestsService implements GetPendingLeaveRequestsUs
             LoadOrgUnitPort loadOrgUnitPort,
             AuthorizationService authorizationService
     ) {
-        this(loadLeaveRequestPort, loadUserPort, authorizationService);
+        this.loadLeaveRequestPort = Objects.requireNonNull(loadLeaveRequestPort, "loadLeaveRequestPort must not be null");
+        this.loadEmployeePort = loadEmployeePort;
+        this.loadUserPort = Objects.requireNonNull(loadUserPort, "loadUserPort must not be null");
+        this.loadOrgUnitPort = loadOrgUnitPort;
+        this.authorizationService = Objects.requireNonNull(authorizationService, "authorizationService must not be null");
     }
 
     @Override
@@ -66,8 +77,48 @@ public class GetPendingLeaveRequestsService implements GetPendingLeaveRequestsUs
                 size
         );
 
-        List<LeaveRequestResult> content = pagedRequests.getContent().stream()
-                .map(LeaveRequestResult::fromDomain)
+        List<LeaveRequest> requests = pagedRequests.getContent();
+
+        Map<Long, Employee> employeeMap = Collections.emptyMap();
+        List<EmployeeId> employeeIds = requests.stream()
+                .map(LeaveRequest::getEmployeeId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(EmployeeId::new)
+                .toList();
+
+        if (loadEmployeePort != null && !employeeIds.isEmpty()) {
+            employeeMap = loadEmployeePort.findAllByIdIn(employeeIds).stream()
+                    .filter(e -> e.getIdValue() != null)
+                    .collect(Collectors.toMap(Employee::getIdValue, Function.identity(), (a, b) -> a));
+        }
+
+        Map<Long, OrgUnit> orgUnitMap = Collections.emptyMap();
+        if (loadOrgUnitPort != null && !employeeMap.isEmpty()) {
+            List<Long> orgUnitIds = employeeMap.values().stream()
+                    .map(Employee::getOrgUnitId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+
+            if (!orgUnitIds.isEmpty()) {
+                orgUnitMap = loadOrgUnitPort.findAllByIdIn(orgUnitIds).stream()
+                        .filter(u -> u.getId() != null && u.getId().getValue() != null)
+                        .collect(Collectors.toMap(u -> u.getId().getValue(), Function.identity(), (a, b) -> a));
+            }
+        }
+
+        Map<Long, Employee> finalEmployeeMap = employeeMap;
+        Map<Long, OrgUnit> finalOrgUnitMap = orgUnitMap;
+
+        List<LeaveRequestResult> content = requests.stream()
+                .map(req -> {
+                    Employee emp = finalEmployeeMap.get(req.getEmployeeId());
+                    String employeeName = emp != null ? emp.getFullName() : null;
+                    OrgUnit ou = (emp != null && emp.getOrgUnitId() != null) ? finalOrgUnitMap.get(emp.getOrgUnitId()) : null;
+                    String orgUnitName = ou != null ? ou.getUnitName() : null;
+                    return LeaveRequestResult.fromDomain(req, employeeName, orgUnitName);
+                })
                 .toList();
 
         return new PageResult<>(
