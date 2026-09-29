@@ -397,7 +397,7 @@ export default function OutsourcedContractWarningView() {
                                 <th className="py-3 px-4">Đơn Vị / Chi Nhánh</th>
                                 <th className="py-3 px-4">Ngày Hết Hạn</th>
                                 <th className="py-3 px-4">Thời Gian Còn Lại</th>
-                                <th className="py-3 px-4">Trạng Thái & Rủi Ro QTN-21</th>
+                                <th className="py-3 px-4">Trạng Thái & Rủi Ro</th>
                                 <th className="py-3 px-4 text-right">Thao Tác</th>
                             </tr>
                         </thead>
@@ -526,7 +526,7 @@ export default function OutsourcedContractWarningView() {
                                                             <div className="flex items-center justify-between mb-2.5">
                                                                 <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                                                     <FolderKanban className="h-3.5 w-3.5 text-indigo-500" />
-                                                                    Chi tiết các tuần phân bổ bị ảnh hưởng theo quy tắc QTN-21:
+                                                                    Chi tiết các tuần phân bổ bị ảnh hưởng theo quy tắc:
                                                                 </span>
                                                                 <span className="text-[11px] text-slate-400">
                                                                     Hạn hợp đồng: {c.contractEndDate}

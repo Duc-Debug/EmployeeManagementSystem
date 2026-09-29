@@ -9,9 +9,9 @@ import {
     validateOverloadSubmission
 } from "../lib/allocation-overload.ts";
 
-describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-003)", () => {
+describe("Allocation Overload Warning & Bypass Frontend Logic Tests", () => {
 
-    test("QTN-11: Cảnh báo quá tải kích hoạt khi giờ phân bổ vượt quá năng lực khả dụng", () => {
+    test("Cảnh báo quá tải kích hoạt khi giờ phân bổ vượt quá năng lực khả dụng", () => {
         const capacity = 40;
         const normalHours = 35;
         const overloadedHours = 45;
@@ -24,7 +24,7 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(resExcess.overloadHours, 5, "Vượt quá 5 giờ");
     });
 
-    test("QTN-11 / Quyền hạn: Xác thực permission-based qua RESOURCE_ALLOCATION_OVERLOAD_BYPASS từ backend session", () => {
+    test(" Quyền hạn: Xác thực permission-based qua RESOURCE_ALLOCATION_OVERLOAD_BYPASS từ backend session", () => {
         // Source of truth là user.permissions từ backend
         assert.equal(canBypassResourceOverload({ roleCode: "VT-03", permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }), true, "User có permission RESOURCE_ALLOCATION_OVERLOAD_BYPASS -> Được phép");
         assert.equal(canBypassResourceOverload({ roleCode: "VT-02", permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }), true, "Bất kể roleCode nào, nếu backend cấp permission -> Được phép");
@@ -36,10 +36,10 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(hasUserPermission({ permissions: [RESOURCE_OVERLOAD_BYPASS_PERMISSION] }, RESOURCE_OVERLOAD_BYPASS_PERMISSION), true);
     });
 
-    test("QTN-11 / Validation: validateOverloadSubmission bắt buộc phải có lý do khi xác nhận vượt tải", () => {
+    test("Validation: validateOverloadSubmission bắt buộc phải có lý do khi xác nhận vượt tải", () => {
         const resultEmpty = validateOverloadSubmission(true, true, "");
         assert.equal(resultEmpty.valid, false);
-        assert.equal(resultEmpty.error, "Vui lòng nhập lý do chấp nhận quá tải (QTN-11).");
+        assert.equal(resultEmpty.error, "Vui lòng nhập lý do chấp nhận quá tải.");
 
         const resultWhitespace = validateOverloadSubmission(true, true, "   ");
         assert.equal(resultWhitespace.valid, false);
@@ -74,7 +74,7 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(overloadPayload.overloadReason, "Cần tăng ca gấp");
     });
 
-    test("QTN-11 / Truth Source: netAvailableHours (đã trừ ngày nghỉ/lễ) là nguồn sự thật cho overload", () => {
+    test(" Truth Source: netAvailableHours (đã trừ ngày nghỉ/lễ) là nguồn sự thật cho overload", () => {
         // Tình huống: Chuẩn 40h, nghỉ phép/lễ 16h => netAvailableHours = 24h
         const standardHours = 40;
         const approvedLeaveHours = 16;
@@ -86,7 +86,7 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(result.overloadHours, 8, "Vượt quá 8 giờ so với khả dụng thực tế");
     });
 
-    test("QTN-11 / Cross-project Allocation: Tính tổng giờ phân bổ trên mọi dự án trong tuần", () => {
+    test("Cross-project Allocation: Tính tổng giờ phân bổ trên mọi dự án trong tuần", () => {
         // Nhân sự đã được phân bổ 10h ở Dự án khác, tuần này khả dụng 24h
         const otherProjectsAllocated = 10;
         const netCapacity = 24;
@@ -103,7 +103,7 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(overloadAlloc.overloadHours, 6);
     });
 
-    test("QTN-11 / Error Recovery: Parse ALLOCATION_OVERLOAD_WARNING, derive state without stale lock, và tự động mở khóa khi giảm giờ", () => {
+    test(" Error Recovery: Parse ALLOCATION_OVERLOAD_WARNING, derive state without stale lock, và tự động mở khóa khi giảm giờ", () => {
         const backendErrorResponse = {
             status: 400,
             data: {
@@ -140,7 +140,7 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(isNonRmBlocked, false, "Non-RM không bị block khi đã chỉnh giờ hợp lệ");
     });
 
-    test("QTN-11 / UX Invariant: Nút submit bị vô hiệu hóa khi đang tải năng lực tuần (isLoadingCapacity)", () => {
+    test("UX Invariant: Nút submit bị vô hiệu hóa khi đang tải năng lực tuần (isLoadingCapacity)", () => {
         // Khi đang tải năng lực: nút submit bắt buộc bị disabled dù không quá tải
         assert.equal(isAdjustHoursSubmitDisabled(false, true, false, true), true, "Phải disable nút khi isLoadingCapacity = true");
         assert.equal(isAdjustHoursSubmitDisabled(false, true, false, false), true, "Phải disable nút khi isLoadingCapacity = true (non-RM)");
@@ -153,7 +153,7 @@ describe("Allocation Overload Warning & Bypass Frontend Logic Tests (NCL-06-CN-0
         assert.equal(isAdjustHoursSubmitDisabled(false, false, true, false), true, "Non-RM bị khóa nút khi quá tải");
     });
 
-    test("NCL-06-CN-003 & NCL-07-CN-004: Ngưỡng cảnh báo quá tải động theo cấu hình (Dynamic Overload Threshold)", () => {
+    test(" Ngưỡng cảnh báo quá tải động theo cấu hình (Dynamic Overload Threshold)", () => {
         const netCapacity = 40;
 
         // Ngưỡng 110%: Ngưỡng giờ = 40 * 1.1 = 44h

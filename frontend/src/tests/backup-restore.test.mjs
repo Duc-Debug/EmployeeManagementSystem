@@ -11,9 +11,9 @@ import {
   uploadBackupFile,
 } from "../lib/api/backup.ts";
 
-describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
+describe("Data Backup and Recovery Frontend Tests", () => {
 
-  test("TC-01: formatBackupFileSize helper converts bytes to human-readable string correctly", () => {
+  test("formatBackupFileSize helper converts bytes to human-readable string correctly", () => {
     assert.equal(formatBackupFileSize(0), "0 B");
     assert.equal(formatBackupFileSize(-10), "0 B");
     assert.equal(formatBackupFileSize(500), "500.0 B");
@@ -22,7 +22,7 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
     assert.equal(formatBackupFileSize(1073741824), "1.0 GB");
   });
 
-  test("TC-02: validateRestoreConfirmation enforces exact 'RESTORE' string and minimum 10 char reason", () => {
+  test("validateRestoreConfirmation enforces exact 'RESTORE' string and minimum 10 char reason", () => {
     assert.equal(validateRestoreConfirmation("RESTORE", "Phục hồi kế hoạch dự án tuần 38").valid, true);
     assert.equal(validateRestoreConfirmation("restore", "Phục hồi kế hoạch dự án tuần 38").valid, true);
     assert.equal(validateRestoreConfirmation("  restore  ", "Phục hồi kế hoạch dự án tuần 38").valid, true);
@@ -32,7 +32,7 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
     assert.equal(validateRestoreConfirmation(null, null).valid, false);
   });
 
-  test("TC-03: Filter backups by Type and Status", () => {
+  test("Filter backups by Type and Status", () => {
     const list = [
       { id: 1, backupCode: "BCK-1", backupType: "FULL", status: "COMPLETED" },
       { id: 2, backupCode: "BCK-2", backupType: "RESOURCE_PLAN", status: "COMPLETED" },
@@ -47,7 +47,7 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
     assert.equal(filterBackups(list, "ALL", "ALL", "BCK-3").length, 1);
   });
 
-  test("TC-04: Strict BR-01 RBAC guard requires Admin (VT-06) AND DATA_BACKUP_MANAGE permission", () => {
+  test("Strict BR-01 RBAC guard requires Admin (VT-06) AND DATA_BACKUP_MANAGE permission", () => {
     assert.equal(canAccessBackupWorkspace("VT-06", ["DATA_BACKUP_MANAGE"]), true);
     assert.equal(canAccessBackupWorkspace("ROLE_ADMIN", ["DATA_BACKUP_MANAGE"]), true);
     assert.equal(canAccessBackupWorkspace("ADMIN", ["OTHER", "DATA_BACKUP_MANAGE"]), true);
@@ -60,20 +60,20 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
     assert.equal(canAccessBackupWorkspace("VT-05", ["DATA_BACKUP_MANAGE"]), false);
   });
 
-  test("TC-05: Restore button is disabled when backup status is FAILED or IN_PROGRESS", () => {
+  test("Restore button is disabled when backup status is FAILED or IN_PROGRESS", () => {
     assert.equal(canRestoreBackup("COMPLETED"), true);
     assert.equal(canRestoreBackup("IN_PROGRESS"), false);
     assert.equal(canRestoreBackup("FAILED"), false);
   });
 
-  test("TC-06: extractData unwraps ApiResponse correctly", () => {
+  test("extractData unwraps ApiResponse correctly", () => {
     assert.deepEqual(extractData({ success: true, message: "OK", data: [1, 2, 3] }), [1, 2, 3]);
     assert.deepEqual(extractData([1, 2, 3]), [1, 2, 3]);
     assert.equal(extractData(null), null);
     assert.equal(extractData(undefined), undefined);
   });
 
-  test("TC-07: validateBackupUploadFileName accepts only .json extension", () => {
+  test("validateBackupUploadFileName accepts only .json extension", () => {
     assert.equal(validateBackupUploadFileName("backup.json"), true);
     assert.equal(validateBackupUploadFileName("BCK-20260922-120000.JSON"), true);
     assert.equal(validateBackupUploadFileName("backup.sql"), false);
@@ -83,7 +83,7 @@ describe("NCL-12-CN-003: Data Backup and Recovery Frontend Tests", () => {
     assert.equal(validateBackupUploadFileName(null), false);
   });
 
-  test("TC-08: uploadBackupFile rejects invalid non-json file before dispatching request", async () => {
+  test("uploadBackupFile rejects invalid non-json file before dispatching request", async () => {
     const invalidFile = { name: "malicious_script.sh", size: 1024 };
     await assert.rejects(
       async () => {

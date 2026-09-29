@@ -55,7 +55,7 @@ test("Date Range Formatting: Hiển thị khoảng thời gian từ Thứ Hai đ
   assert.equal(formatWeeklyDateRange("2026-09-28"), "28/09/2026 — 04/10/2026");
 });
 
-test("Project Status Tag: Hiển thị nhãn 'Dự án đã đóng' cho dự án CLOSED (BR-04, AC-06, TC-09)", () => {
+test("Project Status Tag: Hiển thị nhãn 'Dự án đã đóng' cho dự án CLOSED", () => {
   assert.equal(getProjectStatusBadge("CLOSED"), "Dự án đã đóng");
   assert.equal(getProjectStatusBadge("closed"), "Dự án đã đóng");
   assert.equal(getProjectStatusBadge("ACTIVE"), null);
@@ -70,14 +70,14 @@ function validateFeedbackReason(reason) {
   return { valid: true, error: null };
 }
 
-test("Feedback Validation (QTN-24, NCL-13-CN-002): Kiểm tra tính hợp lệ của lý do phản hồi", () => {
+test("Feedback Validation: Kiểm tra tính hợp lệ của lý do phản hồi", () => {
   assert.deepEqual(validateFeedbackReason(""), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
   assert.deepEqual(validateFeedbackReason("   "), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
   assert.deepEqual(validateFeedbackReason(null), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
   assert.deepEqual(validateFeedbackReason("Bị trùng lịch dự án Alpha và Beta"), { valid: true, error: null });
 });
 
-test("QTN-24 Business Rule Invariant: Feedback không làm thay đổi giờ phân bổ", () => {
+test(" Business Rule Invariant: Feedback không làm thay đổi giờ phân bổ", () => {
   const initialSchedule = {
     week_start_date: "2026-09-21",
     total_hours: 40.0,

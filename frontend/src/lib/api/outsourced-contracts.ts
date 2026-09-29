@@ -148,7 +148,7 @@ export function exportOutsourcedContractsToCsv(contracts: ExpiringOutsourcedCont
     "Ngày Hết Hạn",
     "Số Ngày Còn Lại",
     "Trạng Thái Hợp Đồng",
-    "Số Phân Bổ Vi Phạm QTN-21",
+    "Số Phân Bổ Vi Phạm",
   ];
 
   const rows = contracts.map((c) => [

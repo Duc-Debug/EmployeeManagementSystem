@@ -12,7 +12,7 @@ import {
   formatTaskProgressError,
 } from "../lib/api/taskProgress.ts";
 
-describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
+describe(" Task Progress Frontend Logic & Validation", () => {
 
 
   // Sample tasks for testing
@@ -64,7 +64,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     },
   ];
 
-  test("TC-01: Specialist status whitelist validation enforces 4 valid states and rejects CANCELLED", () => {
+  test("Specialist status whitelist validation enforces 4 valid states and rejects CANCELLED", () => {
     assert.equal(isValidSpecialistStatus("TODO"), true);
     assert.equal(isValidSpecialistStatus("IN_PROGRESS"), true);
 
@@ -79,20 +79,20 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(isValidSpecialistStatus("INVALID_STATUS"), false);
   });
 
-  test("TC-02: Status metadata mapping returns exact Vietnamese labels and descriptions", () => {
+  test("Status metadata mapping returns exact Vietnamese labels and descriptions", () => {
     assert.equal(PROGRESS_STATUS_METADATA.TODO.label, "Chờ thực hiện");
     assert.equal(PROGRESS_STATUS_METADATA.IN_PROGRESS.label, "Đang thực hiện");
     assert.equal(PROGRESS_STATUS_METADATA.IN_REVIEW.label, "Chờ duyệt / Nghiệm thu");
     assert.equal(PROGRESS_STATUS_METADATA.DONE.label, "Hoàn thành");
   });
 
-  test("TC-03: Payload builder skips duplicate status (idempotency guard)", () => {
+  test("Payload builder skips duplicate status (idempotency guard)", () => {
     const check = buildUpdateTaskProgressPayload("IN_PROGRESS", "IN_PROGRESS");
     assert.equal(check.shouldSend, false);
     assert.equal(check.reason, "SAME_STATUS");
   });
 
-  test("TC-04: Payload builder rejects CANCELLED status transition attempts", () => {
+  test(" Payload builder rejects CANCELLED status transition attempts", () => {
     // Attempting to set CANCELLED
     assert.throws(
       () => buildUpdateTaskProgressPayload("IN_PROGRESS", "CANCELLED"),
@@ -106,7 +106,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     );
   });
 
-  test("TC-05: Payload builder creates correct endpoint and body for PATCH", () => {
+  test("Payload builder creates correct endpoint and body for PATCH", () => {
     const payload = buildUpdateTaskProgressPayload("TODO", "IN_PROGRESS");
     assert.equal(payload.shouldSend, true);
     assert.equal(payload.method, "PATCH");
@@ -114,7 +114,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.deepEqual(payload.body, { status: "IN_PROGRESS" });
   });
 
-  test("TC-06: Backend error parser handles 403, 400, 404, and fallback messages", () => {
+  test("Backend error parser handles 403, 400, 404, and fallback messages", () => {
     // 403: Not assigned
     const err403 = formatTaskProgressError({ status: 403 });
     assert.match(err403, /không được phân công/);
@@ -132,7 +132,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(err500, "Lỗi máy chủ nội bộ");
   });
 
-  test("TC-07: Filter logic correctly filters by status tab", () => {
+  test("Filter logic correctly filters by status tab", () => {
     const all = filterAssignedTasks(sampleTasks, "ALL", "");
     assert.equal(all.length, 5);
 
@@ -145,7 +145,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(done[0].taskCode, "TSK-004");
   });
 
-  test("TC-08: Filter logic filters by search query across code, name, and project", () => {
+  test("Filter logic filters by search query across code, name, and project", () => {
     // Search by code
     const byCode = filterAssignedTasks(sampleTasks, "ALL", "TSK-003");
     assert.equal(byCode.length, 1);
@@ -161,7 +161,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(byProject.length, 2);
   });
 
-  test("TC-09: KPI statistics calculates accurate counts for each progress stage", () => {
+  test("KPI statistics calculates accurate counts for each progress stage", () => {
     const stats = calculateTaskStats(sampleTasks);
     assert.equal(stats.total, 5);
     assert.equal(stats.todo, 1);
@@ -170,7 +170,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(stats.done, 1);
   });
 
-  test("TC-10: Next suggested status progression returns correct sequential step", () => {
+  test("Next suggested status progression returns correct sequential step", () => {
     assert.equal(getNextSuggestedStatus("TODO"), "IN_PROGRESS");
     assert.equal(getNextSuggestedStatus("IN_PROGRESS"), "IN_REVIEW");
     assert.equal(getNextSuggestedStatus("IN_REVIEW"), "DONE");
@@ -181,7 +181,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(getNextSuggestedStatus("UNKNOWN"), null);
   });
 
-  test("TC-11: sortTasksByDeadline correctly prioritizes earliest deadlines with nulls placed at end", () => {
+  test("sortTasksByDeadline correctly prioritizes earliest deadlines with nulls placed at end", () => {
     // Ascending: earliest deadline first
     const sortedAsc = sortTasksByDeadline(sampleTasks, "asc");
     assert.equal(sortedAsc[0].taskCode, "TSK-002"); // 2026-09-20
@@ -199,7 +199,7 @@ describe("NCL-04-CN-002: Task Progress Frontend Logic & Validation", () => {
     assert.equal(sortedDesc[4].plannedEndDate, null);
   });
 
-  test("TC-12: Empty task list and edge case handling for sorting and KPI", () => {
+  test("Empty task list and edge case handling for sorting and KPI", () => {
     const emptyList = [];
     const sortedEmpty = sortTasksByDeadline(emptyList, "asc");
     assert.deepEqual(sortedEmpty, []);

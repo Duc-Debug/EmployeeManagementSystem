@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic Tests", async (t) => {
-  await t.test("TC-01: Ràng buộc kênh thông báo trọng yếu (BR-03: Không được tắt cả 2 kênh)", () => {
+test("Cấu hình kênh và tần suất nhận thông báo Logic Tests", async (t) => {
+  await t.test("Ràng buộc kênh thông báo trọng yếu (BR-03: Không được tắt cả 2 kênh)", () => {
     const validateCriticalChannels = (scheduleConflictChannel, allocationChangedChannel) => {
       if (scheduleConflictChannel === "NONE") {
         return { valid: false, error: "Cảnh báo xung đột lịch bắt buộc phải bật ít nhất 1 kênh" };
@@ -20,7 +20,7 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
     assert.equal(validateCriticalChannels("NONE", "NONE").valid, false);
   });
 
-  await t.test("TC-02: Kiểm tra số ngày nhắc việc sắp đến hạn hợp lệ [1..14] ngày", () => {
+  await t.test("Kiểm tra số ngày nhắc việc sắp đến hạn hợp lệ [1..14] ngày", () => {
     const isValidReminderDays = (days) => {
       return Number.isInteger(days) && days >= 1 && days <= 14;
     };
@@ -34,7 +34,7 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
     assert.equal(isValidReminderDays(-1), false);
   });
 
-  await t.test("TC-03: Kiểm tra tính năng khung giờ yên tĩnh (Quiet Hours)", () => {
+  await t.test("Kiểm tra tính năng khung giờ yên tĩnh (Quiet Hours)", () => {
     const isInQuietHours = (enabled, startStr, endStr, targetStr) => {
       if (!enabled || !startStr || !endStr || !targetStr) return false;
       const [sh, sm] = startStr.split(":").map(Number);
@@ -67,7 +67,7 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
     assert.equal(isInQuietHours(true, "12:00", "13:30", "14:00"), false);
   });
 
-  await t.test("TC-04: Khởi tạo giá trị mặc định cho cấu hình mới (Default Preference)", () => {
+  await t.test("Khởi tạo giá trị mặc định cho cấu hình mới (Default Preference)", () => {
     const createDefaultForm = () => ({
       inAppEnabled: true,
       emailEnabled: true,
@@ -93,7 +93,7 @@ test("NCL-11-CN-002: Cấu hình kênh và tần suất nhận thông báo Logic
     assert.equal(defaultForm.quietHoursEnabled, false);
   });
 
-  await t.test("TC-05: Chuẩn hóa payload gửi lên API cập nhật", () => {
+  await t.test("Chuẩn hóa payload gửi lên API cập nhật", () => {
     const preparePayload = (form) => {
       return {
         ...form,

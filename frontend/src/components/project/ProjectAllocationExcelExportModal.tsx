@@ -106,7 +106,7 @@ export function ProjectAllocationExcelExportModal({
       const result = await exportProjectAllocationExcel(params, true);
       const nowStr = new Date().toLocaleTimeString("vi-VN");
       setSuccessMsg(
-        `Đã xuất file "${result.filename}" thành công lúc ${nowStr}. Hệ thống đã ghi nhận nhật ký thao tác theo QTN-02.`
+        `Đã xuất file "${result.filename}" thành công lúc ${nowStr}. Hệ thống đã ghi nhận nhật ký thao tác theo.`
       );
       if (onSuccess) {
         onSuccess(result.filename);

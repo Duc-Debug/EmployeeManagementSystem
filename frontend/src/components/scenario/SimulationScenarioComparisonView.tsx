@@ -331,7 +331,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
       <div className="flex items-center space-x-2.5 text-xs text-slate-600 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200">
         <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
         <span>
-          <strong>Nguyên tắc QTN-14 Sandbox:</strong> Việc so sánh và đánh giá các kịch bản này hoàn toàn độc lập, không làm thay đổi các phân bổ dự án và dữ liệu năng lực thực tế trong hệ thống.
+          <strong>Nguyên tắc Sandbox:</strong> Việc so sánh và đánh giá các kịch bản này hoàn toàn độc lập, không làm thay đổi các phân bổ dự án và dữ liệu năng lực thực tế trong hệ thống.
         </span>
       </div>
 

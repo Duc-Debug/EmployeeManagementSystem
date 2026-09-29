@@ -177,8 +177,8 @@ export default function NotificationDedupConfigModal({
               <p>• Tổng số nhân sự quét: <strong>{scanResult.totalScanned}</strong></p>
               <p>• Số nhân sự quá tải: <strong>{scanResult.overloadedCount}</strong></p>
               <p>• Cảnh báo mới đã gửi: <strong>{scanResult.newlyAlertedCount}</strong></p>
-              <p>• Bỏ qua do trùng lặp (Dedup QTN-19): <strong>{scanResult.skippedDedupCount}</strong></p>
-              <p>• Đã giải phóng (Thoát quá tải TC-02): <strong>{scanResult.resolvedCount}</strong></p>
+              <p>• Bỏ qua do trùng lặp: <strong>{scanResult.skippedDedupCount}</strong></p>
+              <p>• Đã giải phóng: <strong>{scanResult.resolvedCount}</strong></p>
             </div>
           )}
 

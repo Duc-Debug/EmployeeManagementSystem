@@ -91,7 +91,7 @@ export function UnlockAllocationPeriodModal({
             </span>
             <div>
               <h3 className="text-sm font-bold text-slate-800">
-                Mở Lại Kỳ Kế Hoạch Phân Bổ (TC-04)
+                Mở Lại Kỳ Kế Hoạch Phân Bổ
               </h3>
               <p className="text-[11px] text-slate-500">
                 Gỡ khóa bảo vệ để cho phép điều chỉnh phân bổ nguồn lực

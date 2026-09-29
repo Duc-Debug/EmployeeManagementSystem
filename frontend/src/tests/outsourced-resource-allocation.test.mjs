@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic & Contract Boundary Tests", () => {
+describe("Outsourced Resource Allocation Frontend Logic & Contract Boundary Tests", () => {
 
     // Helper: Xác định tuần có nằm trong hạn hợp đồng thuê ngoài hay không (QTN-21 / BR-03)
     const isWeekWithinOutsourcedContract = (weekStartDate, weekEndDate, contractStartDate, contractEndDate) => {
@@ -44,7 +44,7 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
     const mockContractEnd = "2027-08-31";
     const mockProviderName = "FPT Software Outsourcing";
 
-    test("TC-01: Phân bổ tuần nằm hoàn toàn trong hạn hợp đồng thuê ngoài thành công", () => {
+    test("Phân bổ tuần nằm hoàn toàn trong hạn hợp đồng thuê ngoài thành công", () => {
         // Tuần 26/2027: 28/06/2027 - 04/07/2027
         const weekStart = "2027-06-28";
         const weekEnd = "2027-07-04";
@@ -53,7 +53,7 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
         assert.equal(result.valid, true);
     });
 
-    test("TC-02: Chặn phân bổ tuần kết thúc trước ngày bắt đầu hợp đồng thuê ngoài (CONTRACT_OUT_OF_BOUNDS)", () => {
+    test("Chặn phân bổ tuần kết thúc trước ngày bắt đầu hợp đồng thuê ngoài (CONTRACT_OUT_OF_BOUNDS)", () => {
         // Tuần 18/2027: 03/05/2027 - 09/05/2027 (trước 01/06/2027)
         const weekStart = "2027-05-03";
         const weekEnd = "2027-05-09";
@@ -64,7 +64,7 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
         assert.ok(result.reasonMessage.includes("chưa có hiệu lực"));
     });
 
-    test("TC-03: Chặn phân bổ tuần bắt đầu sau ngày kết thúc hợp đồng thuê ngoài (CONTRACT_OUT_OF_BOUNDS)", () => {
+    test("Chặn phân bổ tuần bắt đầu sau ngày kết thúc hợp đồng thuê ngoài (CONTRACT_OUT_OF_BOUNDS)", () => {
         // Tuần 40/2027: 04/10/2027 - 10/10/2027 (sau 31/08/2027)
         const weekStart = "2027-10-04";
         const weekEnd = "2027-10-10";
@@ -75,7 +75,7 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
         assert.ok(result.reasonMessage.includes("đã hết hạn"));
     });
 
-    test("TC-04: Bộ lọc nhân sự bảng năng lực (CompanyWeeklyCapacityView) lọc chính xác nhân sự nội bộ và thuê ngoài", () => {
+    test("Bộ lọc nhân sự bảng năng lực (CompanyWeeklyCapacityView) lọc chính xác nhân sự nội bộ và thuê ngoài", () => {
         const sampleRows = [
             { employeeId: 1, fullName: "Nguyễn Văn Nội Bộ", isOutsourced: false },
             { employeeId: 2, fullName: "Trần Thị Thuê Ngoài 1", isOutsourced: true, providerName: mockProviderName },
@@ -98,7 +98,7 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
         assert.ok(outsourced.every(r => r.isOutsourced));
     });
 
-    test("TC-05: Ô ma trận hiển thị trạng thái 'Ngoài HĐ' khi tuần ngoài hạn hợp đồng của nhân sự thuê ngoài", () => {
+    test("Ô ma trận hiển thị trạng thái 'Ngoài HĐ' khi tuần ngoài hạn hợp đồng của nhân sự thuê ngoài", () => {
         const outsourcedRow = {
             employeeId: 10,
             fullName: "Nguyễn Outsourced",
@@ -130,7 +130,7 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
         assert.equal(isOutOfContract, true);
     });
 
-    test("TC-06: Ứng viên tìm kiếm theo kỹ năng (ResourceSkillSearchModal) chứa đầy đủ thông tin thuê ngoài và đơn vị cung cấp", () => {
+    test("Ứng viên tìm kiếm theo kỹ năng (ResourceSkillSearchModal) chứa đầy đủ thông tin thuê ngoài và đơn vị cung cấp", () => {
         const candidate = {
             employeeId: 50,
             employeeCode: "OS-050",
@@ -149,7 +149,7 @@ describe("Outsourced Resource Allocation (NCL-14-CN-002 / QTN-21) Frontend Logic
         assert.ok(candidate.contractEndDate != null);
     });
 
-    test("TC-07: Kiểm tra quyền phân bổ: Chỉ VT-03 (Quản lý nguồn lực) có quyền thực hiện phân bổ nhân sự", () => {
+    test("Kiểm tra quyền phân bổ: Chỉ VT-03 (Quản lý nguồn lực) có quyền thực hiện phân bổ nhân sự", () => {
         assert.equal(canManageResourceAllocation("VT-03"), true);
         assert.equal(canManageResourceAllocation("ROLE_VT_03"), true);
         assert.equal(canManageResourceAllocation("VT-01"), false); // Giám đốc

@@ -63,7 +63,7 @@ function visibleOrgUnitIdsForRole(tree, roleCode, scopeOrgUnitId) {
   return root ? flatten([root]).map((node) => node.id) : [];
 }
 
-describe("Capacity Forecast Report Logic Tests (NCL-10-CN-004)", () => {
+describe("Capacity Forecast Report Logic Tests", () => {
   test("BR-03 & BR-04: Tách riêng giờ giữ chỗ khỏi giờ cam kết chính thức", () => {
     const res = calculateWeeklyForecast(400, 300, 40);
     assert.equal(res.committedRemainingHours, 100);

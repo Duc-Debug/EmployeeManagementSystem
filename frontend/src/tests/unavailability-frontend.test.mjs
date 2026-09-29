@@ -8,41 +8,41 @@ import {
 } from "../lib/api/unavailability.js";
 import { canAccessTab } from "../components/dashboard/SideBar.js";
 
-describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
+describe("Unavailability Declaration Frontend Tests", () => {
 
   describe("Working days and hours calculation", () => {
-    test("TC-01: Tính chính xác số ngày làm việc giữa 2 ngày trong tuần (T3 -> T4 = 2 ngày = 16h)", () => {
+    test("Tính chính xác số ngày làm việc giữa 2 ngày trong tuần (T3 -> T4 = 2 ngày = 16h)", () => {
       const days = countWorkingDays("2026-09-22", "2026-09-23");
       assert.equal(days, 2);
       assert.equal(days * 8, 16);
     });
 
-    test("TC-02: Bỏ qua Thứ 7 và Chủ Nhật (T6 -> T2 tuần sau = 2 ngày làm việc = 16h)", () => {
+    test("Bỏ qua Thứ 7 và Chủ Nhật (T6 -> T2 tuần sau = 2 ngày làm việc = 16h)", () => {
       // 2026-09-18 is Friday, 2026-09-21 is Monday
       const days = countWorkingDays("2026-09-18", "2026-09-21");
       assert.equal(days, 2);
     });
 
-    test("TC-03: Khoảng thời gian chỉ rơi vào cuối tuần -> Trả về 0 ngày (0 giờ)", () => {
+    test("Khoảng thời gian chỉ rơi vào cuối tuần -> Trả về 0 ngày (0 giờ)", () => {
       // 2026-09-26 is Saturday, 2026-09-27 is Sunday
       const days = countWorkingDays("2026-09-26", "2026-09-27");
       assert.equal(days, 0);
       assert.equal(days * 8, 0);
     });
 
-    test("TC-04: Ngày kết thúc trước ngày bắt đầu -> Trả về 0 ngày", () => {
+    test(" Ngày kết thúc trước ngày bắt đầu -> Trả về 0 ngày", () => {
       const days = countWorkingDays("2026-09-25", "2026-09-20");
       assert.equal(days, 0);
     });
 
-    test("TC-05: Ngày rỗng -> Trả về 0 ngày", () => {
+    test("Ngày rỗng -> Trả về 0 ngày", () => {
       assert.equal(countWorkingDays("", "2026-09-25"), 0);
       assert.equal(countWorkingDays("2026-09-20", ""), 0);
     });
   });
 
-  describe("QTN-24 & Conflict Warning acknowledgment logic", () => {
-    test("TC-06: Khi có xung đột phân bổ dự án (hasConflict = true), duyệt bắt buộc phải có confirmConflictWarning = true", () => {
+  describe(" Conflict Warning acknowledgment logic", () => {
+    test("Khi có xung đột phân bổ dự án (hasConflict = true), duyệt bắt buộc phải có confirmConflictWarning = true", () => {
       const conflictResult = {
         hasConflict: true,
         conflictingAllocationsCount: 2,
@@ -57,7 +57,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       // Giả lập validation trước khi gọi API
       function validateApprovalPayload(conflict, userConfirmed) {
         if (conflict.hasConflict && !userConfirmed) {
-          throw new Error("Bạn cần xác nhận đồng ý với cảnh báo xung đột phân bổ theo quy tắc QTN-24.");
+          throw new Error("Bạn cần xác nhận đồng ý với cảnh báo xung đột phân bổ theo quy tắc.");
         }
         return {
           approverComment: "Đồng ý",
@@ -67,7 +67,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
 
       // Khi chưa tick xác nhận -> Lỗi
       assert.throws(() => validateApprovalPayload(conflictResult, false), {
-        message: "Bạn cần xác nhận đồng ý với cảnh báo xung đột phân bổ theo quy tắc QTN-24."
+        message: "Bạn cần xác nhận đồng ý với cảnh báo xung đột phân bổ theo quy tắc."
       });
 
       // Khi đã tick xác nhận -> Hợp lệ
@@ -75,7 +75,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(payload.confirmConflictWarning, true);
     });
 
-    test("TC-07: Khi không có xung đột (hasConflict = false), không bắt buộc confirmConflictWarning", () => {
+    test("Khi không có xung đột (hasConflict = false), không bắt buộc confirmConflictWarning", () => {
       const conflictResult = {
         hasConflict: false,
         conflictingAllocationsCount: 0,
@@ -100,14 +100,14 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("Role-based access & Tab visibility", () => {
-    test("TC-08: canAccessTab chặn truy cập tab unavailability vì đã chuyển vào Lịch phân bổ", () => {
+    test(" chặn truy cập tab unavailability vì đã chuyển vào Lịch phân bổ", () => {
       const roles = ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"];
       for (const r of roles) {
         assert.equal(canAccessTab(r, "unavailability"), false, `Role ${r} không truy cập tab unavailability độc lập`);
       }
     });
 
-    test("TC-09: canAccessTab không mở tab unavailability độc lập ngay cả khi user có permission", () => {
+    test("canAccessTab không mở tab unavailability độc lập ngay cả khi user có permission", () => {
       assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_DECLARE"]), false);
       assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_APPROVE"]), false);
       assert.equal(canAccessTab("UNKNOWN", "unavailability", null, ["UNAVAILABILITY_READ"]), false);
@@ -115,7 +115,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("Status and Reason Type Labels Mapping", () => {
-    test("TC-10: Các hằng số nhãn hiển thị đầy đủ và chính xác tiếng Việt", () => {
+    test("Các hằng số nhãn hiển thị đầy đủ và chính xác tiếng Việt", () => {
       assert.equal(UNAVAILABILITY_REASON_LABELS.TRAINING, "Đào tạo chuyên môn");
       assert.equal(UNAVAILABILITY_REASON_LABELS.BUSINESS_TRIP, "Đi công tác");
       assert.equal(UNAVAILABILITY_REASON_LABELS.PERSONAL, "Việc cá nhân");
@@ -129,7 +129,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("Date formatting & Vietnamese localization", () => {
-    test("TC-11: formatDateVN chuyển đổi định dạng YYYY-MM-DD sang DD/MM/YYYY chuẩn xác", () => {
+    test("formatDateVN chuyển đổi định dạng YYYY-MM-DD sang DD/MM/YYYY chuẩn xác", () => {
       assert.equal(formatDateVN("2026-09-22"), "22/09/2026");
       assert.equal(formatDateVN("2026-01-05"), "05/01/2026");
       assert.equal(formatDateVN(null), "—");
@@ -139,7 +139,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("Client-side Pagination Logic", () => {
-    test("TC-12: Tính toán chính xác số trang và slice danh sách theo kích cỡ 10 phần tử/trang", () => {
+    test("Tính toán chính xác số trang và slice danh sách theo kích cỡ 10 phần tử/trang", () => {
       const mockList = Array.from({ length: 25 }, (_, i) => ({ id: i + 1 }));
       const pageSize = 10;
       const totalPages = Math.max(1, Math.ceil(mockList.length / pageSize));
@@ -158,7 +158,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(page3[4].id, 25);
     });
 
-    test("TC-13: Danh sách rỗng trả về ít nhất 1 trang", () => {
+    test("Danh sách rỗng trả về ít nhất 1 trang", () => {
       const emptyList = [];
       const totalPages = Math.max(1, Math.ceil(emptyList.length / 10));
       assert.equal(totalPages, 1);
@@ -166,7 +166,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("Cancellation Eligibility & Past Date Guards", () => {
-    test("TC-14: Đơn PENDING luôn được phép hủy bất kể ngày trong tương lai hay hiện tại", () => {
+    test("Đơn PENDING luôn được phép hủy bất kể ngày trong tương lai hay hiện tại", () => {
       const todayStr = "2026-09-18";
       const item = { id: 1, startDate: "2026-09-20", status: "PENDING" };
       const isPast = item.startDate < todayStr;
@@ -174,7 +174,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(canCancel, true);
     });
 
-    test("TC-15: Đơn APPROVED trong tương lai được phép hủy; đơn APPROVED trong quá khứ bị khóa hủy", () => {
+    test("Đơn APPROVED trong tương lai được phép hủy; đơn APPROVED trong quá khứ bị khóa hủy", () => {
       const todayStr = "2026-09-18";
 
       const futureApproved = { id: 2, startDate: "2026-09-22", status: "APPROVED" };
@@ -186,7 +186,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(pastApproved.status === "PENDING" || (pastApproved.status === "APPROVED" && !(pastApproved.startDate < todayStr)), false);
     });
 
-    test("TC-16: Đơn REJECTED hoặc CANCELLED không thể tiếp tục hủy", () => {
+    test("Đơn REJECTED hoặc CANCELLED không thể tiếp tục hủy", () => {
       const rejected = { id: 4, startDate: "2026-09-25", status: "REJECTED" };
       const cancelled = { id: 5, startDate: "2026-09-25", status: "CANCELLED" };
       const canCancel = (d) => d.status === "PENDING" || (d.status === "APPROVED" && d.startDate >= "2026-09-18");
@@ -196,7 +196,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("Permission-based action guards (canApprove, canDeclare)", () => {
-    test("TC-17: canApprove chỉ trả về true khi user có quyền UNAVAILABILITY_APPROVE, không bị ảnh hưởng bởi roleCode", () => {
+    test("canApprove chỉ trả về true khi user có quyền UNAVAILABILITY_APPROVE, không bị ảnh hưởng bởi roleCode", () => {
       function checkCanApprove(user) {
         return user?.permissions?.includes("UNAVAILABILITY_APPROVE") === true;
       }
@@ -211,7 +211,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(checkCanApprove({ roleCode: "VT-06", permissions: ["UNAVAILABILITY_READ", "UNAVAILABILITY_APPROVE"] }), true);
     });
 
-    test("TC-18: canDeclare chỉ trả về true khi user có quyền UNAVAILABILITY_DECLARE", () => {
+    test("canDeclare chỉ trả về true khi user có quyền UNAVAILABILITY_DECLARE", () => {
       function checkCanDeclare(user) {
         return user?.permissions?.includes("UNAVAILABILITY_DECLARE") === true;
       }
@@ -224,7 +224,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
   });
 
   describe("CompanyWorkingCalendar alignment & 500 character limit", () => {
-    test("TC-19: countWorkingDays tính chính xác khi CompanyWorkingCalendar cấu hình Thứ 7 là ngày làm việc", () => {
+    test("countWorkingDays tính chính xác khi CompanyWorkingCalendar cấu hình Thứ 7 là ngày làm việc", () => {
       const calendarWithSaturday = [
         { dayOfWeek: "MONDAY", isWorkingDay: true },
         { dayOfWeek: "TUESDAY", isWorkingDay: true },
@@ -240,7 +240,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(days * 8, 48);
     });
 
-    test("TC-20: countWorkingDays tính chính xác khi lịch làm việc chỉ có T2 - T4", () => {
+    test("countWorkingDays tính chính xác khi lịch làm việc chỉ có T2 - T4", () => {
       const threeDayCalendar = [
         { dayOfWeek: "MONDAY", isWorkingDay: true },
         { dayOfWeek: "TUESDAY", isWorkingDay: true },
@@ -255,7 +255,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(days, 3);
     });
 
-    test("TC-21: Boundary validation độ dài tối đa 500 ký tự cho text fields", () => {
+    test("Boundary validation độ dài tối đa 500 ký tự cho text fields", () => {
       function validateMaxLength500(str) {
         if (!str) return true;
         return str.length <= 500;
@@ -267,7 +267,7 @@ describe("NCL-13-CN-003: Unavailability Declaration Frontend Tests", () => {
       assert.equal(validateMaxLength500(null), true);
     });
 
-    test("TC-22: Xây dựng URL previewUnavailability đúng định dạng query params", () => {
+    test("Xây dựng URL previewUnavailability đúng định dạng query params", () => {
       const startDate = "2026-09-21";
       const endDate = "2026-09-25";
       const query = new URLSearchParams({ startDate, endDate }).toString();

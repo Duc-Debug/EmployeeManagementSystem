@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Validation Tests", () => {
+describe("Outsourced Employee Declaration Frontend Logic & Validation Tests", () => {
 
     const validateOutsourcedForm = (data) => {
         if (!data.fullName || !data.fullName.trim()) {
@@ -33,7 +33,7 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
         return normalized === "VT-05";
     };
 
-    test("TC-01: Luồng thành công - Khai báo chuyên gia thuê ngoài 3 tháng hợp lệ", () => {
+    test(" Luồng thành công - Khai báo chuyên gia thuê ngoài 3 tháng hợp lệ", () => {
         const formData = {
             fullName: "Nguyễn Văn Chuyên Gia",
             providerName: "FPT Software",
@@ -68,7 +68,7 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
         assert.deepEqual(payload.skillIds, [10, 15]);
     });
 
-    test("TC-02: Ngoại lệ - contractEndDate trước startDate bị từ chối với thông báo lỗi", () => {
+    test("Ngoại lệ - contractEndDate trước startDate bị từ chối với thông báo lỗi", () => {
         const invalidDatesForm = {
             fullName: "Nguyễn Văn B",
             providerName: "TMA Solutions",
@@ -82,7 +82,7 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
         assert.equal(error, "Ngày kết thúc hợp đồng thuê không được trước ngày bắt đầu.");
     });
 
-    test("TC-02b: Ngoại lệ - Ngày kết thúc bằng ngày bắt đầu là hợp lệ (hợp đồng 1 ngày)", () => {
+    test("Ngoại lệ - Ngày kết thúc bằng ngày bắt đầu là hợp lệ (hợp đồng 1 ngày)", () => {
         const sameDateForm = {
             fullName: "Nguyễn Văn C",
             providerName: "CMC Global",
@@ -96,7 +96,7 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
         assert.equal(error, null);
     });
 
-    test("TC-03: Phân quyền RBAC - Chỉ VT-05 (Nhân sự) có quyền khai báo nhân sự thuê ngoài", () => {
+    test("Phân quyền RBAC - Chỉ VT-05 (Nhân sự) có quyền khai báo nhân sự thuê ngoài", () => {
         assert.equal(canDeclareOutsourced("VT-05"), true);
         assert.equal(canDeclareOutsourced("vt_05"), true);
 
@@ -111,7 +111,7 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
         assert.equal(canDeclareOutsourced(null), false);
     });
 
-    test("TC-04: Kiểm tra tính hợp lệ của các trường bắt buộc (Required fields)", () => {
+    test("Kiểm tra tính hợp lệ của các trường bắt buộc (Required fields)", () => {
         assert.equal(
             validateOutsourcedForm({ fullName: "", providerName: "FPT", orgUnitId: 1, startDate: "2026-10-01", contractEndDate: "2026-12-31", standardHoursPerWeek: 40 }),
             "Vui lòng nhập họ và tên nhân sự."
@@ -134,7 +134,7 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
         );
     });
 
-    test("TC-05: Kiểm tra biên số giờ làm việc chuẩn (standardHoursPerWeek: 1 - 168)", () => {
+    test("Kiểm tra biên số giờ làm việc chuẩn (standardHoursPerWeek: 1 - 168)", () => {
         const base = {
             fullName: "Nguyễn Văn D",
             providerName: "FPT Software",
@@ -150,7 +150,7 @@ describe("Outsourced Employee Declaration (NCL-14-CN-001) Frontend Logic & Valid
         assert.equal(validateOutsourcedForm({ ...base, standardHoursPerWeek: 168 }), null);
     });
 
-    test("TC-06: Bộ lọc tìm kiếm trên giao diện hỗ trợ tìm kiếm theo Đơn vị cung cấp (providerName)", () => {
+    test("Bộ lọc tìm kiếm trên giao diện hỗ trợ tìm kiếm theo Đơn vị cung cấp (providerName)", () => {
         const profiles = [
             { id: "1", fullName: "Lê Văn An", employeeCode: "NV001", department: "Khối Công nghệ", providerName: "", isOutsourced: false },
             { id: "2", fullName: "Trần Văn Bình", employeeCode: "EXT-001", department: "Phòng Phần mềm 1", providerName: "FPT Software", isOutsourced: true },

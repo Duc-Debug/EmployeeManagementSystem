@@ -588,7 +588,7 @@ export default function SkillresourceSearch({
                 <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span>
-                        <strong>Quy tắc QTN-10:</strong> Giờ trống thực tế = Giờ chuẩn − Giờ nghỉ lễ − Giờ nghỉ phép đã duyệt − Tổng giờ đã phân bổ vào các dự án.
+                        <strong>Quy tắc:</strong> Giờ trống thực tế = Giờ chuẩn − Giờ nghỉ lễ − Giờ nghỉ phép đã duyệt − Tổng giờ đã phân bổ vào các dự án.
                     </span>
                 </div>
                 <span className="text-[11px] font-semibold text-indigo-700 bg-white border border-indigo-200 rounded-full px-2.5 py-0.5 shadow-2xs">
