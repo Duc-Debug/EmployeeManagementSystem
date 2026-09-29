@@ -40,27 +40,6 @@ export function subscribeAuth(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
-/**
- * @deprecated JWT is managed exclusively by the browser via HttpOnly SameSite cookie.
- * Always returns null to ensure zero token exposure in JS runtime.
- */
-export function getAuthToken(): string | null {
-  return null;
-}
-
-/**
- * @deprecated JWT is set via Set-Cookie header. This function ensures any legacy token keys are purged.
- */
-export function setAuthToken(_token?: string): void {
-  if (typeof window !== "undefined") {
-    // Defense-in-depth: Actively eliminate JWT from localStorage to prevent XSS exfiltration
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("token");
-  }
-  notify();
-}
-
 export function getStoredUser(): AuthUser | null {
   if (typeof window === "undefined") {
     return null;

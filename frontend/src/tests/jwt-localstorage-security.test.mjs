@@ -3,9 +3,7 @@ import assert from "node:assert/strict";
 import { can, hasRole } from "../lib/permissions.ts";
 import {
   clearAuthSession,
-  getAuthToken,
   getStoredUser,
-  setAuthToken,
   setStoredUser,
 } from "../lib/auth-session.ts";
 import { apiRequest, ApiError } from "../lib/api-client.ts";
@@ -49,7 +47,6 @@ test("Security Test 1 & 6: Client permission tampering does not bypass backend a
     permissions: ["WORK_LOG_READ", "WORK_LOG_CREATE"],
   };
 
-  setAuthToken("valid-low-privilege-jwt");
   setStoredUser(initialUser);
 
   assert.equal(can("DATA_BACKUP_MANAGE"), false);
@@ -105,10 +102,6 @@ test("Security Test 1 & 6: Client permission tampering does not bypass backend a
 
 test("Security Test 2: JWT is NEVER exposed to JavaScript runtime or localStorage (eliminating XSS token theft)", () => {
   mockLocalStorageStore.clear();
-  setAuthToken("attempted-token-input");
-
-  // Zero-token in JS runtime: getAuthToken() always returns null
-  assert.equal(getAuthToken(), null);
 
   // Zero-token in persistent storage: localStorage NEVER contains any token
   assert.equal(mockLocalStorageStore.get("nexushrm_auth_token"), undefined);
@@ -116,7 +109,7 @@ test("Security Test 2: JWT is NEVER exposed to JavaScript runtime or localStorag
   assert.equal(mockLocalStorageStore.get("token"), undefined);
 });
 
-test("Security Test 3: clearAuthSession and logout purges ALL auth tokens and credentials", async () => {
+test("Security Test 3: clearAuthSession purges ALL auth tokens and legacy credentials", async () => {
   mockLocalStorageStore.clear();
   mockSessionStorageStore.clear();
 
@@ -127,7 +120,6 @@ test("Security Test 3: clearAuthSession and logout purges ALL auth tokens and cr
   mockLocalStorageStore.set("token", "legacy-token-2");
   mockSessionStorageStore.set("demo-session", "demo-data");
 
-  assert.equal(getAuthToken(), null);
   assert.notEqual(getStoredUser(), null);
 
   clearAuthSession();
@@ -140,7 +132,6 @@ test("Security Test 3: clearAuthSession and logout purges ALL auth tokens and cr
   assert.equal(mockLocalStorageStore.get("token"), undefined);
   assert.equal(mockSessionStorageStore.get("demo-session"), undefined);
 
-  assert.equal(getAuthToken(), null);
   assert.equal(getStoredUser(), null);
 });
 
@@ -170,8 +161,37 @@ test("Security Test: logout notifies backend /auth/logout via HttpOnly cookie", 
     await logout();
     assert.equal(backendLogoutCalled, true);
     assert.equal(sentCredentials, "include"); // Cookie sent automatically
-    assert.equal(getAuthToken(), null);
     assert.equal(getStoredUser(), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+    mockLocalStorageStore.clear();
+  }
+});
+
+test("Security Test: logout does not swallow backend errors and fails fast", async () => {
+  mockLocalStorageStore.clear();
+  setStoredUser({ id: 99, username: "logout_fail_test" });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (url.includes("/auth/logout")) {
+      return {
+        ok: false,
+        status: 500,
+        headers: { get: () => "application/json" },
+        json: async () => ({ success: false, message: "Lỗi máy chủ khi đăng xuất" }),
+      };
+    }
+    return originalFetch(url);
+  };
+
+  try {
+    // When backend fails, logout MUST throw error and NOT falsely clear the user session
+    await assert.rejects(async () => {
+      await logout();
+    });
+    // Session remains preserved so user knows logout failed
+    assert.notEqual(getStoredUser(), null);
   } finally {
     globalThis.fetch = originalFetch;
     mockLocalStorageStore.clear();
@@ -180,7 +200,6 @@ test("Security Test: logout notifies backend /auth/logout via HttpOnly cookie", 
 
 test("Security Test 4: Expired token 401 response purges local session and redirects", async () => {
   mockLocalStorageStore.clear();
-  setAuthToken("expired-jwt-token");
   setStoredUser({ id: 12, username: "expired_user" });
 
   let redirectDestination = null;
@@ -208,7 +227,6 @@ test("Security Test 4: Expired token 401 response purges local session and redir
     });
 
     // Session must be purged
-    assert.equal(getAuthToken(), null);
     assert.equal(getStoredUser(), null);
     assert.equal(redirectDestination, "/login");
   } finally {

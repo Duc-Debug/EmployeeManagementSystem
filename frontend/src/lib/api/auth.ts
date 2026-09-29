@@ -4,7 +4,6 @@ import { apiRequest } from "../api-client";
 import {
   clearAuthSession,
   getStoredUser,
-  setAuthToken,
   setStoredUser,
   type AuthUser,
 } from "../auth-session";
@@ -75,7 +74,6 @@ export async function login(payload: LoginPayload): Promise<AuthUser> {
 
   // Access token is held exclusively by browser HttpOnly cookie.
   // JavaScript runtime NEVER receives, handles, or stores the raw JWT token.
-  setAuthToken();
 
   // Fetch full user profile after login - authenticated via HttpOnly cookie
   try {
@@ -148,15 +146,13 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<stri
 }
 
 export async function logout(): Promise<void> {
-  try {
-    await apiRequest<void>("/auth/logout", {
-      method: "POST",
-    });
-  } catch {
-    // Backend logout failure should not block clearing local session
-  }
+  // Fail-fast logout: Must invalidate server session and clear HttpOnly cookie before purging client state
+  await apiRequest<void>("/auth/logout", {
+    method: "POST",
+  });
   clearAuthSession();
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }
 }
+

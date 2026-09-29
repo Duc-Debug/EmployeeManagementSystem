@@ -281,7 +281,9 @@ class AuthLogoutIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         // Malformed header
-        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "NotABearerToken"))
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "NotABearerToken")
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }

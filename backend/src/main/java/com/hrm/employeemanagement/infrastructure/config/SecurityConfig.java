@@ -122,7 +122,14 @@ public class SecurityConfig {
             Arrays.stream(allowedOrigins.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
-                    .forEach(origins::add);
+                    .forEach(raw -> {
+                        if (!com.hrm.employeemanagement.infrastructure.security.CorsUtils.isSafeOriginPattern(raw)) {
+                            org.slf4j.LoggerFactory.getLogger(SecurityConfig.class)
+                                    .warn("CORS Security: Bỏ qua origin pattern không an toàn chứa wildcard nguy hiểm: {}", raw);
+                            return;
+                        }
+                        origins.add(raw);
+                    });
         }
 
         configuration.setAllowedOriginPatterns(origins);

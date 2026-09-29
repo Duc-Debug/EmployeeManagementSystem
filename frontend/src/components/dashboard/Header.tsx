@@ -49,7 +49,12 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
 
     const handleLogout = async () => {
         setIsMenuOpen(false);
-        await logout();
+        try {
+            await logout();
+        } catch (error) {
+            console.error("Đăng xuất thất bại:", error);
+            alert("Đăng xuất thất bại từ máy chủ. Vui lòng kiểm tra lại kết nối và thử lại.");
+        }
     };
 
     return (

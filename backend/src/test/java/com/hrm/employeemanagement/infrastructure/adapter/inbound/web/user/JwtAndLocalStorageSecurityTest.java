@@ -343,9 +343,10 @@ class JwtAndLocalStorageSecurityTest {
         Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
         assertThat(jwtCookie).isNotNull();
 
-        // Perform logout with ONLY the cookie
+        // Perform logout with the cookie and standard custom header sent by frontend
         MvcResult logoutResult = mockMvc.perform(post("/api/v1/auth/logout")
-                        .cookie(jwtCookie))
+                        .cookie(jwtCookie)
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -361,8 +362,53 @@ class JwtAndLocalStorageSecurityTest {
     }
 
     @Test
-    @DisplayName("CSRF Test: Untrusted Origin is blocked with 403 Forbidden on state-changing requests")
-    void testCsrfProtectionBlocksUntrustedOrigin() throws Exception {
+    @DisplayName("CSRF Test: Fail-Closed blocks state-changing request missing all CSRF proofs (Origin, Referer, X-Requested-With)")
+    void testCsrfFailClosedBlocksMutationWithoutProof() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+
+        // Mutation request without Origin, Referer, X-Requested-With, or Bearer auth must fail-closed (403)
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(jwtCookie))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("thiếu bằng chứng xác thực CSRF")));
+    }
+
+    @Test
+    @DisplayName("CSRF Test: Custom header X-Requested-With is strictly enforced and accepted for state-changing requests")
+    void testCsrfAllowsCustomHeaderXRequestedWith() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+
+        // Valid custom header X-Requested-With: XMLHttpRequest must pass CSRF filter
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(jwtCookie)
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("CSRF Test: Untrusted Origin is blocked with 403 Forbidden even if X-Requested-With is present")
+    void testCsrfProtectionBlocksUntrustedOriginEvenWithCustomHeader() throws Exception {
         MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
@@ -378,7 +424,8 @@ class JwtAndLocalStorageSecurityTest {
         // Cross-site attack attempt from evil.com with victim's cookie
         mockMvc.perform(post("/api/v1/auth/logout")
                         .cookie(jwtCookie)
-                        .header("Origin", "https://evil.com"))
+                        .header("Origin", "https://evil.com")
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isForbidden());
     }
 
@@ -400,7 +447,8 @@ class JwtAndLocalStorageSecurityTest {
         // Attack from another Vercel deployment must be rejected
         mockMvc.perform(post("/api/v1/auth/logout")
                         .cookie(jwtCookie)
-                        .header("Origin", "https://malicious.vercel.app"))
+                        .header("Origin", "https://malicious.vercel.app")
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isForbidden());
     }
 
@@ -422,7 +470,8 @@ class JwtAndLocalStorageSecurityTest {
         // Legitimate production frontend origin must succeed
         mockMvc.perform(post("/api/v1/auth/logout")
                         .cookie(jwtCookie)
-                        .header("Origin", "https://employee-management-system-izcr9mk17-duc-debug.vercel.app"))
+                        .header("Origin", "https://employee-management-system-izcr9mk17-duc-debug.vercel.app")
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -445,7 +494,9 @@ class JwtAndLocalStorageSecurityTest {
         mockMvc.perform(post("/api/v1/auth/logout")
                         .cookie(jwtCookie)
                         .header("Sec-Fetch-Site", "cross-site")
-                        .header("Origin", "https://attacker.org"))
+                        .header("Origin", "https://attacker.org")
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isForbidden());
     }
 }
+

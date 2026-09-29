@@ -47,7 +47,12 @@ export default function ForceChangePasswordPage() {
   }, [user, navigate]);
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Đăng xuất thất bại:", error);
+      alert("Đăng xuất thất bại từ máy chủ. Vui lòng kiểm tra lại kết nối và thử lại.");
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {

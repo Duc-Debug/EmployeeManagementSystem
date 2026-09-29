@@ -39,6 +39,8 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
             "/h2-console"
     );
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CsrfProtectionFilter.class);
+
     private final List<Pattern> allowedOriginPatterns;
 
     public CsrfProtectionFilter(@Value("${app.cors.allowed-origins:}") String allowedOrigins) {
@@ -57,6 +59,10 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
                     .forEach(raw -> {
+                        if (!CorsUtils.isSafeOriginPattern(raw)) {
+                            log.warn("CSRF Filter: Bỏ qua origin pattern không an toàn chứa wildcard nguy hiểm: {}", raw);
+                            return;
+                        }
                         String regex = "^" + raw.replace(".", "\\.").replace("*", ".*") + "$";
                         rawPatterns.add(regex);
                     });
@@ -93,6 +99,8 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
         String origin = request.getHeader("Origin");
         String secFetchSite = request.getHeader("Sec-Fetch-Site");
         String referer = request.getHeader("Referer");
+        String xRequestedWith = request.getHeader("X-Requested-With");
+        String authHeader = request.getHeader("Authorization");
 
         // 3. If Origin header is present, it MUST match the allowed origins whitelist
         if (origin != null && !origin.isBlank()) {
@@ -110,13 +118,29 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
             }
         }
 
-        // 5. If Origin is missing but Referer is present, verify Referer origin
-        if ((origin == null || origin.isBlank()) && referer != null && !referer.isBlank()) {
-            String refererOrigin = extractOrigin(referer);
-            if (refererOrigin != null && !isOriginAllowed(refererOrigin, request)) {
+        // 5. If Referer is present, verify Referer origin against allowed origins whitelist
+        String refererOrigin = (referer != null && !referer.isBlank()) ? extractOrigin(referer) : null;
+        if (referer != null && !referer.isBlank()) {
+            if (refererOrigin == null || !isOriginAllowed(refererOrigin, request)) {
                 rejectCsrf(response, "Yêu cầu bị từ chối do Referer không hợp lệ: " + referer);
                 return;
             }
+        }
+
+        // 6. Fail-closed CSRF enforcement: State-changing requests MUST have at least one trusted proof:
+        //    a) Trusted Origin
+        //    b) Trusted Referer
+        //    c) Custom Header (X-Requested-With: XMLHttpRequest or X-NexusHRM-CSRF: 1)
+        //    d) Bearer Authorization token (Machine-to-Machine API clients)
+        boolean hasTrustedOrigin = (origin != null && !origin.isBlank() && isOriginAllowed(origin.trim(), request));
+        boolean hasTrustedReferer = (refererOrigin != null && isOriginAllowed(refererOrigin, request));
+        boolean hasCustomHeader = "XMLHttpRequest".equalsIgnoreCase(xRequestedWith)
+                || "1".equals(request.getHeader("X-NexusHRM-CSRF"));
+        boolean hasBearerAuth = authHeader != null && authHeader.regionMatches(true, 0, "Bearer ", 0, 7);
+
+        if (!hasTrustedOrigin && !hasTrustedReferer && !hasCustomHeader && !hasBearerAuth) {
+            rejectCsrf(response, "Yêu cầu bị từ chối do thiếu bằng chứng xác thực CSRF hợp lệ (Origin, Referer, hoặc X-Requested-With).");
+            return;
         }
 
         filterChain.doFilter(request, response);
