@@ -22,14 +22,14 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden transition hover:shadow-md">
       {/* Header card tuần */}
-      <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+          <div className="p-2 sm:p-2.5 bg-blue-50 text-blue-600 rounded-lg shrink-0">
             <Calendar className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-900 text-base">
+              <h3 className="font-semibold text-slate-900 text-sm sm:text-base truncate">
                 Tuần bắt đầu: {week_start_date}
               </h3>
             </div>
@@ -39,15 +39,15 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-4 self-end md:self-auto">
-          <div className="text-right">
-            <span className="text-xs text-slate-500 block">Tổng phân bổ</span>
-            <span className="text-lg font-bold text-slate-800">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
+          <div className="text-left sm:text-right">
+            <span className="text-[11px] sm:text-xs text-slate-500 block">Tổng phân bổ</span>
+            <span className="text-base sm:text-lg font-bold text-slate-800">
               {total_hours.toFixed(1)} <span className="text-xs font-normal text-slate-500">giờ</span>
             </span>
           </div>
 
-          <div className="border-l border-slate-200 pl-4">
+          <div className="border-l border-slate-200 pl-3 sm:pl-4">
             <ConfirmationStatusBadge
               status={confirmation_status}
               confirmedAt={confirmed_at}

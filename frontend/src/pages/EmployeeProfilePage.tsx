@@ -622,7 +622,7 @@ export default function EmployeeProfilePage() {
                     email: data.email?.trim() || undefined,
                     employeeCode: data.employeeCode?.trim() || undefined,
                     username: data.username || data.fullName.toLowerCase().replace(/\s+/g, "."),
-                    password: data.password || "123456",
+                    password: data.password || "Password123",
                     orgUnitId: data.orgUnitId ? Number(data.orgUnitId) : null,
                     roleCode: (data.roleCode as RoleCode) || "VT-04",
                     scopeOrgUnitId: data.scopeOrgUnitId ? Number(data.scopeOrgUnitId) : null,

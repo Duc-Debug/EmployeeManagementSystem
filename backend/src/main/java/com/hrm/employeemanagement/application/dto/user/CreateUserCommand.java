@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.application.dto.user;
 
+import com.hrm.employeemanagement.domain.user.PasswordPolicyValidator;
+
 public record CreateUserCommand(
         String username,
         String password,
@@ -39,6 +41,9 @@ public record CreateUserCommand(
         }
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException("Mật khẩu không được để trống");
+        }
+        if (!PasswordPolicyValidator.isValid(password)) {
+            throw new IllegalArgumentException(PasswordPolicyValidator.POLICY_MESSAGE);
         }
         if (roleCode == null || roleCode.isBlank()) {
             throw new IllegalArgumentException("Mã vai trò không được để trống");
