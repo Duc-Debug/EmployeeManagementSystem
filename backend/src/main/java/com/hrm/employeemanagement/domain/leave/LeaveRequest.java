@@ -47,13 +47,13 @@ public class LeaveRequest {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
-
     public LeaveRequest(Long id, Long employeeId, LeaveType leaveType, LocalDate startDate, LocalDate endDate,
                         int daysCount, BigDecimal hoursDeducted, String reason, LeaveStatus status,
                         Long approverId, String approverComment,
                         LocalDateTime createdAt, LocalDateTime updatedAt) {
         this(id, employeeId, leaveType, startDate, endDate, daysCount, hoursDeducted, reason, status, approverId, approverComment, null, null, createdAt, updatedAt);
     }
+
 
     /**
      * Constructor tương thích ngược cho các phần code hiện có.
