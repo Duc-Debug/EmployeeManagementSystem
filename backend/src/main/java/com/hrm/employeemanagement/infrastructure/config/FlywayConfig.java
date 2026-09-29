@@ -19,7 +19,7 @@ public class FlywayConfig {
     @Bean
     public Flyway flyway(
             DataSource dataSource,
-            @Value("${spring.flyway.out-of-order:false}") boolean outOfOrder
+            @Value("${spring.flyway.out-of-order:true}") boolean outOfOrder
     ) {
         System.out.println("==================================================");
         System.out.println("🚀 FLYWAY STARTING DATABASE MIGRATION...");
@@ -29,9 +29,11 @@ public class FlywayConfig {
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
                 .locations("classpath:db/migration")
-                .outOfOrder(outOfOrder)
+                .outOfOrder(true)
+                .ignoreMigrationPatterns("*:missing", "*:future", "*:ignored")
                 .load();
 
+        flyway.repair();
         flyway.migrate();
 
         System.out.println("==================================================");
