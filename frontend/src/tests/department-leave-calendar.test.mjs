@@ -7,9 +7,9 @@ import {
     flattenOrgTree,
 } from "../lib/api/leave.ts";
 
-describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)", () => {
+describe("Department Monthly Leave Calendar Frontend Logic Tests", () => {
 
-    test("TC-01: Cấu trúc dữ liệu lịch tháng hiển thị đủ 30 ngày và các đơn nghỉ", () => {
+    test("Cấu trúc dữ liệu lịch tháng hiển thị đủ 30 ngày và các đơn nghỉ", () => {
         const mockCalendar = {
             orgUnitId: 10,
             orgUnitCode: "DEV-DEP",
@@ -53,7 +53,7 @@ describe("Department Monthly Leave Calendar Frontend Logic Tests (NCL-05-CN-006)
         assert.equal(mockCalendar.dailySummaries[0].leaveItems[0].fullName, "Nguyễn Văn A");
     });
 
-    test("TC-02: Cảnh báo vượt ngưỡng kích hoạt khi số người nghỉ >= ngưỡng", () => {
+    test("Cảnh báo vượt ngưỡng kích hoạt khi số người nghỉ >= ngưỡng", () => {
         const totalEmployees = 5;
         const onLeaveCount = 4;
         const threshold = 0.5; // 50%

@@ -83,7 +83,7 @@ export default function CompanyWeeklyCapacityView() {
   const currentIso = useMemo(() => getCurrentIsoWeek(), []);
   const [selectedYear, setSelectedYear] = useState<number>(currentIso.year);
   const [selectedWeek, setSelectedWeek] = useState<number>(currentIso.weekNumber);
-  const [durationWeeks] = useState<number>(8); // Mặc định 8 tuần theo TC-01
+  const [durationWeeks] = useState<number>(8); // Mặc định 8 tuần
 
   const selectedDateStr = useMemo(() => {
     const { startDate } = getIsoWeekDateRange(selectedYear, selectedWeek);

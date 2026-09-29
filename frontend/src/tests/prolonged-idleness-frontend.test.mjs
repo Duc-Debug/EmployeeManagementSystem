@@ -15,8 +15,8 @@ import {
   generateIdlenessCsvContent,
 } from "../lib/api/prolonged-idleness.ts";
 
-test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)", async (t) => {
-  await t.test("TC-01: Phân quyền RBAC — Chỉ VT-01 (BGĐ), VT-03 (RM), VT-06 (Admin) được truy cập", () => {
+test("Prolonged Idleness Warning Frontend Logic & Tests", async (t) => {
+  await t.test("Phân quyền RBAC — Chỉ VT-01 (BGĐ), VT-03 (RM), VT-06 (Admin) được truy cập", () => {
     // Allowed
     assert.strictEqual(canAccessProlongedIdleness("VT-03"), true);
     assert.strictEqual(canAccessProlongedIdleness("ROLE_VT_03"), true);
@@ -32,7 +32,7 @@ test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)",
     assert.strictEqual(canAccessProlongedIdleness(""), false);
   });
 
-  await t.test("TC-02: Form Validation xử lý cảnh báo (TC-04) — Bắt buộc hành động xử lý", () => {
+  await t.test("Form Validation xử lý cảnh báo — Bắt buộc hành động xử lý", () => {
     // Valid
     const validResult = validateAcknowledgeForm({
       actionTaken: "Điều chuyển sang dự án mới Portal",
@@ -66,7 +66,7 @@ test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)",
     assert.ok(longNotesResult.errors.includes("Ghi chú không được vượt quá 500 ký tự."));
   });
 
-  await t.test("TC-03: Phân loại mức độ nghiêm trọng dựa trên chuỗi tuần liên tiếp (QTN-23)", () => {
+  await t.test("Phân loại mức độ nghiêm trọng dựa trên chuỗi tuần liên tiếp", () => {
     // Ngưỡng chuẩn 3 tuần
     const normal = classifyIdlenessSeverity(2, 3);
     assert.strictEqual(normal.level, "NORMAL");
@@ -80,7 +80,7 @@ test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)",
     assert.strictEqual(critical.color, "rose");
   });
 
-  await t.test("TC-04: Xây dựng Query Parameters URL chính xác cho API backend", () => {
+  await t.test("Xây dựng Query Parameters URL chính xác cho API backend", () => {
     const query = buildProlongedIdlenessQueryParams({
       orgUnitId: 10,
       fromYear: 2026,
@@ -102,7 +102,7 @@ test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)",
     assert.ok(query.includes("size=10"));
   });
 
-  await t.test("TC-05: Tính toán tổng quan KPI số người nhàn rỗi và tổng giờ trống", () => {
+  await t.test("Tính toán tổng quan KPI số người nhàn rỗi và tổng giờ trống", () => {
     const mockStaff = [
       { employeeId: 101, consecutiveIdleWeeks: 3, totalEmptyHours: 90.0, averageUtilization: 25.0 },
       { employeeId: 102, consecutiveIdleWeeks: 4, totalEmptyHours: 120.0, averageUtilization: 15.0 },
@@ -119,7 +119,7 @@ test("Prolonged Idleness Warning Frontend Logic & QTN-23 Tests (NCL-07-CN-006)",
     assert.strictEqual(emptyMetrics.averageUtil, 0);
   });
 
-  await t.test("TC-06: Xuất file CSV báo cáo cảnh báo nhàn rỗi chuẩn định dạng UTF-8 BOM", () => {
+  await t.test("Xuất file CSV báo cáo cảnh báo nhàn rỗi chuẩn định dạng UTF-8 BOM", () => {
     const mockStaff = [
       {
         employeeCode: "EMP0101",
