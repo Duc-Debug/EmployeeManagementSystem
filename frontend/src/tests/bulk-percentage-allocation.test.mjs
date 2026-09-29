@@ -6,8 +6,8 @@ import {
   computeProjectedBulkAllocation,
 } from "../lib/percentage-allocation.ts";
 
-test("Bulk Percentage Allocation Tests (NCL-06-CN-007)", async (t) => {
-  await t.test("TC-01: Bulk payload contains allocationPercentagePerWeek when mode is percentage", () => {
+test("Bulk Percentage Allocation Tests", async (t) => {
+  await t.test("Bulk payload contains allocationPercentagePerWeek when mode is percentage", () => {
     const payload = buildBulkPayload({
       employeeId: "emp-1",
       projectId: "proj-101",
@@ -26,7 +26,7 @@ test("Bulk Percentage Allocation Tests (NCL-06-CN-007)", async (t) => {
     assert.equal(payload.employeeId, "emp-1");
   });
 
-  await t.test("TC-02: Bulk payload contains allocatedHoursPerWeek when mode is hours", () => {
+  await t.test("Bulk payload contains allocatedHoursPerWeek when mode is hours", () => {
     const payload = buildBulkPayload({
       employeeId: "emp-1",
       projectId: "proj-101",
@@ -44,7 +44,7 @@ test("Bulk Percentage Allocation Tests (NCL-06-CN-007)", async (t) => {
     assert.equal(payload.allocationPercentagePerWeek, undefined);
   });
 
-  await t.test("TC-03: Dynamic hours projection varies with each week's net availability", () => {
+  await t.test("Dynamic hours projection varies with each week's net availability", () => {
     const weeks = [
       { year: 2026, week: 1, netAvailableHours: 40.0 },
       { year: 2026, week: 2, netAvailableHours: 32.0 }, // 1 day holiday
@@ -61,7 +61,7 @@ test("Bulk Percentage Allocation Tests (NCL-06-CN-007)", async (t) => {
     ]);
   });
 
-  await t.test("TC-04: Mutually exclusive payload guarantees never sending both allocatedHours and allocationPercentage", () => {
+  await t.test("Mutually exclusive payload guarantees never sending both allocatedHours and allocationPercentage", () => {
     const payloadPct = buildBulkPayload({
       employeeId: "emp-1",
       projectId: "proj-101",

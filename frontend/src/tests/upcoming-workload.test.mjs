@@ -10,7 +10,7 @@ import {
     canAccessEmployeeWorkload,
 } from "../components/workload/workloadUtils.ts";
 
-describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
+describe("Upcoming Workload Frontend Logic Tests", () => {
 
     test("ISO Weeks in year: Tính đúng năm có 52 và 53 tuần ISO", () => {
         assert.equal(getISOWeeksInYear(2025), 52, "2025 có 52 tuần ISO");
@@ -18,7 +18,7 @@ describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
         assert.equal(getISOWeeksInYear(2027), 52, "2027 có 52 tuần ISO");
     });
 
-    test("TC-01: Luồng thành công - Tính toán khối lượng 8 tuần bình thường và năng lực khả dụng", () => {
+    test("Luồng thành công - Tính toán khối lượng 8 tuần bình thường và năng lực khả dụng", () => {
         const standardHours = 40;
         const holidayHours = 0;
         const leaveHours = 0;
@@ -36,7 +36,7 @@ describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
         assert.ok(colors.bar.includes("emerald"), "Trạng thái NORMAL sử dụng màu xanh emerald");
     });
 
-    test("TC-02: Ngoại lệ - Một tuần vượt ngưỡng quá tải (Overloaded Week)", () => {
+    test("Ngoại lệ - Một tuần vượt ngưỡng quá tải (Overloaded Week)", () => {
         const standardHours = 40;
         const holidayHours = 0;
         const leaveHours = 0;
@@ -56,7 +56,7 @@ describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
         assert.ok(colors.bar.includes("red"), "Trạng thái OVERLOADED sử dụng màu đỏ cảnh báo");
     });
 
-    test("TC-03: Tuần có nghỉ lễ hoặc nghỉ phép (Giảm năng lực khả dụng)", () => {
+    test("Tuần có nghỉ lễ hoặc nghỉ phép (Giảm năng lực khả dụng)", () => {
         const standardHours = 40;
         const holidayHours = 8; // 1 ngày nghỉ lễ
         const leaveHours = 8;   // 1 ngày nghỉ phép
@@ -71,7 +71,7 @@ describe("NCL-13-CN-004: Upcoming Workload Frontend Logic Tests", () => {
         assert.equal(status, "NORMAL", "100% bằng ngưỡng trần là NORMAL");
     });
 
-    test("TC-04: Ngưỡng quá tải tùy biến (Custom Overload Threshold: 110%)", () => {
+    test("Ngưỡng quá tải tùy biến (Custom Overload Threshold: 110%)", () => {
         const netHours = 40;
         const allocatedHours = 42; // 42h / 40h = 105%
         const utilization = calculateUtilization(allocatedHours, netHours);

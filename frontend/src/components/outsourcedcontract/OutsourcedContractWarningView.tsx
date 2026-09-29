@@ -397,7 +397,7 @@ export default function OutsourcedContractWarningView() {
                                 <th className="py-3 px-4">Đơn Vị / Chi Nhánh</th>
                                 <th className="py-3 px-4">Ngày Hết Hạn</th>
                                 <th className="py-3 px-4">Thời Gian Còn Lại</th>
-                                <th className="py-3 px-4">Trạng Thái & Rủi Ro QTN-21</th>
+                                <th className="py-3 px-4">Trạng Thái & Rủi Ro</th>
                                 <th className="py-3 px-4 text-right">Thao Tác</th>
                             </tr>
                         </thead>
@@ -498,7 +498,7 @@ export default function OutsourcedContractWarningView() {
                                                             className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-semibold text-purple-700 hover:bg-purple-200 dark:bg-purple-950/60 dark:text-purple-300 transition"
                                                         >
                                                             <AlertTriangle className="h-3 w-3 shrink-0" />
-                                                            <span>{c.affectedAllocations.length} phân bổ vi phạm QTN-21</span>
+                                                            <span>{c.affectedAllocations.length} phân bổ vi phạm</span>
                                                         </button>
                                                     ) : (
                                                         <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
@@ -526,7 +526,7 @@ export default function OutsourcedContractWarningView() {
                                                             <div className="flex items-center justify-between mb-2.5">
                                                                 <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                                                     <FolderKanban className="h-3.5 w-3.5 text-indigo-500" />
-                                                                    Chi tiết các tuần phân bổ bị ảnh hưởng theo quy tắc QTN-21:
+                                                                    Chi tiết các tuần phân bổ bị ảnh hưởng:
                                                                 </span>
                                                                 <span className="text-[11px] text-slate-400">
                                                                     Hạn hợp đồng: {c.contractEndDate}

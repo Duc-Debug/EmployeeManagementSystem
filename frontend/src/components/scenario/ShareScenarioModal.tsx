@@ -313,7 +313,7 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
             <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-100 text-indigo-900 text-[11px] leading-relaxed flex items-start space-x-2.5">
               <ShieldCheck className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
               <div>
-                <strong>Quy tắc người nhận (BR-03 &amp; BR-04):</strong> Người nhận được xem ở chế độ{" "}
+                <strong>Quy tắc người nhận:</strong> Người nhận được xem ở chế độ{" "}
                 <span className="font-semibold text-indigo-700">VIEW_ONLY</span>. Chỉ hiển thị các
                 ứng viên thỏa mãn phạm vi truy cập: Giám đốc, Quản lý dự án quản lý
                 ít nhất 1 dự án trong kịch bản, hoặc Quản lý nguồn lực cùng bộ phận.

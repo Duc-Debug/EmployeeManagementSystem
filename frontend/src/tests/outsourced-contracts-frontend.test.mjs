@@ -4,9 +4,9 @@ import { exportOutsourcedContractsToCsv } from "../lib/api/outsourced-contracts.
 import { resolveActiveTab } from "../components/dashboard/dashboard-routing.ts";
 import { canAccessTab } from "../components/dashboard/SideBar.tsx";
 
-describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)", () => {
+describe("Outsourced Contract Expiration Tracking Frontend Tests", () => {
 
-    test("TC-01: Xuất CSV chuẩn định dạng UTF-8 BOM cho Excel từ exportOutsourcedContractsToCsv thực tế", () => {
+    test("Xuất CSV chuẩn định dạng UTF-8 BOM cho Excel từ exportOutsourcedContractsToCsv thực tế", () => {
         const mockContracts = [
             {
                 employeeId: 101,
@@ -40,7 +40,7 @@ describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)
         assert.ok(csv.includes("Đã quá hạn"), "Phải chứa trạng thái đã quá hạn");
     });
 
-    test("TC-02: Phân loại phân bổ vi phạm theo quy tắc QTN-21", () => {
+    test("Phân loại phân bổ vi phạm theo quy tắc", () => {
         const spansAllocation = {
             allocationId: 501,
             affectedType: "SPANS_OVER_EXPIRY",
@@ -56,14 +56,14 @@ describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)
         assert.equal(afterExpiryAllocation.affectedType, "AFTER_EXPIRY");
     });
 
-    test("TC-03: Dashboard Route Resolution thực tế cho tab 'outsourced-contracts'", () => {
+    test("Dashboard Route Resolution thực tế cho tab 'outsourced-contracts'", () => {
         assert.equal(resolveActiveTab("/outsourced-contracts"), "outsourced-contracts");
         assert.equal(resolveActiveTab("/hop-dong-thue-ngoai"), "outsourced-contracts");
         assert.equal(resolveActiveTab("/schedule-conflict"), "schedule-conflict");
         assert.equal(resolveActiveTab("/"), "overview");
     });
 
-    test("TC-04: Role Guard: Chỉ cho phép VT-03 và VT-05 truy cập theo BR-04 & TC-03", () => {
+    test("Role Guard: Chỉ cho phép VT-03 và VT-05 truy cập", () => {
         // Allowed roles (Quản lý nguồn lực VT-03, Nhân sự VT-05)
         assert.equal(canAccessTab("VT-03", "outsourced-contracts"), true, "VT-03 (Quản lý nguồn lực) được phép");
         assert.equal(canAccessTab("VT-05", "outsourced-contracts"), true, "VT-05 (Nhân sự) được phép");
@@ -79,7 +79,7 @@ describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)
         assert.equal(canAccessTab("UNKNOWN", "outsourced-contracts", null, ["RESOURCE_ALLOCATION_MANAGE"]), false, "Có quyền RESOURCE_ALLOCATION_MANAGE nhưng không phải VT-03/VT-05 vẫn bị chặn");
     });
 
-    test("TC-05: In-Memory Cache TTL và Invalidation Logic", () => {
+    test(" In-Memory Cache TTL và Invalidation Logic", () => {
         const TTL = 60_000;
         let cache = new Map();
 
@@ -107,7 +107,7 @@ describe("Outsourced Contract Expiration Tracking Frontend Tests (NCL-14-CN-003)
         assert.equal(getCache(30, now + 65000), null);
     });
 
-    test("TC-06: Phân trang danh sách hợp đồng (Pagination Calculation)", () => {
+    test("Phân trang danh sách hợp đồng (Pagination Calculation)", () => {
         const pageSize = 10;
         const totalItems = 25;
         const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));

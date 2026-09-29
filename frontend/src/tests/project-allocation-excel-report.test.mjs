@@ -8,8 +8,8 @@ import {
   canExportProjectAllocationExcel,
 } from "../lib/api/project-allocation-excel.ts";
 
-describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-003)", () => {
-  describe("TC-01 & TC-06: Endpoint URL & Query Parameters Builder", () => {
+describe("Project Allocation Excel Report Logic & Validation Tests", () => {
+  describe("Endpoint URL & Query Parameters Builder", () => {
     test("Xây dựng URL chính xác với chỉ projectId (xuất toàn bộ dự án)", () => {
       const url = buildExportProjectAllocationUrl({ projectId: 12 });
       assert.ok(url.includes("/reports/export/excel/project-allocation?projectId=12"));
@@ -41,7 +41,7 @@ describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-00
     });
   });
 
-  describe("TC-02: Dải thời gian và Quy tắc Tuần ISO-8601", () => {
+  describe("Dải thời gian và Quy tắc Tuần ISO-8601", () => {
     test("Dải tuần hợp lệ trong cùng một năm (2026: Tuần 5 đến Tuần 20)", () => {
       const res = validateExportPeriod(2026, 5, 2026, 20);
       assert.equal(res.isValid, true);
@@ -92,7 +92,7 @@ describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-00
     });
   });
 
-  describe("TC-03: Trích xuất tên file từ Content-Disposition", () => {
+  describe("Trích xuất tên file từ Content-Disposition", () => {
     test("Trích xuất tên file chuẩn định dạng có dấu ngoặc kép", () => {
       const header = 'attachment; filename="Bao_Cao_Phan_Bo_Du_An_PROJ1_2026_W01_2026_W12.xlsx"';
       const name = extractFilenameFromContentDisposition(header);
@@ -120,7 +120,7 @@ describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-00
     });
   });
 
-  describe("TC-04: Phân quyền RBAC (Role Based Access Control)", () => {
+  describe("Phân quyền RBAC (Role Based Access Control)", () => {
     test("VT-01 (Ban Giám Đốc) có quyền xuất báo cáo Excel khi có quyền RESOURCE_ALLOCATION_READ", () => {
       assert.equal(canExportProjectAllocationExcel("VT-01", ["RESOURCE_ALLOCATION_READ"]), true);
       assert.equal(canExportProjectAllocationExcel("DIRECTOR", ["RESOURCE_ALLOCATION_READ"]), true);
@@ -150,7 +150,7 @@ describe("Project Allocation Excel Report Logic & Validation Tests (NCL-10-CN-00
     });
   });
 
-  describe("TC-05: Định dạng lỗi & Error Code Mapping", () => {
+  describe("Định dạng lỗi & Error Code Mapping", () => {
     test("Ánh xạ mã lỗi 400 REPORT_NO_DATA thành thông báo tiếng Việt trực quan", () => {
       const backendError = { code: "REPORT_NO_DATA", message: "Không có dữ liệu trong kỳ" };
       let message = "";

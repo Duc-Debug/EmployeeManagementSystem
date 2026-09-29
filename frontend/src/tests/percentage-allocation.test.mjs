@@ -6,8 +6,8 @@ import {
   convertHoursToPercentage,
 } from "../lib/percentage-allocation.ts";
 
-test("Percentage to Hours Conversion Tests (NCL-06-CN-007)", async (t) => {
-  await t.test("TC-01: Standard 40h week with presets", () => {
+test("Percentage to Hours Conversion Tests", async (t) => {
+  await t.test("Standard 40h week with presets", () => {
     const available = 40.0;
     assert.equal(convertPercentageToHours(25, available), 10.0);
     assert.equal(convertPercentageToHours(50, available), 20.0);
@@ -15,7 +15,7 @@ test("Percentage to Hours Conversion Tests (NCL-06-CN-007)", async (t) => {
     assert.equal(convertPercentageToHours(100, available), 40.0);
   });
 
-  await t.test("TC-02: Reduced availability week (e.g. 32h due to Holiday/Leave)", () => {
+  await t.test("Reduced availability week (e.g. 32h due to Holiday/Leave)", () => {
     const available = 32.0;
     assert.equal(convertPercentageToHours(25, available), 8.0);
     assert.equal(convertPercentageToHours(50, available), 16.0);
