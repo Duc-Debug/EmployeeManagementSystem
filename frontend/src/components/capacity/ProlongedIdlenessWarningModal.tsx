@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   getProlongedIdleStaff,
+  fetchAllProlongedIdleStaff,
   type ProlongedIdlenessReportResult,
   type ProlongedIdleStaffItem,
 } from "@/lib/api/prolonged-idleness";
@@ -156,7 +157,7 @@ export function ProlongedIdlenessWarningModal({
     if (!report || report.totalIdleEmployees === 0) return;
     setIsExporting(true);
     try {
-      const allData = await getProlongedIdleStaff({
+      const itemsToExport = await fetchAllProlongedIdleStaff({
         orgUnitId: selectedOrgUnitId,
         fromYear,
         fromWeek,
@@ -164,11 +165,8 @@ export function ProlongedIdlenessWarningModal({
         consecutiveThreshold: CONSECUTIVE_THRESHOLD,
         status: statusFilter,
         search: debouncedSearch.trim() || undefined,
-        page: 0,
-        size: 1000,
       });
 
-      const itemsToExport = allData?.items || [];
       if (itemsToExport.length === 0) return;
 
       const headers = [
