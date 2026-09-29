@@ -694,8 +694,8 @@ export function ProjectCreateModal({
                                 {isSubmitting
                                     ? 'Đang khởi tạo...'
                                     : mode === 'TEMPLATE'
-                                    ? 'Tạo Dự Án Từ Mẫu'
-                                    : 'Tạo Dự Án Thật'}
+                                    ? 'Tạo dự án từ mẫu'
+                                    : 'Tạo dự án'}
                             </span>
                         </button>
                     </div>
