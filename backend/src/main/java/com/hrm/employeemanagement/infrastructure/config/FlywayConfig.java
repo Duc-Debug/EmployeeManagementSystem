@@ -19,18 +19,35 @@ public class FlywayConfig {
     @Bean
     public Flyway flyway(
             DataSource dataSource,
-            @Value("${spring.flyway.out-of-order:false}") boolean outOfOrder
+            @Value("${spring.flyway.out-of-order:false}") boolean outOfOrder,
+            @Value("${spring.flyway.ignore-migration-patterns:}") String[] ignoreMigrationPatterns,
+            @Value("${spring.flyway.repair-on-migrate:false}") boolean repairOnMigrate
     ) {
         System.out.println("==================================================");
         System.out.println("🚀 FLYWAY STARTING DATABASE MIGRATION...");
         System.out.println("==================================================");
 
-        Flyway flyway = Flyway.configure()
+        var config = Flyway.configure()
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
-                .locations("classpath:db/migration")
-                .outOfOrder(outOfOrder)
-                .load();
+                .locations("classpath:db/migration", "classpath:db.migration")
+                .outOfOrder(outOfOrder);
+
+        if (ignoreMigrationPatterns != null && ignoreMigrationPatterns.length > 0) {
+            String[] filteredPatterns = java.util.Arrays.stream(ignoreMigrationPatterns)
+                    .filter(p -> p != null && !p.isBlank())
+                    .toArray(String[]::new);
+            if (filteredPatterns.length > 0) {
+                config.ignoreMigrationPatterns(filteredPatterns);
+            }
+        }
+
+        Flyway flyway = config.load();
+
+        if (repairOnMigrate) {
+            System.out.println("⚙️ Flyway repairOnMigrate enabled. Executing flyway.repair()...");
+            flyway.repair();
+        }
 
         flyway.migrate();
 

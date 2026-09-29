@@ -21,8 +21,9 @@ import org.junit.jupiter.api.Test;
 
 class FlywayEmployeeOrgUnitMigrationTest {
 
-    private static final String MIGRATION_LOCATION =
-            "classpath:db/migration";
+    private static final String[] MIGRATION_LOCATIONS = {
+            "classpath:db/migration", "classpath:db.migration"
+    };
 
     @Test
     void migrationsRunOnPlainH2LocalProfileUrl()
@@ -547,7 +548,7 @@ class FlywayEmployeeOrgUnitMigrationTest {
     private static void migrateTo(String url, String target) {
         Flyway.configure()
                 .dataSource(url, "sa", "")
-                .locations(MIGRATION_LOCATION)
+                .locations(MIGRATION_LOCATIONS)
                 .target(target)
                 .load()
                 .migrate();
@@ -556,7 +557,7 @@ class FlywayEmployeeOrgUnitMigrationTest {
     private static void migrateToLatest(String url) {
         Flyway.configure()
                 .dataSource(url, "sa", "")
-                .locations(MIGRATION_LOCATION)
+                .locations(MIGRATION_LOCATIONS)
                 .load()
                 .migrate();
     }

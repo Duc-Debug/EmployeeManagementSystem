@@ -42,7 +42,7 @@ export function getAuthToken(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("accessToken");
 }
 
 export function setAuthToken(token: string): void {
@@ -50,6 +50,7 @@ export function setAuthToken(token: string): void {
     return;
   }
   localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem("accessToken", token);
   notify();
 }
 
@@ -57,7 +58,7 @@ export function getStoredUser(): AuthUser | null {
   if (typeof window === "undefined") {
     return null;
   }
-  const raw = localStorage.getItem(USER_KEY);
+  const raw = localStorage.getItem(USER_KEY) || localStorage.getItem("currentUser");
   if (!raw) {
     cachedUserRaw = null;
     cachedUserSnapshot = null;
@@ -97,6 +98,7 @@ export function setStoredUser(user: AuthUser): void {
   cachedUserRaw = serialized;
   cachedUserSnapshot = canonicalUser;
   localStorage.setItem(USER_KEY, serialized);
+  localStorage.setItem("currentUser", serialized);
   notify();
 }
 
@@ -108,6 +110,10 @@ export function clearAuthSession(): void {
   cachedUserSnapshot = null;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("token");
+  localStorage.removeItem("currentUser");
+  sessionStorage.clear();
   notify();
 }
 
