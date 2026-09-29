@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, ArrowRight, LogOut } from "lucide-react";
 import { changePassword, logout } from "@/lib/api/auth";
-import { useAuthUser, setStoredUser, clearAuthSession } from "@/lib/auth-session";
+import { useAuthUser, setStoredUser } from "@/lib/auth-session";
 import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 export default function ChangePasswordPage() {
