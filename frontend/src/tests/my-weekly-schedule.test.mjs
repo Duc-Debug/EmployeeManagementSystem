@@ -36,14 +36,6 @@ test("Project Status Tag: Hiển thị nhãn 'Dự án đã đóng' cho dự án
   assert.equal(getProjectStatusBadge("PLANNED"), null);
 });
 
-// Helper validating feedback reason (QTN-24)
-function validateFeedbackReason(reason) {
-  if (!reason || !reason.trim()) {
-    return { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." };
-  }
-  return { valid: true, error: null };
-}
-
 test("Feedback Validation: Kiểm tra tính hợp lệ của lý do phản hồi", () => {
   assert.deepEqual(validateFeedbackReason(""), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
   assert.deepEqual(validateFeedbackReason("   "), { valid: false, error: "Vui lòng nhập lý do hoặc ý kiến phản hồi." });
