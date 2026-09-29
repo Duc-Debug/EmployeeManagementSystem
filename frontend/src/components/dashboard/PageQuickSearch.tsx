@@ -148,10 +148,10 @@ export default function PageQuickSearch() {
             {/* Search Input Bar */}
             <div
                 className={cn(
-                    "flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 shadow-xs transition-all duration-200",
+                    "flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-1.5 shadow-xs transition-all duration-200",
                     isOpen
-                        ? "w-[260px] sm:w-[320px] bg-white border-indigo-400 ring-2 ring-indigo-100"
-                        : "w-[180px] sm:w-[240px] hover:border-slate-300 hover:bg-slate-100/70"
+                        ? "w-[190px] sm:w-[320px] bg-white border-indigo-400 ring-2 ring-indigo-100"
+                        : "w-[120px] sm:w-[240px] hover:border-slate-300 hover:bg-slate-100/70"
                 )}
             >
                 <Search className="h-4 w-4 shrink-0 text-slate-500" />
@@ -165,9 +165,9 @@ export default function PageQuickSearch() {
                     }}
                     onFocus={() => setIsOpen(true)}
                     onKeyDown={handleInputKeyDown}
-                    placeholder="Tìm trang khả dụng..."
+                    placeholder="Tìm trang..."
                     aria-label="Tìm kiếm trang khả dụng"
-                    className="w-full bg-transparent text-xs font-medium text-slate-800 placeholder-slate-500 focus:outline-none"
+                    className="w-full bg-transparent text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none"
                 />
 
                 {searchQuery ? (
@@ -192,7 +192,7 @@ export default function PageQuickSearch() {
 
             {/* Quick Search Results Dropdown */}
             {isOpen && (
-                <div className="absolute right-0 sm:left-0 top-full mt-2 w-[320px] sm:w-[380px] rounded-2xl border border-slate-200 bg-white p-2 text-slate-700 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 sm:left-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-[340px] sm:w-[380px] rounded-2xl border border-slate-200 bg-white p-2 text-slate-700 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
                         <span>Trang khả dụng ({filteredPages.length})</span>
                         <span className="text-[10px] font-normal lowercase">Phân quyền theo vai trò</span>

@@ -1254,7 +1254,7 @@ export default function ProjectView() {
                                             <select
                                                 value={selectedProjectId || ''}
                                                 onChange={(e) => navigate(`/dashboard/projects?projectId=${e.target.value}`)}
-                                                className="appearance-none rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white"
+                                                className="appearance-none rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white max-w-[160px] sm:max-w-xs truncate"
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>
@@ -1347,7 +1347,7 @@ export default function ProjectView() {
                                 title="Tạo dự án mới"
                             >
                                 <FolderPlus className="h-3.5 w-3.5 text-indigo-600 stroke-[2.2]" />
-                                <span>+ Dự án mới</span>
+                                <span>Dự án mới</span>
                             </button>
                         )}
 
@@ -1592,8 +1592,8 @@ export default function ProjectView() {
                 </div>
             )}
 
-            {/* KPI Metric Cards (Thu nhỏ gọn 50% & Hiện đại) */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {/* KPI Metric Cards (1 cột trên mobile theo P1-5) */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                 <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs transition hover:border-slate-300">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Hạng mục &amp; Task</span>

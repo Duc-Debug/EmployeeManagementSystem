@@ -265,7 +265,7 @@ export default function DepartmentLeaveCalendarView() {
             </div>
 
             {/* Thẻ thống kê nhanh KPI (Gọn gàng, giảm chiều cao) */}
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50/50 px-3.5 py-2">
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 block">
@@ -394,8 +394,11 @@ export default function DepartmentLeaveCalendarView() {
                         </div>
                     </div>
                 )}
-                {/* Header Ngày Trong Tuần (7 cột) */}
-                <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                {/* Khung cuộn ngang độc lập cho lịch 7 ngày trên mobile */}
+                <div className="overflow-x-auto w-full">
+                    <div className="min-w-[650px]">
+                        {/* Header Ngày Trong Tuần (7 cột) */}
+                        <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
                     {WEEKDAY_NAMES.map((name, idx) => (
                         <div
                             key={name}
@@ -550,6 +553,8 @@ export default function DepartmentLeaveCalendarView() {
                             </div>
                         );
                     })}
+                </div>
+                    </div>
                 </div>
             </div>
 

@@ -21,6 +21,7 @@ import {
     Sparkles,
     DollarSign,
     Database,
+    X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { normalizeRoleCode } from "@/lib/role-utils";
@@ -280,9 +281,10 @@ interface SideBarProps {
     activeTab?: string;
     setActiveTab?: (tab: string) => void;
     isOpen: boolean;
+    onClose?: () => void;
 }
 
-export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProps) {
+export default function SideBar({ activeTab, setActiveTab, isOpen, onClose }: SideBarProps) {
     const user = useAuthUser();
     const location = useLocation();
     const roleCode = user?.roleCode;
@@ -357,14 +359,34 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
     return (
         <aside
             className={cn(
-                "flex flex-col justify-between border-r border-slate-200 bg-white text-slate-700 transition-all duration-300 ease-in-out overflow-hidden shadow-xs h-full",
+                "flex flex-col justify-between border-r border-slate-200 bg-white text-slate-700 transition-all duration-300 ease-in-out overflow-hidden h-full",
+                // Desktop: nằm trong luồng flex bình thường. Mobile: dạng overlay z-50 độc lập không đẩy nội dung
+                "fixed inset-y-0 left-0 z-50 lg:static lg:z-auto",
                 isOpen
-                    ? "w-[240px] p-3 opacity-100 translate-x-0"
+                    ? "w-[260px] sm:w-[240px] p-3 opacity-100 translate-x-0 shadow-2xl lg:shadow-xs"
                     : "w-0 p-0 opacity-0 -translate-x-full border-r-0 pointer-events-none"
             )}
         >
+            {/* Header trên Mobile với nút đóng (ẩn trên desktop >= 1024px) */}
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 lg:hidden shrink-0">
+                <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-xs font-black text-white shadow-xs">
+                        EM
+                    </div>
+                    <span className="text-xs font-bold text-slate-900">Menu chức năng</span>
+                </div>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                    title="Đóng menu"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+            </div>
+
             {/* Scrollable Navigation Area */}
-            <div className="w-[214px] flex-1 overflow-y-auto pr-1 space-y-4 select-none scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+            <div className="w-full flex-1 overflow-y-auto pr-1 space-y-4 select-none scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                 {visibleGroups.map((group) => {
                     const isExpanded = openGroups[group.id] ?? true;
                     const hasActiveChild = group.items.some((item) => isItemActive(item.id));
@@ -409,7 +431,12 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                                             <NavLink
                                                 key={item.id}
                                                 to={targetPath}
-                                                onClick={() => setActiveTab?.(item.id)}
+                                                onClick={() => {
+                                                    setActiveTab?.(item.id);
+                                                    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                                                        onClose?.();
+                                                    }
+                                                }}
                                                 className={({ isActive }) =>
                                                     cn(
                                                         "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all",

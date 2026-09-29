@@ -379,7 +379,7 @@ export default function LeaveManagementView() {
 
             {/* Thẻ thống kê quỹ phép cá nhân (chỉ hiển thị ở chế độ xem Danh sách đơn) */}
             {viewMode === "list" && (
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4.5">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
@@ -474,8 +474,8 @@ export default function LeaveManagementView() {
                     </div>
 
                     {/* Danh sách table */}
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs text-slate-600">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full min-w-[650px] text-left text-xs text-slate-600">
                             <thead className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100">
                                 <tr>
                                     <th className="px-4 py-3">Mã đơn</th>
