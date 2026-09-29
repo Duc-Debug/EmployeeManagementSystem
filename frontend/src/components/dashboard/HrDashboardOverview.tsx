@@ -277,7 +277,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         Lối tắt Nghiệp vụ Nhân sự
                     </h2>
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
                     <button
                         type="button"
                         onClick={() => onNavigate("hrprofile")}
@@ -422,7 +422,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs">
+                                <table className="w-full min-w-[500px] text-left text-xs">
                                     <thead className="border-b border-slate-100 bg-slate-50/50 text-slate-500 uppercase text-[10px]">
                                         <tr>
                                             <th className="py-2 px-2.5 font-semibold">Mã NV</th>

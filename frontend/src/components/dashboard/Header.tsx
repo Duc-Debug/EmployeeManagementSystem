@@ -60,35 +60,38 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
 
     return (
         <>
-            <header className="flex h-[56px] w-full flex-none items-center justify-between bg-white border-b border-slate-200 px-4 text-slate-800 shadow-xs">
-                <div className="flex items-center gap-4">
+            <header className="flex h-[56px] w-full flex-none items-center justify-between bg-white border-b border-slate-200 px-3 sm:px-4 text-slate-800 shadow-xs">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                     <button
                         onClick={() => {
                             setIsMenuOpen(false);
                             setIsSidebarOpen((prev) => !prev);
                         }}
-                        className="rounded-lg p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                        className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition shrink-0"
+                        title="Đóng / mở menu"
                     >
                         <Menu className="h-5 w-5" />
                     </button>
 
-                    <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-black text-white shadow-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-black text-white shadow-xs">
                             EM
                         </div>
-                        <span className="text-lg font-bold tracking-tight text-slate-900">Employee Management</span>
+                        <span className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate hidden sm:inline-block">
+                            Employee Management
+                        </span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
                     {/* Thanh tìm kiếm nhanh trang khả dụng */}
                     <PageQuickSearch />
 
                     {/* Nút thông báo */}
                     <NotificationPopover />
 
-                    {/* Đồng hồ hệ thống */}
-                    <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1.5 px-3 shadow-xs">
+                    {/* Đồng hồ hệ thống (ẩn trên mobile và tablet để tiết kiệm diện tích) */}
+                    <div className="hidden lg:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1.5 px-3 shadow-xs">
                         <Clock className="h-4 w-4 text-slate-400" />
                         <span className="text-xs font-bold tracking-tight text-slate-700 min-w-[65px] text-center">
                             {currentTime || "--:-- --"}
@@ -99,14 +102,14 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => setIsMenuOpen((prev) => !prev)}
-                            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-2.5 shadow-xs transition hover:bg-slate-50 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100 active:scale-95"
+                            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-1 sm:pr-2.5 shadow-xs transition hover:bg-slate-50 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100 active:scale-95"
                             title="Tài khoản cá nhân"
                             type="button"
                         >
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold shadow-2xs">
-                                <User className="h-5 w-5" />
+                            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold shadow-2xs">
+                                <User className="h-4 w-4 sm:h-5 sm:w-5" />
                             </div>
-                            <span className="text-xs font-bold text-slate-800 max-w-[120px] truncate hidden sm:inline-block">
+                            <span className="text-xs font-bold text-slate-800 max-w-[120px] truncate hidden md:inline-block">
                                 {displayName}
                             </span>
                         </button>
