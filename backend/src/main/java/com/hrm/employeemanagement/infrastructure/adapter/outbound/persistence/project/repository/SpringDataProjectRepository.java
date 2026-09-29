@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project.repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -289,5 +290,52 @@ public interface SpringDataProjectRepository
     long countMemberProjectsAndStatus(
             @Param("employeeId") Long employeeId,
             @Param("status") String status
+    );
+
+    @Query(value = """
+        SELECT COALESCE(SUM(p.estimated_hours), 0)
+        FROM projects p
+        WHERE p.status = 'ACTIVE'
+        """,
+        nativeQuery = true)
+    BigDecimal sumActiveEstimatedHours();
+
+    @Query(value = """
+        SELECT COALESCE(SUM(p.estimated_hours), 0)
+        FROM projects p
+        JOIN org_units ou
+            ON ou.id = p.org_unit_id
+        JOIN org_units scope
+            ON scope.id = :scopeOrgUnitId
+        WHERE ou.tree_path LIKE CONCAT(scope.tree_path, '%')
+          AND p.status = 'ACTIVE'
+        """,
+        nativeQuery = true)
+    BigDecimal sumActiveEstimatedHoursByOrgUnitBranch(
+            @Param("scopeOrgUnitId") Long scopeOrgUnitId
+    );
+
+    @Query(value = """
+        SELECT COALESCE(SUM(p.estimated_hours), 0)
+        FROM projects p
+        WHERE p.manager_id = :employeeId
+          AND p.status = 'ACTIVE'
+        """,
+        nativeQuery = true)
+    BigDecimal sumActiveEstimatedHoursManagedBy(
+            @Param("employeeId") Long employeeId
+    );
+
+    @Query(value = """
+        SELECT COALESCE(SUM(p.estimated_hours), 0)
+        FROM projects p
+        JOIN project_members pm
+            ON pm.project_id = p.id
+        WHERE pm.employee_id = :employeeId
+          AND p.status = 'ACTIVE'
+        """,
+        nativeQuery = true)
+    BigDecimal sumActiveEstimatedHoursMemberProjects(
+            @Param("employeeId") Long employeeId
     );
 }

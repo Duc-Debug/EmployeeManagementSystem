@@ -38,7 +38,6 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
     const [skillsCount, setSkillsCount] = useState(0);
     const [capacitySummary, setCapacitySummary] = useState<CapacityMatrixSummary | null>(null);
     const [projectSummary, setProjectSummary] = useState<ProjectSummaryResult | null>(null);
-    const [totalProjectsCount, setTotalProjectsCount] = useState<number>(0);
     const [totalEmployeesCount, setTotalEmployeesCount] = useState<number>(0);
 
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -70,7 +69,6 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
 
             if (projectsRes.status === "fulfilled" && projectsRes.value) {
                 setProjects(projectsRes.value.content || []);
-                setTotalProjectsCount(projectsRes.value.totalElements ?? (projectsRes.value.content?.length || 0));
             }
             if (empRes.status === "fulfilled" && empRes.value) {
                 setEmployees(empRes.value.content || []);
@@ -124,12 +122,13 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
 
     // Derived metrics
     const totalStaff = totalEmployeesCount || employees.length || capacitySummary?.totalEmployees || 0;
-    const totalProjects = projectSummary?.totalProjects ?? totalProjectsCount ?? projects.length;
-    const activeProjectsCount = projectSummary?.activeProjects ?? projects.filter((p) => p.status === "ACTIVE").length;
-    const plannedProjectsCount = projectSummary?.plannedProjects ?? projects.filter((p) => p.status === "PLANNED").length;
-    const closedProjectsCount = projectSummary?.closedProjects ?? projects.filter((p) => p.status === "CLOSED").length;
-    const activeProjects = projects.filter((p) => p.status === "ACTIVE");
-    const totalHours = activeProjects.reduce((sum, p) => sum + (p.estimatedHours || 0), 0);
+    const totalProjects = projectSummary?.totalProjects ?? 0;
+    const activeProjectsCount = projectSummary?.activeProjects ?? 0;
+    const plannedProjectsCount = projectSummary?.plannedProjects ?? 0;
+    const closedProjectsCount = projectSummary?.closedProjects ?? 0;
+    const totalHours = projectSummary?.activeEstimatedHours != null
+        ? Number(projectSummary.activeEstimatedHours)
+        : 0;
     const avgUtilization = capacitySummary?.averageUtilization != null ? Math.round(capacitySummary.averageUtilization) : 0;
     const overloadedStaffCount = capacitySummary?.overloadedEmployeesCount || 0;
 

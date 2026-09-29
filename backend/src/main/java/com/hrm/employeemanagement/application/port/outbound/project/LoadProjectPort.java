@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.application.port.outbound.project;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,19 +48,19 @@ public interface LoadProjectPort {
 
     long countActiveProjectsByOrgUnitBranch(Long scopeOrgUnitId);
 
-    default long countByStatus(String status) {
-        return 0L;
-    }
+    long countByStatus(String status);
 
-    default long countByOrgUnitBranchAndStatus(Long scopeOrgUnitId, String status) {
-        return 0L;
-    }
+    long countByOrgUnitBranchAndStatus(Long scopeOrgUnitId, String status);
 
-    default long countManagedByAndStatus(Long employeeId, String status) {
-        return 0L;
-    }
+    long countManagedByAndStatus(Long employeeId, String status);
 
-    default long countMemberProjectsAndStatus(Long employeeId, String status) {
-        return 0L;
-    }
+    long countMemberProjectsAndStatus(Long employeeId, String status);
+
+    BigDecimal sumActiveEstimatedHours();
+
+    BigDecimal sumActiveEstimatedHoursByOrgUnitBranch(Long scopeOrgUnitId);
+
+    BigDecimal sumActiveEstimatedHoursManagedBy(Long employeeId);
+
+    BigDecimal sumActiveEstimatedHoursMemberProjects(Long employeeId);
 }

@@ -134,3 +134,34 @@ export async function acknowledgeProlongedIdleStaff(
     }
   );
 }
+
+/**
+ * Tải toàn bộ danh sách nhân sự nhàn rỗi kéo dài phục vụ Export CSV sử dụng phân trang size <= 50 an toàn theo totalPages
+ */
+export async function fetchAllProlongedIdleStaff(
+  params?: Omit<ProlongedIdlenessQueryParams, "page" | "size">,
+  fetchPageFn: (params?: ProlongedIdlenessQueryParams) => Promise<ProlongedIdlenessReportResult> = getProlongedIdleStaff
+): Promise<ProlongedIdleStaffItem[]> {
+  let currentPage = 0;
+  const exportPageSize = 50;
+  const allItems: ProlongedIdleStaffItem[] = [];
+
+  while (true) {
+    const pageData = await fetchPageFn({
+      ...params,
+      page: currentPage,
+      size: exportPageSize,
+    });
+
+    const items = pageData?.items || [];
+    allItems.push(...items);
+    const totalPages = pageData?.totalPages || 1;
+
+    if (items.length === 0 || allItems.length >= (pageData?.totalIdleEmployees || 0) || currentPage + 1 >= totalPages) {
+      break;
+    }
+    currentPage++;
+  }
+
+  return allItems;
+}

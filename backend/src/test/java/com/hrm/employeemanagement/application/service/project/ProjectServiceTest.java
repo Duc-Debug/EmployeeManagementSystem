@@ -722,6 +722,7 @@ class ProjectServiceTest {
         when(loadProjectPort.countByStatus("ACTIVE")).thenReturn(80L);
         when(loadProjectPort.countByStatus("PLANNED")).thenReturn(40L);
         when(loadProjectPort.countByStatus("CLOSED")).thenReturn(30L);
+        when(loadProjectPort.sumActiveEstimatedHours()).thenReturn(java.math.BigDecimal.valueOf(2500.0));
 
         ProjectSummaryResult summary = projectService.getProjectSummary();
 
@@ -729,6 +730,7 @@ class ProjectServiceTest {
         assertEquals(80L, summary.activeProjects());
         assertEquals(40L, summary.plannedProjects());
         assertEquals(30L, summary.closedProjects());
+        assertEquals(java.math.BigDecimal.valueOf(2500.0), summary.activeEstimatedHours());
     }
 
     @Test
@@ -743,6 +745,7 @@ class ProjectServiceTest {
         when(loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, "ACTIVE")).thenReturn(25L);
         when(loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, "PLANNED")).thenReturn(15L);
         when(loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, "CLOSED")).thenReturn(10L);
+        when(loadProjectPort.sumActiveEstimatedHoursByOrgUnitBranch(orgUnitId)).thenReturn(java.math.BigDecimal.valueOf(800.0));
 
         ProjectSummaryResult summary = projectService.getProjectSummary();
 
@@ -750,5 +753,52 @@ class ProjectServiceTest {
         assertEquals(25L, summary.activeProjects());
         assertEquals(15L, summary.plannedProjects());
         assertEquals(10L, summary.closedProjects());
+        assertEquals(java.math.BigDecimal.valueOf(800.0), summary.activeEstimatedHours());
+    }
+
+    @Test
+    @DisplayName("getProjectSummary tra ve dung KPI summary cho SELF + VT_02 (Project Manager)")
+    void testGetProjectSummary_SelfManagerScope_ReturnsManagedProjectsSummary() {
+        User currentUser = currentUser(RoleCode.VT_02, DataScope.SELF, null);
+        when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(currentUser));
+        when(loadEmployeePort.findByUserId(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(currentEmployee()));
+
+        when(loadProjectPort.countManagedBy(CURRENT_EMPLOYEE_ID)).thenReturn(10L);
+        when(loadProjectPort.countManagedByAndStatus(CURRENT_EMPLOYEE_ID, "ACTIVE")).thenReturn(6L);
+        when(loadProjectPort.countManagedByAndStatus(CURRENT_EMPLOYEE_ID, "PLANNED")).thenReturn(3L);
+        when(loadProjectPort.countManagedByAndStatus(CURRENT_EMPLOYEE_ID, "CLOSED")).thenReturn(1L);
+        when(loadProjectPort.sumActiveEstimatedHoursManagedBy(CURRENT_EMPLOYEE_ID)).thenReturn(java.math.BigDecimal.valueOf(350.0));
+
+        ProjectSummaryResult summary = projectService.getProjectSummary();
+
+        assertEquals(10L, summary.totalProjects());
+        assertEquals(6L, summary.activeProjects());
+        assertEquals(3L, summary.plannedProjects());
+        assertEquals(1L, summary.closedProjects());
+        assertEquals(java.math.BigDecimal.valueOf(350.0), summary.activeEstimatedHours());
+    }
+
+    @Test
+    @DisplayName("getProjectSummary tra ve dung KPI summary cho SELF + VT_04 (Employee / Member)")
+    void testGetProjectSummary_SelfMemberScope_ReturnsMemberProjectsSummary() {
+        User currentUser = currentUser(RoleCode.VT_04, DataScope.SELF, null);
+        when(authorizationService.require(PermissionCode.PROJECT_READ)).thenReturn(CURRENT_USER_ID);
+        when(loadUserPort.findById(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(currentUser));
+        when(loadEmployeePort.findByUserId(new UserId(CURRENT_USER_ID))).thenReturn(Optional.of(currentEmployee()));
+
+        when(loadProjectPort.countMemberProjects(CURRENT_EMPLOYEE_ID)).thenReturn(5L);
+        when(loadProjectPort.countMemberProjectsAndStatus(CURRENT_EMPLOYEE_ID, "ACTIVE")).thenReturn(4L);
+        when(loadProjectPort.countMemberProjectsAndStatus(CURRENT_EMPLOYEE_ID, "PLANNED")).thenReturn(1L);
+        when(loadProjectPort.countMemberProjectsAndStatus(CURRENT_EMPLOYEE_ID, "CLOSED")).thenReturn(0L);
+        when(loadProjectPort.sumActiveEstimatedHoursMemberProjects(CURRENT_EMPLOYEE_ID)).thenReturn(java.math.BigDecimal.valueOf(180.0));
+
+        ProjectSummaryResult summary = projectService.getProjectSummary();
+
+        assertEquals(5L, summary.totalProjects());
+        assertEquals(4L, summary.activeProjects());
+        assertEquals(1L, summary.plannedProjects());
+        assertEquals(0L, summary.closedProjects());
+        assertEquals(java.math.BigDecimal.valueOf(180.0), summary.activeEstimatedHours());
     }
 }

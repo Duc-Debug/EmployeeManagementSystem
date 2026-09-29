@@ -208,14 +208,16 @@ public class ProjectService implements
                                         loadProjectPort.count(),
                                         loadProjectPort.countByStatus(com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
                                         loadProjectPort.countByStatus(com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
-                                        loadProjectPort.countByStatus(com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
+                                        loadProjectPort.countByStatus(com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()),
+                                        loadProjectPort.sumActiveEstimatedHours());
                         case ORGANIZATION_BRANCH -> {
                                 Long orgUnitId = currentUser.getScopeOrgUnitId();
                                 yield new ProjectSummaryResult(
                                                 loadProjectPort.countByOrgUnitBranch(orgUnitId),
                                                 loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
                                                 loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
-                                                loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
+                                                loadProjectPort.countByOrgUnitBranchAndStatus(orgUnitId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()),
+                                                loadProjectPort.sumActiveEstimatedHoursByOrgUnitBranch(orgUnitId));
                         }
                         case SELF -> loadSelfScopedProjectSummary(currentUser, currentUserId);
                 };
@@ -235,7 +237,8 @@ public class ProjectService implements
                                                 loadProjectPort.countManagedBy(employeeId),
                                                 loadProjectPort.countManagedByAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
                                                 loadProjectPort.countManagedByAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
-                                                loadProjectPort.countManagedByAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
+                                                loadProjectPort.countManagedByAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()),
+                                                loadProjectPort.sumActiveEstimatedHoursManagedBy(employeeId));
                         }
                         case VT_04 -> {
                                 Long employeeId = loadCurrentEmployeeIdOrDeny(
@@ -245,7 +248,8 @@ public class ProjectService implements
                                                 loadProjectPort.countMemberProjects(employeeId),
                                                 loadProjectPort.countMemberProjectsAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.ACTIVE.name()),
                                                 loadProjectPort.countMemberProjectsAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.PLANNED.name()),
-                                                loadProjectPort.countMemberProjectsAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()));
+                                                loadProjectPort.countMemberProjectsAndStatus(employeeId, com.hrm.employeemanagement.domain.project.ProjectStatus.CLOSED.name()),
+                                                loadProjectPort.sumActiveEstimatedHoursMemberProjects(employeeId));
                         }
                         default -> {
                                 saveDeniedAudit(

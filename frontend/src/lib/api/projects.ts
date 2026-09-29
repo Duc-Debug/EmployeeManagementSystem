@@ -142,6 +142,7 @@ export interface ProjectSummaryResult {
   activeProjects: number;
   plannedProjects: number;
   closedProjects: number;
+  activeEstimatedHours?: number;
 }
 
 /**

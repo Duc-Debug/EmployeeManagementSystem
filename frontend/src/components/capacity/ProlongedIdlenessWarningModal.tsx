@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   getProlongedIdleStaff,
+  fetchAllProlongedIdleStaff,
   type ProlongedIdlenessReportResult,
   type ProlongedIdleStaffItem,
 } from "@/lib/api/prolonged-idleness";
@@ -156,35 +157,16 @@ export function ProlongedIdlenessWarningModal({
     if (!report || report.totalIdleEmployees === 0) return;
     setIsExporting(true);
     try {
-      let currentPage = 0;
-      let totalPages = 1;
-      const exportPageSize = 50;
-      const allItems: ProlongedIdleStaffItem[] = [];
+      const itemsToExport = await fetchAllProlongedIdleStaff({
+        orgUnitId: selectedOrgUnitId,
+        fromYear,
+        fromWeek,
+        durationWeeks,
+        consecutiveThreshold: CONSECUTIVE_THRESHOLD,
+        status: statusFilter,
+        search: debouncedSearch.trim() || undefined,
+      });
 
-      do {
-        const pageData = await getProlongedIdleStaff({
-          orgUnitId: selectedOrgUnitId,
-          fromYear,
-          fromWeek,
-          durationWeeks,
-          consecutiveThreshold: CONSECUTIVE_THRESHOLD,
-          status: statusFilter,
-          search: debouncedSearch.trim() || undefined,
-          page: currentPage,
-          size: exportPageSize,
-        });
-
-        const items = pageData?.items || [];
-        allItems.push(...items);
-        totalPages = pageData?.totalPages || 1;
-
-        if (items.length === 0 || allItems.length >= (pageData?.totalIdleEmployees || 0)) {
-          break;
-        }
-        currentPage++;
-      } while (currentPage < totalPages);
-
-      const itemsToExport = allItems;
       if (itemsToExport.length === 0) return;
 
       const headers = [

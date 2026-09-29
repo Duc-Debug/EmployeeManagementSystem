@@ -149,7 +149,7 @@ class ProjectControllerTest {
     @DisplayName("GET /api/v1/projects/summary thanh cong tra ve 200 va dung so lieu KPI")
     void testGetProjectSummary_Success() throws Exception {
         when(getProjectListUseCase.getProjectSummary())
-                .thenReturn(new ProjectSummaryResult(150L, 80L, 40L, 30L));
+                .thenReturn(new ProjectSummaryResult(150L, 80L, 40L, 30L, java.math.BigDecimal.valueOf(1250.5)));
 
         mockMvc.perform(get("/api/v1/projects/summary"))
                 .andExpect(status().isOk())
@@ -157,7 +157,8 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$.data.totalProjects").value(150))
                 .andExpect(jsonPath("$.data.activeProjects").value(80))
                 .andExpect(jsonPath("$.data.plannedProjects").value(40))
-                .andExpect(jsonPath("$.data.closedProjects").value(30));
+                .andExpect(jsonPath("$.data.closedProjects").value(30))
+                .andExpect(jsonPath("$.data.activeEstimatedHours").value(1250.5));
     }
 
     @Test
