@@ -127,18 +127,31 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
             }
         }
 
-        // 6. Fail-closed CSRF enforcement: State-changing requests MUST have at least one trusted proof:
+        // 6. Fail-closed CSRF enforcement:
+        // CSRF attacks exploit ambient credentials (specifically the authentication HttpOnly cookie).
+        // If the request carries the auth cookie, it MUST present at least one valid CSRF defense proof:
         //    a) Trusted Origin
         //    b) Trusted Referer
         //    c) Custom Header (X-Requested-With: XMLHttpRequest or X-NexusHRM-CSRF: 1)
         //    d) Bearer Authorization token (Machine-to-Machine API clients)
+        boolean hasAuthCookie = false;
+        jakarta.servlet.http.Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (jakarta.servlet.http.Cookie c : cookies) {
+                if (JwtAuthenticationFilter.COOKIE_NAME.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
+                    hasAuthCookie = true;
+                    break;
+                }
+            }
+        }
+
         boolean hasTrustedOrigin = (origin != null && !origin.isBlank() && isOriginAllowed(origin.trim(), request));
         boolean hasTrustedReferer = (refererOrigin != null && isOriginAllowed(refererOrigin, request));
         boolean hasCustomHeader = "XMLHttpRequest".equalsIgnoreCase(xRequestedWith)
                 || "1".equals(request.getHeader("X-NexusHRM-CSRF"));
         boolean hasBearerAuth = authHeader != null && authHeader.regionMatches(true, 0, "Bearer ", 0, 7);
 
-        if (!hasTrustedOrigin && !hasTrustedReferer && !hasCustomHeader && !hasBearerAuth) {
+        if (hasAuthCookie && !hasTrustedOrigin && !hasTrustedReferer && !hasCustomHeader && !hasBearerAuth) {
             rejectCsrf(response, "Yêu cầu bị từ chối do thiếu bằng chứng xác thực CSRF hợp lệ (Origin, Referer, hoặc X-Requested-With).");
             return;
         }
