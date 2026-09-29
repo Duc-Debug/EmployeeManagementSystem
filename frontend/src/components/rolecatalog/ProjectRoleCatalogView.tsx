@@ -20,6 +20,7 @@ import {
   Check,
 } from "lucide-react";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import {
   getProjectRoles,
   createProjectRole,
@@ -40,8 +41,7 @@ import { ApiError } from "@/lib/api-client";
  */
 export function canReadProjectRoles(userRoleCode?: string | null): boolean {
   if (!userRoleCode) return false;
-  const normalized = userRoleCode.toUpperCase().replace(/_/g, "-");
-  return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+  return normalizeRoleCode(userRoleCode) !== null;
 }
 
 /**
@@ -51,8 +51,7 @@ export function canReadProjectRoles(userRoleCode?: string | null): boolean {
  */
 export function canManageProjectRoles(userRoleCode?: string | null): boolean {
   if (!userRoleCode) return false;
-  const normalized = userRoleCode.toUpperCase().replace(/_/g, "-");
-  return normalized === "VT-06" || normalized === "ROLE-ADMIN" || normalized === "ADMIN";
+  return normalizeRoleCode(userRoleCode) === "VT-06";
 }
 
 export default function ProjectRoleCatalogView() {

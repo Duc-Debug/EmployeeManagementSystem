@@ -1,6 +1,7 @@
 /**
  * Helper logic and validation policies for Scenario Comparison (NCL-08-CN-004 / QTN-14)
  */
+import { normalizeRoleCode } from "./role-utils";
 
 export interface ScenarioComparisonItem {
   scenarioId: number;
@@ -61,12 +62,7 @@ export function validateScenarioSelection(scenarioIds: unknown) {
 }
 
 export function canUserCompareScenarios(roleCode?: string | null, permissions: string[] = []): boolean {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const isVT01 =
-    normalized === "VT-01" ||
-    normalized === "ROLE-BGD" ||
-    normalized === "BGD" ||
-    normalized === "DIRECTOR";
+  const isVT01 = normalizeRoleCode(roleCode) === "VT-01";
   return isVT01 || permissions.includes("RESOURCE_SCENARIO_COMPARE");
 }
 

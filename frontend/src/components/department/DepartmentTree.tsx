@@ -22,6 +22,7 @@ import {
     Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import {
     getOrgTree,
     createOrgUnit,
@@ -1227,13 +1228,11 @@ function DepartmentTreeModal({ modal, tree, users, onClose, onSave }: Department
     }, [tree, modal]);
 
     const managerOptions = useMemo(() => {
-        const managerRoles = new Set(["VT-01", "VT-02", "VT-03", "VT-05", "VT-06", "ROLE_ADMIN", "ADMIN", "DIRECTOR", "MANAGER", "LEADER", "HR_MANAGER"]);
-
         // 1. Lọc theo role quản lý (loại bỏ VT-04 / nhân viên thường)
         let eligible = users.filter((u) => {
-            const r = (u.roleCode || "").toUpperCase();
-            if (r === "VT-04") return false;
-            return managerRoles.has(r) || !r.startsWith("VT-");
+            const canonical = normalizeRoleCode(u.roleCode);
+            if (canonical === "VT-04") return false;
+            return canonical !== null || !u.roleCode?.toUpperCase().startsWith("VT-");
         });
 
         // 2. Nếu ở trong nhánh cụ thể (không phải toàn công ty), ưu tiên lọc người thuộc nhánh

@@ -27,12 +27,13 @@ import {
 import CapacitySummaryCard from "./CapacitySummaryCard";
 import DeclareAvailabilityModal from "./DeclareAvailabilityModal";
 import { ROLE_DEFAULT_PERMISSIONS } from "../access/access.constants";
+import { normalizeRoleCode } from "@/lib/role-utils";
 
 export default function WeeklyAvailabilityView() {
   const currentUser = useAuthUser();
-  const roleCode = currentUser?.roleCode?.toUpperCase().replace(/_/g, "-") || "";
+  const roleCode = normalizeRoleCode(currentUser?.roleCode);
   const canDeclare =
-    ["VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(roleCode) ||
+    ["VT-05", "VT-06"].includes(roleCode) ||
     ROLE_DEFAULT_PERMISSIONS[roleCode]?.availability?.actions?.create === true ||
     currentUser?.roleName === "Nhân sự" ||
     currentUser?.roleName === "Quản trị viên";
@@ -142,14 +143,12 @@ export default function WeeklyAvailabilityView() {
         if (empRes.status === "fulfilled" && empRes.value?.content) {
           const nonAdminEmps = empRes.value.content.filter((e) => {
             const u = (e.userId && userMap.get(e.userId)) || userMap.get(e.id);
-            const role = (u?.roleCode || "").toUpperCase().replace(/_/g, "-");
+            const role = normalizeRoleCode(u?.roleCode);
             const roleName = (u?.roleName || e.professionalRole || "").toLowerCase();
             const username = (u?.username || "").toLowerCase();
             const fullName = (e.fullName || u?.fullName || "").toLowerCase();
             if (
               role === "VT-06" ||
-              role === "ROLE-ADMIN" ||
-              role === "ADMIN" ||
               username === "admin" ||
               username.includes("admin") ||
               roleName.includes("quản trị") ||

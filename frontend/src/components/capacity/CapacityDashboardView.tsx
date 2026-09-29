@@ -22,6 +22,7 @@ import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
 import { getCurrentIsoWeek, getIsoWeekDateRange } from "../availability/availability.types";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import { cn } from "@/lib/utils";
 
 interface CapacityDashboardViewProps {
@@ -105,22 +106,21 @@ export default function CapacityDashboardView({ onNavigate }: CapacityDashboardV
         }
     };
 
-    const userRole = (user?.roleCode || "").toUpperCase();
-    const normalizedRole = userRole.replace(/^(ROLE_|ROLE-)/, "").replace(/_/g, "-");
-    const isVT06 = normalizedRole === "VT-06" || normalizedRole === "VT06";
+    const normalizedRole = normalizeRoleCode(user?.roleCode);
+    const isVT06 = normalizedRole === "VT-06";
 
     const canAccessCapacity = Boolean(
         user?.permissions?.includes("RESOURCE_ALLOCATION_READ") ||
-        ["VT-01", "VT-02", "VT-03", "VT01", "VT02", "VT03"].includes(normalizedRole)
+        ["VT-01", "VT-02", "VT-03"].includes(normalizedRole)
     ) && !isVT06;
 
     const canAccessProject = Boolean(
-        ["VT-01", "VT-02", "VT-03", "VT-04", "VT01", "VT02", "VT03", "VT04"].includes(normalizedRole)
+        ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalizedRole)
     ) && !isVT06;
 
     const canAccessConflict = Boolean(
         user?.permissions?.includes("RESOURCE_SCHEDULE_CONFLICT_READ") ||
-        ["VT-02", "VT-03", "VT-06", "VT02", "VT03", "VT06", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole)
+        ["VT-02", "VT-03", "VT-06"].includes(normalizedRole)
     );
 
     // Calculate metrics

@@ -6,6 +6,7 @@ import com.hrm.employeemanagement.domain.backup.Backup;
 import com.hrm.employeemanagement.domain.backup.BackupStatus;
 import com.hrm.employeemanagement.domain.backup.BackupType;
 import com.hrm.employeemanagement.domain.backup.exception.BackupAccessDeniedException;
+import com.hrm.employeemanagement.domain.role.RoleCode;
 import com.hrm.employeemanagement.domain.user.User;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
 import com.hrm.employeemanagement.infrastructure.security.UserPrincipal;
@@ -66,10 +67,7 @@ public class BackupController {
             info.id = user.getIdValue();
             info.email = (user.getEmail() != null && !user.getEmail().isBlank()) ? user.getEmail() : user.getUsername();
             info.name = (user.getUsername() != null && !user.getUsername().isBlank()) ? user.getUsername() : user.getEmail();
-            String roleCode = user.getRole() != null && user.getRole().getCode() != null ? user.getRole().getCode().getCode() : "";
-            isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
-                    || "ROLE_ADMIN".equalsIgnoreCase(roleCode)
-                    || "ADMIN".equalsIgnoreCase(roleCode);
+            isAdminRole = user.getRole() != null && user.getRole().getCode() == RoleCode.VT_06;
         } else if (principal instanceof UserPrincipal up) {
             info.id = up.getId();
             User du = up.getDomainUser();
@@ -79,20 +77,14 @@ public class BackupController {
             info.name = (du != null && du.getUsername() != null && !du.getUsername().isBlank())
                     ? du.getUsername()
                     : up.getUsername();
-            String roleCode = du != null && du.getRole() != null && du.getRole().getCode() != null
-                    ? du.getRole().getCode().getCode() : "";
-            isAdminRole = "VT-06".equalsIgnoreCase(roleCode)
-                    || "ROLE_ADMIN".equalsIgnoreCase(roleCode)
-                    || "ADMIN".equalsIgnoreCase(roleCode)
+            isAdminRole = (du != null && du.getRole() != null && du.getRole().getCode() == RoleCode.VT_06)
                     || hasAuthority(auth, "VT-06")
-                    || hasAuthority(auth, "ROLE_ADMIN")
-                    || hasAuthority(auth, "ADMIN");
+                    || hasAuthority(auth, "ROLE_ADMIN");
         } else {
             info.email = auth.getName();
             info.name = auth.getName();
             isAdminRole = hasAuthority(auth, "VT-06")
-                    || hasAuthority(auth, "ROLE_ADMIN")
-                    || hasAuthority(auth, "ADMIN");
+                    || hasAuthority(auth, "ROLE_ADMIN");
         }
 
         if (info.name == null || info.name.isBlank()) {

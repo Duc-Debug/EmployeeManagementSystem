@@ -23,6 +23,7 @@ import {
     Database,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
 
@@ -108,7 +109,7 @@ export function canAccessTab(
     permissions?: readonly string[] | null
 ): boolean {
     if (!roleCode && !dataScope && !permissions) return false;
-    const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+    const normalized = normalizeRoleCode(roleCode) || (roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "");
 
     switch (tabId) {
         case "overview":
@@ -119,33 +120,33 @@ export function canAccessTab(
         case "billable-report":
         case "billable-hours":
             // NCL-10-CN-002: Báo cáo tỷ lệ giờ tính phí: Ban giám đốc VT-01 (Admin VT-06 bị ẩn theo đặc tả)
-            if (["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-06") return false;
             return permissions?.includes("BILLABLE_HOURS_REPORT_READ") === true || normalized === "VT-01";
 
         case "capacity-forecast":
         case "forecast":
             // NCL-10-CN-004: Báo cáo dự báo năng lực các tuần tới: Ban giám đốc (VT-01) và Quản lý nguồn lực (VT-03)
-            if (["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-06") return false;
             return permissions?.includes("CAPACITY_FORECAST_REPORT_READ") === true ||
                 ["VT-01", "VT-03"].includes(normalized);
 
         case "timesheet-variance":
         case "variance-report":
             // NCL-09-CN-004: Báo cáo đối chiếu giờ công (Ban giám đốc VT-01, Quản lý nguồn lực VT-03)
-            if (["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-06") return false;
             return permissions?.includes("TIMESHEET_VARIANCE_READ") === true ||
                 ["VT-01", "VT-03"].includes(normalized);
 
         case "recruitment-demand":
         case "recruitment":
             // NCL-10-CN-005: Báo cáo nhu cầu tuyển dụng theo kỹ năng: Ban Giám Đốc VT-01 (Admin VT-06 bị ẩn)
-            if (["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-06") return false;
             return permissions?.includes("RECRUITMENT_DEMAND_REPORT_READ") === true || normalized === "VT-01";
 
         case "capacity-dashboard":
         case "dashboard-capacity":
             // NCL-10-CN-001: Bảng điều khiển năng lực: VT-01, VT-02, VT-03. Admin VT-06 bị ẩn theo đặc tả
-            if (["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-06") return false;
             return permissions?.includes("CAPACITY_DASHBOARD_READ") === true || ["VT-01", "VT-02", "VT-03"].includes(normalized);
 
         case "capacity":
@@ -157,7 +158,7 @@ export function canAccessTab(
         case "simulation-scenario":
         case "scenarios":
             // NCL-08: Mô phỏng kịch bản chỉ dành cho VT-01 (so sánh) và VT-03 (tạo & chạy)
-            if (["VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-05" || normalized === "VT-06") return false;
             return ["VT-01", "VT-03"].includes(normalized) ||
                 permissions?.includes("RESOURCE_SCENARIO_MANAGE") === true ||
                 permissions?.includes("RESOURCE_SCENARIO_READ") === true ||
@@ -178,19 +179,19 @@ export function canAccessTab(
         case "projects":
             // Quản lý dự án: VT-01 (Xem toàn bộ), VT-02 (Dự án của mình), VT-03 (Nhu cầu nhân sự), VT-04 (Dự án được giao).
             // HR (VT-05) & Admin (VT-06) bị ẩn theo quy tắc vai trò.
-            if (["VT-05", "VT-06", "ROLE-HR", "HR", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-05" || normalized === "VT-06") return false;
             return ["VT-01", "VT-02", "VT-03", "VT-04"].includes(normalized);
 
         case "my-schedule":
         case "my-allocations":
             // NCL-13-CN-001: Lịch phân bổ tuần của tôi: Dành riêng cho Nhân viên chuyên môn (VT-04)
-            return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
+            return normalized === "VT-04";
 
         case "attendance":
         case "timesheets":
             // Chấm công & Giờ làm: CHỈ hiển thị khi có quyền ghi (VT-04 NV) hoặc duyệt (VT-02 PM).
             // Tuyệt đối ẩn với Admin VT-06, Executive VT-01, HR VT-05, RM VT-03.
-            if (["VT-01", "VT-03", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) {
+            if (["VT-01", "VT-03", "VT-05", "VT-06"].includes(normalized)) {
                 return false;
             }
             return Boolean(
@@ -202,13 +203,13 @@ export function canAccessTab(
         case "leave":
         case "leave-requests":
             // Đơn nghỉ phép: VT-01, VT-02, VT-03, VT-04, VT-05 có quyền; Admin (VT-06) bị ẩn vì không thuộc nghiệp vụ vận hành
-            if (["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)) return false;
+            if (normalized === "VT-06") return false;
             return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05"].includes(normalized);
 
         case "workload":
         case "upcoming-workload":
             // NCL-13-CN-004: Xem khối lượng công việc 8 tuần tới (Dành riêng cho Nhân viên chuyên môn VT-04)
-            return ["VT-04", "ROLE-VT-04", "SPECIALIST"].includes(normalized);
+            return normalized === "VT-04";
 
         case "availability":
         case "weekly-availability":
@@ -229,7 +230,7 @@ export function canAccessTab(
         case "employees":
             // Hồ sơ nhân sự (NCL-02): Dành riêng cho VT-05 (HR), VT-01 (Ban Giám Đốc), VT-06 (Admin).
             // PM (VT-02), RM (VT-03), NV (VT-04) bị ẩn vì không thuộc nghiệp vụ hành chính nhân sự.
-            return ["VT-01", "VT-05", "VT-06", "ROLE-HR", "HR", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            return ["VT-01", "VT-05", "VT-06"].includes(normalized);
 
         case "departments":
         case "organization":
@@ -243,25 +244,25 @@ export function canAccessTab(
         case "access":
         case "users":
             // Quản lý tài khoản & Phân quyền: Dành riêng cho Quản trị viên (VT-06)
-            return normalized === "VT-06" || normalized === "ROLE-ADMIN" || normalized === "ADMIN" ||
+            return normalized === "VT-06" ||
                 permissions?.includes("USER_READ") === true;
 
         case "roles":
         case "project-roles":
             // Danh mục vai trò chuyên môn (NCL-12-CN-001): VT-01 -> VT-06 đều có quyền xem
-            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+            return ["VT-01", "VT-02", "VT-03", "VT-04", "VT-05", "VT-06"].includes(normalized);
 
         case "data-import":
         case "employee-import":
             // NCL-12-CN-004: Nhập dữ liệu nhân sự từ tệp (Quản trị viên VT-06 hoặc quyền DATA_IMPORT)
             return permissions?.includes("DATA_IMPORT") === true ||
-                ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized);
+                normalized === "VT-06";
 
         case "backup":
         case "data-backup":
         case "backup-restore":
             // Epic NCL-12-CN-003: Sao lưu và phục hồi dữ liệu (Dành riêng cho Quản trị viên VT-06 có quyền DATA_BACKUP_MANAGE)
-            return ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized) &&
+            return normalized === "VT-06" &&
                 (permissions?.includes("DATA_BACKUP_MANAGE") === true || !permissions);
 
         case "project-allocation-report":
