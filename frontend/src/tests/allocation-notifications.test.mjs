@@ -58,7 +58,7 @@ test("API Query: Tạo URL truy vấn phân trang và lọc dự án chính xác
   );
 });
 
-test("Hiển thị chuỗi tuần liên tiếp: Đơn tuần và đa tuần (BR-04, TC-02)", () => {
+test("Hiển thị chuỗi tuần liên tiếp: Đơn tuần và đa tuần", () => {
   assert.equal(formatConsecutiveWeekRange(2026, 38, 2026, 38), "tuần 38/2026");
   assert.equal(
     formatConsecutiveWeekRange(2026, 38, 2026, 42),
