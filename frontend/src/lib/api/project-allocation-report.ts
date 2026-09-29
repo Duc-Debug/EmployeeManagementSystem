@@ -137,6 +137,7 @@ export async function downloadProjectAllocationReport(
   const baseUrl = "/api/v1";
 
   const response = await fetch(`${baseUrl}${url}`, {
+    credentials: "include",
     method: "GET",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

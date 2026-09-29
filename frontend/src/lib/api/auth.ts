@@ -151,9 +151,17 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<stri
   return "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.";
 }
 
-export function logout(): void {
-  clearAuthSession();
-  if (typeof window !== "undefined") {
-    window.location.href = "/login";
+export async function logout(): Promise<void> {
+  try {
+    await apiRequest<void>("/auth/logout", {
+      method: "POST",
+    });
+  } catch {
+    // Ignore network error on logout to allow local session clearing
+  } finally {
+    clearAuthSession();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
   }
 }

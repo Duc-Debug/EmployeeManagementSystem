@@ -51,7 +51,10 @@ export async function downloadRecruitmentDemandReport(params: {
   const query = new URLSearchParams({ fromYear: String(params.fromYear), fromWeek: String(params.fromWeek), toYear: String(params.toYear), toWeek: String(params.toWeek) });
   if (params.orgUnitId !== undefined) query.set("orgUnitId", String(params.orgUnitId));
   const token = getAuthToken();
-  const response = await fetch(`${API_BASE_URL}/reports/recruitment-demand/export?${query}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const response = await fetch(`${API_BASE_URL}/reports/recruitment-demand/export?${query}`, {
+    credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (!response.ok) throw new ApiError(`Xuất báo cáo thất bại (${response.status})`, response.status);
   const blob = await response.blob();
   const filename = /filename="?([^";]+)"?/i.exec(response.headers.get("Content-Disposition") || "")?.[1] || "recruitment-demand.csv";

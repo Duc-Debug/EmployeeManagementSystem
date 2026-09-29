@@ -180,6 +180,7 @@ export async function exportProjectAllocationExcel(
   }
 
   const response = await fetch(url, {
+    credentials: "include",
     method: "GET",
     headers,
   });

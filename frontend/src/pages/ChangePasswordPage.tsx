@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, ArrowRight, LogOut } from "lucide-react";
-import { changePassword } from "@/lib/api/auth";
-import { useAuthUser, setStoredUser, clearAuthSession } from "@/lib/auth-session";
+import { changePassword, logout } from "@/lib/api/auth";
+import { useAuthUser, setStoredUser } from "@/lib/auth-session";
 import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 export default function ChangePasswordPage() {
@@ -69,12 +69,8 @@ export default function ChangePasswordPage() {
         }
     };
 
-    const handleLogout = () => {
-        clearAuthSession();
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("token");
-        localStorage.removeItem("currentUser");
-        sessionStorage.clear();
+    const handleLogout = async () => {
+        await logout();
         navigate("/login", { replace: true });
     };
 

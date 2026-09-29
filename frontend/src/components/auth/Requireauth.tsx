@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { clearAuthSession, getAuthToken, getStoredUser } from "@/lib/auth-session";
+import { clearAuthSession, getStoredUser, setStoredUser, type AuthUser } from "@/lib/auth-session";
+import { getCurrentUser } from "@/lib/api/auth";
+import PageLoading from "@/components/common/PageLoading";
 
 interface RequireAuthProps {
     children: ReactNode;
@@ -9,13 +12,31 @@ interface RequireAuthProps {
 
 export default function RequireAuth({ children, allowPasswordChangeOnly = false }: RequireAuthProps) {
     const location = useLocation();
-    const token = getAuthToken();
-    const user = getStoredUser();
+    const storedUser = getStoredUser();
+    const [user, setUser] = useState<AuthUser | null>(storedUser);
+    const [loading, setLoading] = useState<boolean>(!storedUser);
 
-    if (!token || token === "undefined" || token === "null" || token.trim() === "" || !user) {
-        if (token || user) {
-            clearAuthSession();
+    useEffect(() => {
+        if (!user) {
+            getCurrentUser()
+                .then((fetchedUser) => {
+                    setUser(fetchedUser);
+                    setStoredUser(fetchedUser);
+                    setLoading(false);
+                })
+                .catch(() => {
+                    clearAuthSession();
+                    setUser(null);
+                    setLoading(false);
+                });
         }
+    }, [user]);
+
+    if (loading) {
+        return <PageLoading />;
+    }
+
+    if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 

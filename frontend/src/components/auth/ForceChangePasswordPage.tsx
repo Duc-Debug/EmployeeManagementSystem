@@ -48,8 +48,6 @@ export default function ForceChangePasswordPage() {
 
   const handleLogout = () => {
     clearAuthSession();
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("currentUser");
     navigate("/login", { replace: true });
   };
 
@@ -84,8 +82,6 @@ export default function ForceChangePasswordPage() {
       setSuccess(true);
       // Clean old session since backend invalidates session version
       clearAuthSession();
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("currentUser");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Đổi mật khẩu thất bại. Vui lòng thử lại.";
       setError(msg);

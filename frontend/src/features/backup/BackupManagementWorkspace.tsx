@@ -145,6 +145,7 @@ export function BackupManagementWorkspace() {
     anchor.download = backup.fileName;
 
     fetch(url, {
+      credentials: "include",
       headers: {
         Authorization: token ? `Bearer ${token}` : "",
       },

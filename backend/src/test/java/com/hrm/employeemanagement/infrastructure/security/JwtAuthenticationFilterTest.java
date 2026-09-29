@@ -85,6 +85,28 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("Token hợp lệ gửi qua Cookie: thiết lập SecurityContext thành công")
+    void testDoFilter_ValidToken_FromCookie() throws Exception {
+        String token = "valid.jwt.cookie.token";
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("accessToken", token);
+        when(request.getCookies()).thenReturn(new jakarta.servlet.http.Cookie[]{cookie});
+        when(tokenBlacklistPort.isBlacklisted(token)).thenReturn(false);
+        when(tokenProvider.validateToken(token)).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken(token)).thenReturn("admin");
+        when(tokenProvider.getTokenVersionFromToken(token)).thenReturn(1);
+
+        Role role = new Role(new RoleId(1L), RoleCode.VT_06, "Admin");
+        User user = new User(new UserId(1L), "admin", "hash", role, UserStatus.ACTIVE, new EmployeeId(1L), "admin@example.com", java.time.Instant.now(), 1L);
+        when(loadUserPort.findByUsername("admin")).thenReturn(Optional.of(user));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertEquals("admin", ((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUsername());
+        verify(filterChain, times(1)).doFilter(request, response);
+    }
+
+    @Test
     @DisplayName("Token hợp lệ nhưng user chưa đổi mật khẩu (passwordChangedAt == null): chặn API thường với 403 PASSWORD_CHANGE_REQUIRED")
     void testDoFilter_PasswordChangeRequired_BlocksNormalApi() throws Exception {
         String token = "valid.jwt.token";

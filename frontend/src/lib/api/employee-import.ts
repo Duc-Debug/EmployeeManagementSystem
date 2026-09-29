@@ -79,6 +79,7 @@ export async function downloadEmployeeTemplate(format: "xlsx" = "xlsx"): Promise
   }
 
   const response = await fetch(url, {
+    credentials: "include",
     method: "GET",
     headers,
   });

@@ -53,6 +53,7 @@ export async function apiRequest<T = unknown>(
 
   try {
     const response = await fetch(url, {
+      credentials: "include",
       ...options,
       headers,
     });

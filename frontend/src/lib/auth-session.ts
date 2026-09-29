@@ -21,12 +21,11 @@ export interface AuthUser {
   requiresPasswordChange?: boolean;
 }
 
-const TOKEN_KEY = "nexushrm_auth_token";
-const USER_KEY = "nexushrm_auth_user";
+const SESSION_USER_KEY = "nexushrm_session_user";
 
 const listeners = new Set<() => void>();
 
-let cachedUserRaw: string | null = null;
+let inMemoryToken: string | null = null;
 let cachedUserSnapshot: AuthUser | null = null;
 
 function notify() {
@@ -39,36 +38,33 @@ export function subscribeAuth(callback: () => void) {
 }
 
 export function getAuthToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("accessToken");
+  return inMemoryToken;
 }
 
 export function setAuthToken(token: string): void {
-  if (typeof window === "undefined") {
-    return;
+  inMemoryToken = token;
+  if (typeof window !== "undefined") {
+    // Purge tokens from localStorage to prevent XSS exfiltration
+    localStorage.removeItem("nexushrm_auth_token");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("token");
   }
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem("accessToken", token);
   notify();
 }
 
 export function getStoredUser(): AuthUser | null {
+  if (cachedUserSnapshot !== null) {
+    return cachedUserSnapshot;
+  }
   if (typeof window === "undefined") {
     return null;
   }
-  const raw = localStorage.getItem(USER_KEY) || localStorage.getItem("currentUser");
+  const raw = sessionStorage.getItem(SESSION_USER_KEY) || localStorage.getItem("nexushrm_auth_user") || localStorage.getItem("currentUser");
   if (!raw) {
-    cachedUserRaw = null;
     cachedUserSnapshot = null;
     return null;
   }
-  if (raw === cachedUserRaw && cachedUserSnapshot !== null) {
-    return cachedUserSnapshot;
-  }
   try {
-    cachedUserRaw = raw;
     const parsed = JSON.parse(raw) as AuthUser;
     if (parsed && parsed.roleCode) {
       const canonical = normalizeRoleCode(parsed.roleCode);
@@ -77,43 +73,47 @@ export function getStoredUser(): AuthUser | null {
       }
     }
     cachedUserSnapshot = parsed;
+    // Migrate to sessionStorage if it was in localStorage
+    sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(cachedUserSnapshot));
+    localStorage.removeItem("nexushrm_auth_user");
+    localStorage.removeItem("currentUser");
     return cachedUserSnapshot;
   } catch {
-    cachedUserRaw = null;
     cachedUserSnapshot = null;
     return null;
   }
 }
 
 export function setStoredUser(user: AuthUser): void {
-  if (typeof window === "undefined") {
-    return;
-  }
   const canonicalRole = normalizeRoleCode(user.roleCode) || user.roleCode;
   const canonicalUser: AuthUser = {
     ...user,
     roleCode: canonicalRole,
   };
   const serialized = JSON.stringify(canonicalUser);
-  cachedUserRaw = serialized;
   cachedUserSnapshot = canonicalUser;
-  localStorage.setItem(USER_KEY, serialized);
-  localStorage.setItem("currentUser", serialized);
+
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem(SESSION_USER_KEY, serialized);
+    localStorage.removeItem("nexushrm_auth_user");
+    localStorage.removeItem("currentUser");
+  }
   notify();
 }
 
 export function clearAuthSession(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  cachedUserRaw = null;
+  inMemoryToken = null;
   cachedUserSnapshot = null;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("token");
-  localStorage.removeItem("currentUser");
-  sessionStorage.clear();
+
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem(SESSION_USER_KEY);
+    sessionStorage.clear();
+    localStorage.removeItem("nexushrm_auth_token");
+    localStorage.removeItem("nexushrm_auth_user");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("currentUser");
+  }
   notify();
 }
 

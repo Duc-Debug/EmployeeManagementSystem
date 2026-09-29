@@ -23,13 +23,18 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Re
 import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.LoginRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
+import com.hrm.employeemanagement.infrastructure.security.JwtProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,6 +55,30 @@ public class AuthController {
     private final LoginRateLimiter loginRateLimiter;
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
     private final UserStatusCache userStatusCache;
+    private final JwtProperties jwtProperties;
+
+    @Autowired
+    public AuthController(AuthenticateUserUseCase authenticateUserUseCase,
+                          LogoutUseCase logoutUseCase,
+                          ChangePasswordUseCase changePasswordUseCase,
+                          RequestPasswordResetUseCase requestPasswordResetUseCase,
+                          ResetPasswordUseCase resetPasswordUseCase,
+                          GetCurrentUserProfileUseCase getCurrentUserProfileUseCase,
+                          LoginRateLimiter loginRateLimiter,
+                          ForgotPasswordRateLimiter forgotPasswordRateLimiter,
+                          UserStatusCache userStatusCache,
+                          @Autowired(required = false) JwtProperties jwtProperties) {
+        this.authenticateUserUseCase = authenticateUserUseCase;
+        this.logoutUseCase = logoutUseCase;
+        this.changePasswordUseCase = changePasswordUseCase;
+        this.requestPasswordResetUseCase = requestPasswordResetUseCase;
+        this.resetPasswordUseCase = resetPasswordUseCase;
+        this.getCurrentUserProfileUseCase = getCurrentUserProfileUseCase;
+        this.loginRateLimiter = loginRateLimiter;
+        this.forgotPasswordRateLimiter = forgotPasswordRateLimiter;
+        this.userStatusCache = userStatusCache;
+        this.jwtProperties = jwtProperties;
+    }
 
     public AuthController(AuthenticateUserUseCase authenticateUserUseCase,
                           LogoutUseCase logoutUseCase,
@@ -60,15 +89,9 @@ public class AuthController {
                           LoginRateLimiter loginRateLimiter,
                           ForgotPasswordRateLimiter forgotPasswordRateLimiter,
                           UserStatusCache userStatusCache) {
-        this.authenticateUserUseCase = authenticateUserUseCase;
-        this.logoutUseCase = logoutUseCase;
-        this.changePasswordUseCase = changePasswordUseCase;
-        this.requestPasswordResetUseCase = requestPasswordResetUseCase;
-        this.resetPasswordUseCase = resetPasswordUseCase;
-        this.getCurrentUserProfileUseCase = getCurrentUserProfileUseCase;
-        this.loginRateLimiter = loginRateLimiter;
-        this.forgotPasswordRateLimiter = forgotPasswordRateLimiter;
-        this.userStatusCache = userStatusCache;
+        this(authenticateUserUseCase, logoutUseCase, changePasswordUseCase,
+                requestPasswordResetUseCase, resetPasswordUseCase, getCurrentUserProfileUseCase,
+                loginRateLimiter, forgotPasswordRateLimiter, userStatusCache, null);
     }
 
     @GetMapping("/me")
@@ -101,9 +124,21 @@ public class AuthController {
             AuthTokenResult result = authenticateUserUseCase.login(command);
             loginRateLimiter.recordSuccessfulLogin(rateLimitKey);
 
-            return ResponseEntity.ok(
-                    ApiResponse.success("Đăng nhập thành công", result)
-            );
+            long maxAge = (jwtProperties != null && jwtProperties.expirationMs() > 0)
+                    ? jwtProperties.expirationMs() / 1000
+                    : 86400L;
+
+            ResponseCookie cookie = ResponseCookie.from("accessToken", result.getToken())
+                    .httpOnly(true)
+                    .secure(false)
+                    .sameSite("Lax")
+                    .path("/")
+                    .maxAge(maxAge)
+                    .build();
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                    .body(ApiResponse.success("Đăng nhập thành công", result));
         } catch (InvalidCredentialsException ex) {
             loginRateLimiter.recordFailedAttempt(rateLimitKey);
             throw ex;
@@ -113,24 +148,43 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest httpRequest,
                                                       @RequestParam(value = "allDevices", required = false, defaultValue = "false") boolean allDevices) {
+        String token = null;
         String authHeader = httpRequest != null ? httpRequest.getHeader("Authorization") : null;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7).trim();
-            if (!token.isBlank()) {
-                if (logoutUseCase != null) {
-                    logoutUseCase.logout(new LogoutCommand(token, allDevices));
-                }
-
-                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                if (auth != null && auth.getPrincipal() instanceof User user && userStatusCache != null) {
-                    userStatusCache.evict(user.getUsername());
+            token = authHeader.substring(7).trim();
+        } else if (httpRequest != null && httpRequest.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie c : httpRequest.getCookies()) {
+                if ("accessToken".equals(c.getName()) || "nexushrm_auth_token".equals(c.getName())) {
+                    if (StringUtils.hasText(c.getValue())) {
+                        token = c.getValue().trim();
+                        break;
+                    }
                 }
             }
         }
 
-        return ResponseEntity.ok(
-                ApiResponse.success(allDevices ? "Đăng xuất khỏi tất cả thiết bị thành công" : "Đăng xuất thành công", null)
-        );
+        if (token != null && !token.isBlank()) {
+            if (logoutUseCase != null) {
+                logoutUseCase.logout(new LogoutCommand(token, allDevices));
+            }
+
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof User user && userStatusCache != null) {
+                userStatusCache.evict(user.getUsername());
+            }
+        }
+
+        ResponseCookie cleanCookie = ResponseCookie.from("accessToken", "")
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
+                .body(ApiResponse.success(allDevices ? "Đăng xuất khỏi tất cả thiết bị thành công" : "Đăng xuất thành công", null));
     }
 
     @PostMapping("/change-password")
