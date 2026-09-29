@@ -555,10 +555,22 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
                           )}
                         </td>
                         <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                          {row.employeeCode || <span className="text-rose-400 italic">Trống</span>}
+                          {row.employeeCode ? (
+                            <span>{row.employeeCode}</span>
+                          ) : !row.valid && row.errors?.some((e) => e.toLowerCase().includes("mã")) ? (
+                            <span className="text-rose-600 font-semibold italic">Trống</span>
+                          ) : (
+                            <span className="text-slate-400 italic">--</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 font-medium text-slate-800">
-                          {row.fullName || <span className="text-rose-400 italic">Trống</span>}
+                          {row.fullName ? (
+                            <span>{row.fullName}</span>
+                          ) : !row.valid && row.errors?.some((e) => e.toLowerCase().includes("tên")) ? (
+                            <span className="text-rose-600 font-medium italic">Trống</span>
+                          ) : (
+                            <span className="text-slate-400 italic">--</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-slate-600 font-mono">
                           {row.username || <span className="text-slate-400 italic">--</span>}
@@ -569,8 +581,13 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
                         <td className="py-3 px-4 text-slate-700">
                           {row.resolvedOrgUnitName ? (
                             <span className="font-medium text-slate-800">{row.resolvedOrgUnitName}</span>
-                          ) : (
+                          ) : !row.valid && (!row.orgUnitIdentifier || row.errors?.some((e) => {
+                              const l = e.toLowerCase();
+                              return l.includes("đơn vị") || l.includes("phòng ban") || l.includes("tổ chức") || l.includes("org");
+                            })) ? (
                             <span className="text-rose-600 font-medium">{row.orgUnitIdentifier || "Trống"}</span>
+                          ) : (
+                            <span className="font-medium text-slate-800">{row.orgUnitIdentifier || "--"}</span>
                           )}
                         </td>
                         <td className="py-3 px-4 font-mono text-slate-600">
