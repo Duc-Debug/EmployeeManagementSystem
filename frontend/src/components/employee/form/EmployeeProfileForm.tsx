@@ -22,7 +22,7 @@ import {
     DATA_SCOPE_OPTIONS,
     DEFAULT_FORM_VALUES,
 } from "./employeeForm.constants";
-import { validatePassword, PASSWORD_POLICY_MESSAGE } from "../../../lib/password-policy";
+import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import TaskSelect from "../../task/TaskSelect";
 
 interface EmployeeProfileFormProps {
@@ -160,7 +160,7 @@ export default function EmployeeProfileForm({
             setErrorMessage("Vui lòng nhập tên đăng nhập.");
             return;
         }
-        if (!isEdit && (!formData.password || !validatePassword(formData.password))) {
+        if (!isEdit && (!formData.password || !isValidPassword(formData.password))) {
             setErrorMessage(PASSWORD_POLICY_MESSAGE);
             return;
         }

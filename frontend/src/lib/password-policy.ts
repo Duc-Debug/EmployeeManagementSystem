@@ -4,3 +4,6 @@ export const PASSWORD_POLICY_MESSAGE = "Mật khẩu phải có tối thiểu 8 
 export function isValidPassword(password: string): boolean {
   return typeof password === "string" && PASSWORD_POLICY_REGEX.test(password);
 }
+
+export const validatePassword = isValidPassword;
+
