@@ -28,11 +28,6 @@ public record ErrorResponse(
         return new ErrorResponse(code, message, status, LocalDateTime.now(), details);
     }
 
-    @JsonProperty("error_code")
-    public String getErrorCodeSnake() {
-        return code != null ? code : errorCode;
-    }
-
     public boolean isSuccess() {
         return success;
     }

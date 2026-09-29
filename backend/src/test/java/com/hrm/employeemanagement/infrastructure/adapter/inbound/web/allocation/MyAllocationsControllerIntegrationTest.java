@@ -114,7 +114,7 @@ class MyAllocationsControllerIntegrationTest {
     void tc02_RejectInvalidQueryParameter() throws Exception {
         mockMvc.perform(get("/api/v1/my-allocations?user_id=123&weeks=2"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("INVALID_QUERY_PARAMETER"))
+                .andExpect(jsonPath("$.errorCode").value("INVALID_QUERY_PARAMETER"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value("Query parameter 'user_id' is not allowed"));
     }
@@ -125,7 +125,7 @@ class MyAllocationsControllerIntegrationTest {
         // weeks = abc -> HTTP 400 INVALID_WEEKS_FORMAT
         mockMvc.perform(get("/api/v1/my-allocations?weeks=abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("INVALID_WEEKS_FORMAT"))
+                .andExpect(jsonPath("$.errorCode").value("INVALID_WEEKS_FORMAT"))
                 .andExpect(jsonPath("$.status").value(400));
 
         // weeks = 99 -> Clamped to 8
@@ -329,13 +329,13 @@ class MyAllocationsControllerIntegrationTest {
     void tc10_InvalidDateFormat() throws Exception {
         mockMvc.perform(get("/api/v1/my-allocations?week_start=2026-13-45"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("INVALID_WEEK_FORMAT"))
+                .andExpect(jsonPath("$.errorCode").value("INVALID_WEEK_FORMAT"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value("Sai định dạng ngày: '2026-13-45'. Định dạng hợp lệ là YYYY-MM-DD"));
 
         mockMvc.perform(post("/api/v1/my-allocations/2026-13-45/confirm-viewed"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("INVALID_WEEK_FORMAT"))
+                .andExpect(jsonPath("$.errorCode").value("INVALID_WEEK_FORMAT"))
                 .andExpect(jsonPath("$.status").value(400));
     }
 
@@ -367,13 +367,13 @@ class MyAllocationsControllerIntegrationTest {
         // 2026-09-22 là Thứ Ba
         mockMvc.perform(get("/api/v1/my-allocations?week_start=2026-09-22"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("WEEK_START_NOT_MONDAY"))
+                .andExpect(jsonPath("$.errorCode").value("WEEK_START_NOT_MONDAY"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("week_start phải là ngày Thứ Hai (Monday)")));
 
         mockMvc.perform(post("/api/v1/my-allocations/2026-09-22/confirm-viewed"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("WEEK_START_NOT_MONDAY"))
+                .andExpect(jsonPath("$.errorCode").value("WEEK_START_NOT_MONDAY"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("week_start phải là ngày Thứ Hai (Monday)")));
     }
@@ -441,7 +441,7 @@ class MyAllocationsControllerIntegrationTest {
                         .contentType("application/json")
                         .content("{\"reason\": \"   \"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("INVALID_FEEDBACK_REASON"))
+                .andExpect(jsonPath("$.errorCode").value("INVALID_FEEDBACK_REASON"))
                 .andExpect(jsonPath("$.status").value(400));
     }
 
@@ -452,7 +452,7 @@ class MyAllocationsControllerIntegrationTest {
                         .contentType("application/json")
                         .content("{\"reason\": \"Phản hồi thứ ba\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_code").value("WEEK_START_NOT_MONDAY"))
+                .andExpect(jsonPath("$.errorCode").value("WEEK_START_NOT_MONDAY"))
                 .andExpect(jsonPath("$.status").value(400));
     }
 

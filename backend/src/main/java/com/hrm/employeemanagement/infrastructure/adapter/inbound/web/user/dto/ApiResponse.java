@@ -19,18 +19,18 @@ public class ApiResponse<T> {
     }
 
     public ApiResponse(boolean success, String message, T data) {
-        this(success, null, null, null, message, data, null);
+        this(success, success ? "SUCCESS" : "ERROR", success ? null : "ERROR", success ? 200 : 400, message, data, null);
     }
 
     public ApiResponse(boolean success, String errorCode, String message, T data) {
-        this(success, errorCode, errorCode, null, message, data, null);
+        this(success, success ? "SUCCESS" : errorCode, errorCode, success ? 200 : 400, message, data, null);
     }
 
     public ApiResponse(boolean success, String code, String errorCode, Integer status, String message, T data, Object details) {
         this.success = success;
-        this.code = code;
-        this.errorCode = errorCode != null ? errorCode : code;
-        this.status = status;
+        this.code = code != null ? code : (success ? "SUCCESS" : errorCode);
+        this.errorCode = errorCode != null ? errorCode : (success ? null : code);
+        this.status = status != null ? status : (success ? 200 : 400);
         this.message = message;
         this.data = data;
         this.details = details;
@@ -39,11 +39,15 @@ public class ApiResponse<T> {
 
     // Success Factories
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(true, null, "Thành công", data);
+        return new ApiResponse<>(true, "SUCCESS", null, 200, "Thành công", data, null);
     }
 
     public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(true, null, message, data);
+        return new ApiResponse<>(true, "SUCCESS", null, 200, message, data, null);
+    }
+
+    public static <T> ApiResponse<T> success(int status, String message, T data) {
+        return new ApiResponse<>(true, "SUCCESS", null, status, message, data, null);
     }
 
     // Error Factories
@@ -73,29 +77,38 @@ public class ApiResponse<T> {
     }
 
     public String getCode() {
-        return code != null ? code : errorCode;
+        if (code != null) {
+            return code;
+        }
+        return success ? "SUCCESS" : errorCode;
     }
 
     public void setCode(String code) {
         this.code = code;
-        if (this.errorCode == null) {
+        if (this.errorCode == null && !this.success) {
             this.errorCode = code;
         }
     }
 
     public String getErrorCode() {
+        if (success) {
+            return null;
+        }
         return errorCode != null ? errorCode : code;
     }
 
     public void setErrorCode(String errorCode) {
         this.errorCode = errorCode;
-        if (this.code == null) {
+        if (this.code == null && !this.success) {
             this.code = errorCode;
         }
     }
 
     public Integer getStatus() {
-        return status;
+        if (status != null) {
+            return status;
+        }
+        return success ? 200 : 400;
     }
 
     public void setStatus(Integer status) {
