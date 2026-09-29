@@ -86,7 +86,8 @@ export const TaskDueDetailModal: React.FC<TaskDueDetailModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            aria-label="Đóng hộp thoại"
+            className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
             title="Đóng"
           >
             <X className="h-5 w-5" />

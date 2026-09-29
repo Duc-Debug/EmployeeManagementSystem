@@ -204,6 +204,7 @@ export const MyWeeklySchedulePage: React.FC = () => {
               onClick={() => handleNavigateWeeks(-1)}
               className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần trước"
+              aria-label="Tuần trước"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -220,26 +221,31 @@ export const MyWeeklySchedulePage: React.FC = () => {
               onClick={() => handleNavigateWeeks(1)}
               className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
               title="Tuần kế tiếp"
+              aria-label="Tuần kế tiếp"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           {/* Date Picker */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-2.5 py-1 bg-white shadow-xs">
-            <span className="text-slate-500 font-medium">Chọn ngày:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 border border-slate-200 rounded-xl px-2.5 py-1 bg-white shadow-xs">
+            <label htmlFor="schedule-date-picker" className="text-slate-600 font-medium">Chọn ngày:</label>
             <input
+              id="schedule-date-picker"
               type="date"
               value={currentWeekStart}
               onChange={(e) => handleDateChange(e.target.value)}
               className="bg-transparent font-medium text-slate-800 outline-hidden cursor-pointer"
               title="Chọn ngày để chuyển đến tuần đó"
+              aria-label="Chọn ngày bắt đầu tuần"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 bg-white shadow-xs">
-            <span>Hiển thị:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 border border-slate-200 rounded-xl px-3 py-1.5 bg-white shadow-xs">
+            <label htmlFor="schedule-weeks-count" className="font-medium text-slate-600">Hiển thị:</label>
             <select
+              id="schedule-weeks-count"
+              aria-label="Số tuần hiển thị"
               value={weeksCount}
               onChange={(e) => setWeeksCount(Number(e.target.value))}
               className="bg-transparent font-semibold text-slate-800 outline-hidden cursor-pointer"
@@ -324,6 +330,7 @@ export const MyWeeklySchedulePage: React.FC = () => {
                 type="button"
                 onClick={handleCloseFeedback}
                 className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                aria-label="Đóng modal phản hồi"
               >
                 <X className="w-5 h-5" />
               </button>

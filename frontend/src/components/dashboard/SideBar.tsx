@@ -342,22 +342,24 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                             <button
                                 type="button"
                                 onClick={() => toggleGroup(group.id)}
+                                aria-expanded={isExpanded}
+                                aria-label={`Nhóm menu ${group.title}, ${isExpanded ? "đang mở" : "đang thu gọn"}`}
                                 className={cn(
-                                    "flex w-full items-center justify-between px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-colors group",
+                                    "flex w-full items-center justify-between px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-colors group cursor-pointer",
                                     hasActiveChild
-                                        ? "text-indigo-600 hover:bg-indigo-50/50"
-                                        : "text-slate-400 hover:text-slate-700 hover:bg-slate-100/60"
+                                        ? "text-indigo-700 hover:bg-indigo-50/50"
+                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
                                 )}
                             >
                                 <span className="whitespace-normal text-left leading-snug">{group.title}</span>
                                 <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-semibold text-slate-400 group-hover:text-slate-600">
+                                    <span className="text-[10px] font-semibold text-slate-500 group-hover:text-slate-700">
                                         ({group.items.length})
                                     </span>
                                     {isExpanded ? (
-                                        <ChevronDown className="h-3.5 w-3.5 text-slate-400 transition-transform duration-200" />
+                                        <ChevronDown className="h-3.5 w-3.5 text-slate-500 transition-transform duration-200" />
                                     ) : (
-                                        <ChevronRight className="h-3.5 w-3.5 text-slate-400 transition-transform duration-200" />
+                                        <ChevronRight className="h-3.5 w-3.5 text-slate-500 transition-transform duration-200" />
                                     )}
                                 </div>
                             </button>
@@ -374,14 +376,14 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
                                                 type="button"
                                                 onClick={() => setActiveTab(item.id)}
                                                 className={cn(
-                                                    "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all",
+                                                    "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all cursor-pointer",
                                                     isActive
                                                         ? "bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold shadow-xs translate-x-0.5"
-                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                                                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
                                                 )}
                                             >
                                                 <div className="flex min-w-0 items-center gap-2.5">
-                                                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-indigo-600" : "text-slate-400")} />
+                                                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-indigo-600" : "text-slate-500")} />
                                                     <span className="whitespace-normal break-words text-left text-[13px] leading-snug">{item.name}</span>
                                                 </div>
                                                 {isActive && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-indigo-600" />}
@@ -398,7 +400,7 @@ export default function SideBar({ activeTab, setActiveTab, isOpen }: SideBarProp
             {/* Bottom Support Box */}
             <div className="w-[214px] rounded-2xl border border-slate-200 bg-slate-50 p-3 mt-3 flex-none shadow-xs">
                 <p className="text-xs font-bold text-slate-800">Cần hỗ trợ?</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">Xem tài liệu & hướng dẫn sử dụng.</p>
+                <p className="mt-0.5 text-[11px] text-slate-600">Xem tài liệu & hướng dẫn sử dụng.</p>
                 <a
                     href="#"
                     onClick={(e) => e.preventDefault()}

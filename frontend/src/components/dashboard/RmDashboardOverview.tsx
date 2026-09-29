@@ -163,14 +163,14 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                             </span>
                         </div>
                         <div className="mt-1.5">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                                 Nhân sự Quản lý
                             </p>
                             <div className="mt-0.5 flex items-baseline gap-1">
                                 <span className="text-lg font-bold text-slate-900">{totalStaffCount}</span>
-                                <span className="text-[10px] text-slate-400">thành viên</span>
+                                <span className="text-[10px] text-slate-600">thành viên</span>
                             </div>
-                            <div className="mt-1 text-[10px] font-medium text-emerald-600">
+                            <div className="mt-1 text-[10px] font-medium text-emerald-700">
                                 Phạm vi nguồn lực bộ phận
                             </div>
                         </div>
@@ -186,19 +186,19 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
                             <TrendingUp className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-700 group-hover:translate-x-0.5 transition">
                             Ma trận <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Hiệu suất Tuần {currentIso.weekNumber}
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{avgUtilization}%</span>
-                            <span className="text-[10px] text-slate-400">công suất</span>
+                            <span className="text-[10px] text-slate-600">công suất</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium text-blue-600">
+                        <div className="mt-1 text-[10px] font-medium text-blue-700">
                             {avgUtilization >= 80 && avgUtilization <= 100 ? "Mức độ sử dụng tối ưu" : avgUtilization > 100 ? "Cần san tải công việc" : "Còn nhiều giờ trống"}
                         </div>
                     </div>
@@ -213,21 +213,21 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 border border-amber-100 text-amber-600">
                             <AlertTriangle className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 group-hover:translate-x-0.5 transition">
                             Chi tiết <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Cảnh báo Phân bổ
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-2">
-                            <span className={`text-lg font-bold ${overloadedCount > 0 ? "text-rose-600" : "text-slate-900"}`}>
-                                {overloadedCount} <span className="text-[10px] font-normal text-slate-500">quá tải</span>
+                            <span className={`text-lg font-bold ${overloadedCount > 0 ? "text-rose-700" : "text-slate-900"}`}>
+                                {overloadedCount} <span className="text-[10px] font-normal text-slate-600">quá tải</span>
                             </span>
-                            <span className="text-slate-300">|</span>
-                            <span className="text-lg font-bold text-amber-600">
-                                {underutilizedCount} <span className="text-[10px] font-normal text-slate-500">non tải</span>
+                            <span className="text-slate-400">|</span>
+                            <span className="text-lg font-bold text-amber-700">
+                                {underutilizedCount} <span className="text-[10px] font-normal text-slate-600">non tải</span>
                             </span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-amber-700">
@@ -245,19 +245,19 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 border border-purple-100 text-purple-600">
                             <CalendarRange className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-700 group-hover:translate-x-0.5 transition">
                             Chi tiết <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Giữ chỗ Nguồn lực (Tuần {currentIso.weekNumber})
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{activeReservationsCount}</span>
-                            <span className="text-[10px] text-slate-400">yêu cầu active</span>
+                            <span className="text-[10px] text-slate-600">yêu cầu active</span>
                         </div>
-                        <div className="mt-1 text-[10px] font-medium text-purple-600">
+                        <div className="mt-1 text-[10px] font-medium text-purple-700">
                             {reservations.length} lượt giữ chỗ trong tuần
                         </div>
                     </div>
@@ -283,7 +283,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Bảng Năng lực & Phân bổ</span>
-                            <p className="text-[9px] text-slate-400 truncate">Ma trận tải & Phân bổ</p>
+                            <p className="text-[9px] text-slate-600 truncate">Ma trận tải & Phân bổ</p>
                         </div>
                     </button>
 
@@ -297,7 +297,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Quản lý & Duyệt Kỹ năng</span>
-                            <p className="text-[9px] text-slate-400 truncate">Đánh giá & Duyệt Level</p>
+                            <p className="text-[9px] text-slate-600 truncate">Đánh giá & Duyệt Level</p>
                         </div>
                     </button>
 
@@ -311,7 +311,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Lịch Nghỉ Bộ phận</span>
-                            <p className="text-[9px] text-slate-400 truncate">Duyệt & Nắm lịch nghỉ</p>
+                            <p className="text-[9px] text-slate-600 truncate">Duyệt & Nắm lịch nghỉ</p>
                         </div>
                     </button>
 
@@ -325,7 +325,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         </div>
                         <div className="min-w-0">
                             <span className="block text-[11px] font-semibold text-slate-900 truncate">Giờ Khả dụng Nhân sự</span>
-                            <p className="text-[9px] text-slate-400 truncate">Giờ chuẩn trừ lễ/nghỉ</p>
+                            <p className="text-[9px] text-slate-600 truncate">Giờ chuẩn trừ lễ/nghỉ</p>
                         </div>
                     </button>
                 </div>
@@ -338,7 +338,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                             Giám sát Năng lực Nhân sự Tuần {currentIso.weekNumber}/{currentIso.year}
                         </h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-[11px] text-slate-600 mt-0.5">
                             Tỷ lệ sử dụng năng lực và số giờ đã phân bổ vào dự án
                         </p>
                     </div>
@@ -354,7 +354,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                 <div className="overflow-x-auto rounded-xl border border-slate-100">
                     <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                                 <th className="px-4 py-2.5">Nhân sự</th>
                                 <th className="px-4 py-2.5">Phòng ban</th>
                                 <th className="px-4 py-2.5">Vị trí</th>
@@ -368,7 +368,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                         <tbody className="divide-y divide-slate-100">
                             {rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
+                                    <td colSpan={8} className="py-8 text-center text-slate-600 text-xs">
                                         Chưa có dữ liệu năng lực nhân sự tuần này.
                                     </td>
                                 </tr>
@@ -390,7 +390,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="font-semibold text-slate-900 truncate">{r.fullName}</p>
-                                                        <p className="text-[10px] text-slate-400 font-mono">{r.employeeCode}</p>
+                                                        <p className="text-[10px] text-slate-600 font-mono">{r.employeeCode}</p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -489,7 +489,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">1</span>
                                 <h4 className="text-xs font-bold text-slate-900">Giám sát Khả dụng & Lịch nghỉ</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Kiểm tra số giờ khả dụng thực tế của từng nhân viên (đã trừ ngày lễ và lịch nghỉ phép đã duyệt).
                             </p>
                         </div>
@@ -499,7 +499,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">2</span>
                                 <h4 className="text-xs font-bold text-slate-900">Quản lý Kỹ năng & Duyệt Level</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Đánh giá và phê duyệt trình độ kỹ năng (Level 1-5) để đảm bảo nhân sự đáp ứng đúng tiêu chuẩn dự án.
                             </p>
                         </div>
@@ -509,7 +509,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">3</span>
                                 <h4 className="text-xs font-bold text-slate-900">Phân bổ Nguồn lực Nhiều tuần</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Sử dụng tính năng phân bổ hàng loạt theo % hoặc số giờ cố định vào các dự án theo yêu cầu của PM.
                             </p>
                         </div>
@@ -519,7 +519,7 @@ export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewP
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">4</span>
                                 <h4 className="text-xs font-bold text-slate-900">San tải & Xử lý Quá tải</h4>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
                                 Phát hiện kịp thời các tuần vượt công suất (&gt;100%) và xác nhận lý do quá tải hoặc điều phối san sẻ nhân sự.
                             </p>
                         </div>

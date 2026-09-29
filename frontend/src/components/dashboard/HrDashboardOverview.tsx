@@ -175,12 +175,12 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Tổng số Nhân sự
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{totalStaff}</span>
-                            <span className="text-[10px] text-slate-400">nhân sự hoạt động</span>
+                            <span className="text-[10px] text-slate-600">nhân sự hoạt động</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-teal-700">
                             Toàn quyền quản lý hồ sơ nhân sự
@@ -197,17 +197,17 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 border border-amber-100 text-amber-600">
                             <CalendarIcon className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 group-hover:translate-x-0.5 transition">
                             Nghỉ phép <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Đơn nghỉ phép chờ xử lý
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{pendingLeaves.length}</span>
-                            <span className="text-[10px] text-slate-400">đơn cần duyệt</span>
+                            <span className="text-[10px] text-slate-600">đơn cần duyệt</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-amber-700">
                             {pendingLeaves.length > 0 ? "Cần xử lý kịp thời theo QTN-10" : "Đã duyệt hết yêu cầu"}
@@ -224,17 +224,17 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600">
                             <Building2 className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 group-hover:translate-x-0.5 transition">
                             Cơ cấu <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Cơ cấu Tổ chức
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{orgUnitsCount || 11}</span>
-                            <span className="text-[10px] text-slate-400">đơn vị / phòng ban</span>
+                            <span className="text-[10px] text-slate-600">đơn vị / phòng ban</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-emerald-700">
                             Bao gồm các phòng ban và đơn vị trực thuộc
@@ -251,17 +251,17 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600">
                             <Sparkles className="h-3.5 w-3.5" />
                         </div>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-600 group-hover:translate-x-0.5 transition">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-700 group-hover:translate-x-0.5 transition">
                             Kỹ năng <ArrowUpRight className="h-2.5 w-2.5" />
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Kỹ năng chờ chuẩn hóa
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{pendingSkills.length}</span>
-                            <span className="text-[10px] text-slate-400">yêu cầu thẩm định</span>
+                            <span className="text-[10px] text-slate-600">yêu cầu thẩm định</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-indigo-700">
                             Ma trận năng lực chuyên môn
@@ -273,7 +273,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
             {/* Quick Actions Bar */}
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">
                         Lối tắt Nghiệp vụ Nhân sự
                     </h2>
                 </div>
