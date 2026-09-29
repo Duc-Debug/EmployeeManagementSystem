@@ -22,14 +22,15 @@ import {
 import { getIsoWeeksInYear, getIsoWeekDetails } from "@/lib/iso-week";
 import { getOrgTree } from "@/lib/api/org-units";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 
 export default function CapacityForecastReportView() {
   const user = useAuthUser();
-  const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const role = normalizeRoleCode(user?.roleCode);
   const hasReportPermission = user?.permissions && user.permissions.length > 0
     ? user.permissions.includes("CAPACITY_FORECAST_REPORT_READ")
-    : ["VT-01", "VT-03", "ROLE-VT-01", "ROLE-VT-03", "DIRECTOR", "RESOURCE-MANAGER"].includes(normalizedRole);
+    : (role === "VT-01" || role === "VT-03");
 
   const now = new Date();
   const currentIsoDetails = getIsoWeekDetails(now);

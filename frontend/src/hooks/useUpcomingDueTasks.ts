@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import {
   getMyUpcomingDueTasks,
   type UpcomingDueTaskResult,
@@ -27,14 +28,14 @@ export interface UseUpcomingDueTasksResult {
  */
 export function useUpcomingDueTasks(): UseUpcomingDueTasksResult {
   const currentUser = useAuthUser();
-  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const role = normalizeRoleCode(currentUser?.roleCode);
 
   // Phân quyền TC-03: Chỉ Nhân viên chuyên môn (VT-04) mới có quyền truy cập
   const isSpecialist = useMemo(() => {
     if (!currentUser) return false;
-    return ["VT-04", "ROLE-EMPLOYEE", "EMPLOYEE", "MEMBER", "DEVELOPER"].includes(normalizedRole) ||
+    return role === "VT-04" ||
       (currentUser.roleName ? currentUser.roleName.toLowerCase().includes("chuyên môn") || currentUser.roleName.toLowerCase().includes("nhân viên") : false);
-  }, [currentUser, normalizedRole]);
+  }, [currentUser, role]);
 
   const [tasks, setTasks] = useState<UpcomingDueTaskResult[]>([]);
   const [activeFilter, setActiveFilter] = useState<DueTaskFilterTab>("ALL");

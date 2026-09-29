@@ -1,6 +1,7 @@
 "use client";
 
 import { getStoredUser, type AuthUser } from "./auth-session";
+import { normalizeRoleCode } from "./role-utils";
 
 /**
  * Returns current user's granted fine-grained permissions.
@@ -39,15 +40,14 @@ export function canAll(permissions: readonly string[], user?: AuthUser | null): 
 
 /**
  * Checks if the user's roleCode matches one of the specified roles.
- * Normalizes role codes (e.g. 'ROLE_VT_01' -> 'VT-01').
+ * Normalizes role codes and aliases (e.g. 'ROLE_VT_01' -> 'VT-01', 'DIRECTOR' -> 'VT-01').
  */
 export function hasRole(roles: string | readonly string[], user?: AuthUser | null): boolean {
     const u = user !== undefined ? user : getStoredUser();
     if (!u || !u.roleCode) return false;
-    const normalized = u.roleCode.toUpperCase().replace(/_/g, "-");
+    const userRole = normalizeRoleCode(u.roleCode);
+    if (!userRole) return false;
+
     const roleList = Array.isArray(roles) ? roles : [roles];
-    return roleList.some((r) => {
-        const normR = r.toUpperCase().replace(/_/g, "-");
-        return normR === normalized || normR === `ROLE-${normalized}` || `ROLE-${normR}` === normalized;
-    });
+    return roleList.some((r) => normalizeRoleCode(r) === userRole);
 }

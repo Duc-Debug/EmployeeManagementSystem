@@ -6,6 +6,7 @@ import DashboardLayout from "./components/dashboard/DashboardLayout";
 import DashboardRouteGuard from "./components/auth/DashboardRouteGuard";
 import PageLoading from "./components/common/PageLoading";
 import { useAuthUser } from "./lib/auth-session";
+import { normalizeRoleCode } from "./lib/role-utils";
 
 // Public & Auth Lazy Loaded Pages
 const ResetPasswordPage = lazy(() => import("./components/auth/ResetPasswordPage"));
@@ -63,8 +64,7 @@ function WorkloadRoute() {
 
 function UnavailabilityRoute() {
     const user = useAuthUser();
-    const role = user?.roleCode?.toUpperCase().replace(/_/g, "-");
-    const isEmployee = role === "VT-04" || role === "ROLE-EMPLOYEE" || role === "EMPLOYEE";
+    const isEmployee = normalizeRoleCode(user?.roleCode) === "VT-04";
     return <Navigate to={isEmployee ? "/dashboard/my-schedule" : "/dashboard/overview"} replace />;
 }
 
