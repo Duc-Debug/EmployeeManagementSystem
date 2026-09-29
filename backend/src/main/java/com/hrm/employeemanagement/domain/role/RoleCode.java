@@ -25,11 +25,32 @@ public enum RoleCode {
     }
 
     public static RoleCode fromCode(String code) {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("Mã vai trò không được để trống");
+        }
+        String clean = code.trim().toUpperCase();
         for (RoleCode rc : values()) {
-            if (rc.code.equalsIgnoreCase(code) || rc.name().equalsIgnoreCase(code)) {
+            if (rc.code.equalsIgnoreCase(clean) || rc.name().equalsIgnoreCase(clean)) {
                 return rc;
             }
         }
-        throw new IllegalArgumentException("Mã vai trò không hợp lệ: " + code);
+        // Chuẩn hóa loại bỏ gạch dưới và prefix ROLE- hoặc ROLE_
+        String normalized = clean.replace("_", "-").replace("ROLE-", "");
+        for (RoleCode rc : values()) {
+            if (rc.code.equalsIgnoreCase(normalized)
+                    || rc.code.replace("-", "").equalsIgnoreCase(normalized.replace("-", ""))) {
+                return rc;
+            }
+        }
+        // Nhận diện alias lịch sử
+        return switch (normalized) {
+            case "EXECUTIVE", "DIRECTOR", "BGD", "BAN-GIAM-DOC", "GIAM-DOC" -> VT_01;
+            case "PM", "PROJECT-MANAGER", "QUAN-LY-DU-AN" -> VT_02;
+            case "RM", "RESOURCE-MANAGER", "QUAN-LY-NGUON-LUC" -> VT_03;
+            case "EMPLOYEE", "SPECIALIST", "DEVELOPER", "MEMBER", "STAFF", "DEV", "NHAN-VIEN", "CHUYEN-VIEN" -> VT_04;
+            case "HR", "HR-MANAGER", "HR-SPECIALIST", "HUMAN-RESOURCE", "HUMAN-RESOURCES", "NHAN-SU" -> VT_05;
+            case "ADMIN", "SYSTEM-ADMIN", "ADMINISTRATOR", "SYS-ADMIN", "QUAN-TRI-VIEN" -> VT_06;
+            default -> throw new IllegalArgumentException("Mã vai trò không hợp lệ: " + code);
+        };
     }
 }

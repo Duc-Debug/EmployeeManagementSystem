@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import { normalizeRoleCode } from "../role-utils";
 
 export type ForecastStatus = "AVAILABLE" | "NEAR_FULL" | "OVER_CAPACITY";
 
@@ -95,11 +96,11 @@ export function calculateWeeklyForecast(availableHours: number, committedHours: 
 }
 
 export function canAccessCapacityForecastTab(permissions?: string[] | null, roleCode?: string | null) {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
   if (permissions && permissions.length > 0) {
     return permissions.includes("CAPACITY_FORECAST_REPORT_READ");
   }
-  return ["VT-01", "VT-03", "ROLE-VT-01", "ROLE-VT-03", "DIRECTOR", "RESOURCE-MANAGER"].includes(normalized);
+  const role = normalizeRoleCode(roleCode);
+  return role === "VT-01" || role === "VT-03";
 }
 
 export interface OrgTreeNode {
@@ -110,7 +111,7 @@ export interface OrgTreeNode {
 
 export function visibleOrgUnitIdsForRole(tree: OrgTreeNode[], roleCode?: string | null, scopeOrgUnitId?: number | null): number[] {
   const flatten = (nodes: OrgTreeNode[]): OrgTreeNode[] => nodes.flatMap((node) => [node, ...flatten(node.children || [])]);
-  if (roleCode !== "VT-03" || scopeOrgUnitId == null) return flatten(tree).map((node) => node.id);
+  if (normalizeRoleCode(roleCode) !== "VT-03" || scopeOrgUnitId == null) return flatten(tree).map((node) => node.id);
 
   const findScopeRoot = (nodes: OrgTreeNode[]): OrgTreeNode | null => {
     for (const node of nodes) {

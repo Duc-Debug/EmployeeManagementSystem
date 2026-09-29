@@ -8,6 +8,7 @@ import EmployeeProfileForm from "../components/employee/form/EmployeeProfileForm
 import EmployeeDetailModal from "../components/employee/form/EmployeeDetailModal";
 import EmployeeImportView from "../components/import/EmployeeImportView";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import type { EmployeeFormData } from "../components/employee/form/employeeForm.types";
 import { DEFAULT_ORG_UNIT_OPTIONS } from "../components/employee/form/employeeForm.constants";
 import { getUsers, createUser, updateUser, toggleUserStatus } from "@/lib/api/users";
@@ -248,10 +249,9 @@ export default function EmployeeProfilePage() {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<EmployeeFormData | undefined>(undefined);
 
-    const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
     const hasImportPermission =
         user?.permissions?.includes("DATA_IMPORT") === true ||
-        ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole);
+        normalizeRoleCode(user?.roleCode) === "VT-06";
     const [viewingEmployee, setViewingEmployee] = useState<EmployeeFormData | undefined>(undefined);
     const [statusTarget, setStatusTarget] = useState<EmployeeFormData | null>(null);
     const [isTogglingStatus, setIsTogglingStatus] = useState(false);

@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api-client";
+import { normalizeRoleCode } from "@/lib/role-utils";
 
 export type BackupType = "FULL" | "RESOURCE_PLAN";
 export type BackupStatus = "IN_PROGRESS" | "COMPLETED" | "FAILED";
@@ -101,8 +102,7 @@ export function canAccessBackupWorkspace(
   roleCode?: string | null,
   permissions?: readonly string[] | null
 ): boolean {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const isAdmin = normalized === "VT-06" || normalized === "ROLE-ADMIN" || normalized === "ADMIN";
+  const isAdmin = normalizeRoleCode(roleCode) === "VT-06";
   const hasPermission = permissions !== undefined && permissions !== null && permissions.includes("DATA_BACKUP_MANAGE");
   return isAdmin && hasPermission;
 }

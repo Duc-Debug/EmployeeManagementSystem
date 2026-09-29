@@ -23,6 +23,7 @@ import {
 } from "@/lib/api/allocations";
 import { getCurrentIsoWeek } from "../availability/availability.types";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import MiniCalendar from "../calendar/MiniCalendar";
 
 interface RmDashboardOverviewProps {
@@ -31,10 +32,10 @@ interface RmDashboardOverviewProps {
 
 export default function RmDashboardOverview({ onNavigate }: RmDashboardOverviewProps) {
     const user = useAuthUser();
-    const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "") : "";
+    const normalizedRole = normalizeRoleCode(user?.roleCode);
     const canViewHrProfile = Boolean(
         user?.permissions?.includes("EMPLOYEE_READ") ||
-        ["VT-01", "VT-05", "VT-06", "ADMIN"].includes(normalizedRole)
+        ["VT-01", "VT-05", "VT-06"].includes(normalizedRole)
     ) && normalizedRole !== "VT-03";
 
     const currentIso = useMemo(() => getCurrentIsoWeek(), []);

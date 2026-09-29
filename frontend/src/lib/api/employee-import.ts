@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiRequest } from "../api-client";
 import { getAuthToken } from "../auth-session";
+import { normalizeRoleCode } from "../role-utils";
 
 export interface ImportEmployeeRowDto {
   rowNumber: number;
@@ -152,10 +153,9 @@ export function canAccessDataImport(
   roleCode?: string | null,
   permissions?: readonly string[] | null
 ): boolean {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
   return (
     permissions?.includes("DATA_IMPORT") === true ||
-    ["VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)
+    normalizeRoleCode(roleCode) === "VT-06"
   );
 }
 
