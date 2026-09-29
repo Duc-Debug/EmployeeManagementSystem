@@ -1347,7 +1347,7 @@ export default function ProjectView() {
                                 title="Tạo dự án mới"
                             >
                                 <FolderPlus className="h-3.5 w-3.5 text-indigo-600 stroke-[2.2]" />
-                                <span>+ Dự án mới</span>
+                                <span>Dự án mới</span>
                             </button>
                         )}
 

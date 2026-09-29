@@ -120,7 +120,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs cursor-pointer"
                     >
                         <Plus className="h-3.5 w-3.5" />
-                        <span>+ Dự án mới</span>
+                        <span>Dự án mới</span>
                     </button>
                 </div>
             </div>
@@ -341,7 +341,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                             {projects.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="py-8 text-center text-slate-600 text-xs">
-                                        Chưa có dữ liệu dự án nào. Bấm <b>+ Dự án mới</b> để bắt đầu.
+                                        Chưa có dữ liệu dự án nào. Bấm <b>Dự án mới</b> để bắt đầu.
                                     </td>
                                 </tr>
                             ) : (
