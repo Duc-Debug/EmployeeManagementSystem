@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.GlobalExceptionHandler;
 import com.hrm.employeemanagement.application.port.inbound.allocation.ConfirmScheduleViewedUseCase;
 import com.hrm.employeemanagement.application.port.inbound.allocation.GetMyAllocationsUseCase;
 import com.hrm.employeemanagement.application.port.outbound.allocation.LoadMyAllocationsPort;
@@ -88,7 +89,7 @@ class MyAllocationsControllerIntegrationTest {
         MyAllocationsController controller = new MyAllocationsController(getUseCase, confirmUseCase, feedbackUseCase, clientIpResolver);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new MyAllocationsExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 

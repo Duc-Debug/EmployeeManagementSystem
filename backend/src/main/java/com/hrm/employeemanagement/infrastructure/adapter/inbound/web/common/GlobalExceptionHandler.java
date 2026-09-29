@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -10,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -328,18 +331,43 @@ public class GlobalExceptionHandler {
     // 8. Handle DTO Validation Exceptions (@Valid Request Body)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        // Specific requirement for MyAllocations feedback reason
+        if (ex.getBindingResult().getTarget() instanceof com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.MyAllocationsController.ProvideScheduleFeedbackRequest
+                || "provideScheduleFeedbackRequest".equalsIgnoreCase(ex.getBindingResult().getObjectName())) {
+            String msg = ex.getBindingResult().getAllErrors().stream()
+                    .map(org.springframework.context.support.DefaultMessageSourceResolvable::getDefaultMessage)
+                    .filter(java.util.Objects::nonNull)
+                    .findFirst()
+                    .orElse("Lý do hoặc ý kiến phản hồi không được để trống");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ErrorResponse.of("INVALID_FEEDBACK_REASON", msg, HttpStatus.BAD_REQUEST.value()));
+        }
+
         String detailMessage = ex.getBindingResult().getAllErrors().stream()
                 .map(error -> {
-                    String fieldName = ((FieldError) error).getField();
-                    String errorMessage = error.getDefaultMessage();
-                    return fieldName + ": " + errorMessage;
+                    if (error instanceof FieldError fieldError) {
+                        return fieldError.getField() + ": " + (fieldError.getDefaultMessage() != null ? fieldError.getDefaultMessage() : "không hợp lệ");
+                    }
+                    String objName = error.getObjectName() != null ? error.getObjectName() : "object";
+                    String msg = error.getDefaultMessage() != null ? error.getDefaultMessage() : "không hợp lệ";
+                    return objName + ": " + msg;
                 })
                 .collect(Collectors.joining("; "));
+
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        for (ObjectError error : ex.getBindingResult().getAllErrors()) {
+            if (error instanceof FieldError fieldError) {
+                fieldErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
+            } else {
+                fieldErrors.put(error.getObjectName(), error.getDefaultMessage());
+            }
+        }
 
         ErrorResponse response = ErrorResponse.of(
                 "VALIDATION_ERROR",
                 "Validation failed for fields: " + detailMessage,
-                HttpStatus.BAD_REQUEST.value());
+                HttpStatus.BAD_REQUEST.value(),
+                fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -410,8 +438,11 @@ public class GlobalExceptionHandler {
     // Validation
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        String errorCode = (ex.getMessage() != null && ex.getMessage().contains("QTN-24"))
+                ? "INVALID_FEEDBACK_REASON"
+                : "INVALID_ARGUMENT";
         ErrorResponse response = ErrorResponse.of(
-                "INVALID_ARGUMENT",
+                errorCode,
                 ex.getMessage(),
                 HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);

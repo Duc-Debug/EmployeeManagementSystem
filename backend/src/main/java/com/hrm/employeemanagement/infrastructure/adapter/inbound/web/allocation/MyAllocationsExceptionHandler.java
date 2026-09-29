@@ -14,16 +14,4 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common.Glob
  */
 @Deprecated
 public class MyAllocationsExceptionHandler extends GlobalExceptionHandler {
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @Override
-    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        String msg = ex.getBindingResult().getFieldErrors().stream()
-                .map(err -> err.getDefaultMessage())
-                .filter(java.util.Objects::nonNull)
-                .findFirst()
-                .orElse("Dữ liệu không hợp lệ");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.of("INVALID_FEEDBACK_REASON", msg, HttpStatus.BAD_REQUEST.value()));
-    }
 }
