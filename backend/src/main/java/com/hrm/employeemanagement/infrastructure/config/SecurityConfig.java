@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.config;
 
+import com.hrm.employeemanagement.infrastructure.security.CsrfProtectionFilter;
 import com.hrm.employeemanagement.infrastructure.security.CustomAccessDeniedHandler;
 import com.hrm.employeemanagement.infrastructure.security.InitialAdminProperties;
 import com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter;
@@ -41,15 +42,18 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
+    private final CsrfProtectionFilter csrfProtectionFilter;
     private final boolean h2ConsoleEnabled;
     private final String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
             CustomAccessDeniedHandler customAccessDeniedHandler,
+            CsrfProtectionFilter csrfProtectionFilter,
             @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled,
             @Value("${app.cors.allowed-origins:}") String allowedOrigins) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.customAccessDeniedHandler = customAccessDeniedHandler;
+        this.csrfProtectionFilter = csrfProtectionFilter;
         this.h2ConsoleEnabled = h2ConsoleEnabled;
         this.allowedOrigins = allowedOrigins;
     }
@@ -91,6 +95,7 @@ public class SecurityConfig {
                         })
                         .accessDeniedHandler(customAccessDeniedHandler)
                 )
+                .addFilterBefore(csrfProtectionFilter, org.springframework.security.web.csrf.CsrfFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         if (h2ConsoleEnabled) {
@@ -106,7 +111,6 @@ public class SecurityConfig {
         List<String> origins = new java.util.ArrayList<>(List.of(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
-                "https://*.vercel.app",
                 "https://employee-management-system-izcr9mk17-duc-debug.vercel.app"
         ));
 

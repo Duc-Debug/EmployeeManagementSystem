@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getAuthToken, getStoredUser } from "@/lib/auth-session";
+import { getStoredUser } from "@/lib/auth-session";
+import { getCurrentUser } from "@/lib/api/auth";
 
 interface RequireAuthProps {
     children: ReactNode;
@@ -9,9 +10,19 @@ interface RequireAuthProps {
 
 export default function RequireAuth({ children, allowPasswordChangeOnly = false }: RequireAuthProps) {
     const location = useLocation();
-    const token = getAuthToken();
     const user = getStoredUser();
-    const isAuthenticated = Boolean(user && user.id) || Boolean(token && token !== "undefined" && token !== "null" && token.trim() !== "");
+    const isAuthenticated = Boolean(user && user.id);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            // Asynchronously revalidate session against backend /auth/me (source of truth)
+            // If localStorage was tampered, getCurrentUser() overwrites with genuine server data.
+            // If session cookie is invalid/expired, apiRequest triggers 401 and clears session.
+            getCurrentUser().catch(() => {
+                // Handled by apiRequest 401 interceptor
+            });
+        }
+    }, [isAuthenticated]);
 
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;

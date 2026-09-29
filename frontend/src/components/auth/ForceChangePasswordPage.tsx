@@ -14,7 +14,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { changePassword, logout } from "@/lib/api/auth";
-import { clearAuthSession, getAuthToken, getStoredUser } from "@/lib/auth-session";
+import { clearAuthSession, getStoredUser } from "@/lib/auth-session";
 import InteractiveParticleBackground from "./InteractiveParticleBackground";
 
 export default function ForceChangePasswordPage() {
@@ -32,11 +32,10 @@ export default function ForceChangePasswordPage() {
   const [success, setSuccess] = useState(false);
 
   const user = getStoredUser();
-  const token = getAuthToken();
 
   useEffect(() => {
     document.title = "Đổi mật khẩu lần đầu | Employee Management System";
-    const isAuthenticated = Boolean(user && user.id) || Boolean(token && token !== "undefined" && token !== "null" && token.trim() !== "");
+    const isAuthenticated = Boolean(user && user.id);
     if (!isAuthenticated) {
       navigate("/login", { replace: true });
       return;
@@ -44,7 +43,7 @@ export default function ForceChangePasswordPage() {
     if (user && !user.requiresPasswordChange) {
       navigate("/", { replace: true });
     }
-  }, [token, user, navigate]);
+  }, [user, navigate]);
 
   const handleLogout = async () => {
     await logout();

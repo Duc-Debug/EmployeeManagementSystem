@@ -1,17 +1,16 @@
 import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import LoginPageContainer from "@/components/auth/LoginPageContainer";
-import { getAuthToken, getStoredUser } from "@/lib/auth-session";
+import { getStoredUser } from "@/lib/auth-session";
 
 export default function LoginRoute() {
-    const token = getAuthToken();
     const user = getStoredUser();
 
     useEffect(() => {
         document.title = "Đăng nhập quản trị | Employee Management System";
     }, []);
 
-    const isAuthenticated = Boolean(user && user.id) || Boolean(token && token !== "undefined" && token !== "null" && token.trim() !== "");
+    const isAuthenticated = Boolean(user && user.id);
 
     // Nếu đã đăng nhập, tự động chuyển hướng về trang tương ứng
     if (isAuthenticated) {

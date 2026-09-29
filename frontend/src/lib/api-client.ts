@@ -1,6 +1,6 @@
 "use client";
 
-import { clearAuthSession, getAuthToken } from "./auth-session";
+import { clearAuthSession } from "./auth-session";
 
 const metaEnv = typeof import.meta !== "undefined"
   ? (import.meta as unknown as { env?: Record<string, string> }).env
@@ -37,7 +37,6 @@ export async function apiRequest<T = unknown>(
     ? path
     : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
-  const token = getAuthToken();
   const headers = new Headers(options.headers || {});
 
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
@@ -46,9 +45,8 @@ export async function apiRequest<T = unknown>(
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
   }
-
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (!headers.has("X-Requested-With")) {
+    headers.set("X-Requested-With", "XMLHttpRequest");
   }
 
   try {

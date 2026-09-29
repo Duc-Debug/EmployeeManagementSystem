@@ -359,4 +359,93 @@ class JwtAndLocalStorageSecurityTest {
                         .cookie(jwtCookie))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    @DisplayName("CSRF Test: Untrusted Origin is blocked with 403 Forbidden on state-changing requests")
+    void testCsrfProtectionBlocksUntrustedOrigin() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+
+        // Cross-site attack attempt from evil.com with victim's cookie
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(jwtCookie)
+                        .header("Origin", "https://evil.com"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("CSRF Test: Wildcard Vercel subdomains (e.g. malicious.vercel.app) are strictly blocked")
+    void testCsrfProtectionBlocksWildcardVercelSubdomains() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+
+        // Attack from another Vercel deployment must be rejected
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(jwtCookie)
+                        .header("Origin", "https://malicious.vercel.app"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("CSRF Test: Trusted production Vercel frontend origin is accepted")
+    void testCsrfProtectionAllowsTrustedVercelFrontendOrigin() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+
+        // Legitimate production frontend origin must succeed
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(jwtCookie)
+                        .header("Origin", "https://employee-management-system-izcr9mk17-duc-debug.vercel.app"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("CSRF Test: Sec-Fetch-Site cross-site from untrusted origin is strictly blocked")
+    void testCsrfProtectionBlocksSecFetchCrossSiteFromUntrustedOrigin() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(jwtCookie)
+                        .header("Sec-Fetch-Site", "cross-site")
+                        .header("Origin", "https://attacker.org"))
+                .andExpect(status().isForbidden());
+    }
 }
