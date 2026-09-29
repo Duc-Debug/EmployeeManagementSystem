@@ -13,7 +13,7 @@ import {
     Calendar as CalendarIcon,
     DollarSign,
 } from "lucide-react";
-import { getProjects, type ProjectResult } from "@/lib/api/projects";
+import { getProjects, getProjectSummary, type ProjectResult, type ProjectSummaryResult } from "@/lib/api/projects";
 import { getEmployees, type EmployeeProfile } from "@/lib/api/employees";
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
@@ -37,6 +37,8 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
     const [departmentsList, setDepartmentsList] = useState<{ id: number; name: string; managerName?: string; count: number }[]>([]);
     const [skillsCount, setSkillsCount] = useState(0);
     const [capacitySummary, setCapacitySummary] = useState<CapacityMatrixSummary | null>(null);
+    const [projectSummary, setProjectSummary] = useState<ProjectSummaryResult | null>(null);
+    const [totalEmployeesCount, setTotalEmployeesCount] = useState<number>(0);
 
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [miniCalMonth, setMiniCalMonth] = useState<Date>(new Date());
@@ -50,17 +52,19 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
     const loadExecutiveData = async () => {
         setLoading(true);
         try {
-            const [projectsRes, empRes, treeRes, matrixRes, skillsRes] = await Promise.allSettled([
-                getProjects(0, 100),
-                getEmployees(1, 100),
+            const [projectsRes, empRes, treeRes, matrixRes, skillsRes, projSummaryRes] = await Promise.allSettled([
+                getProjects(0, 50),
+                getEmployees(1, 50),
                 getOrgTree(),
                 getCompanyWeeklyCapacityMatrix({
                     fromYear: currentIso.year,
                     fromWeek: currentIso.weekNumber,
                     durationWeeks: 1,
-                    size: 100,
+                    page: 0,
+                    size: 50,
                 }),
                 getSkills(),
+                getProjectSummary(),
             ]);
 
             if (projectsRes.status === "fulfilled" && projectsRes.value) {
@@ -68,6 +72,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
             }
             if (empRes.status === "fulfilled" && empRes.value) {
                 setEmployees(empRes.value.content || []);
+                setTotalEmployeesCount(empRes.value.totalElements ?? (empRes.value.content?.length || 0));
             }
             if (treeRes.status === "fulfilled" && treeRes.value) {
                 const flat = flattenActiveOrgTree(treeRes.value);
@@ -85,6 +90,9 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
             }
             if (skillsRes.status === "fulfilled" && skillsRes.value) {
                 setSkillsCount(skillsRes.value.length);
+            }
+            if (projSummaryRes.status === "fulfilled" && projSummaryRes.value) {
+                setProjectSummary(projSummaryRes.value);
             }
         } catch (err) {
             console.error("Failed to load executive overview data:", err);
@@ -113,11 +121,14 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
     };
 
     // Derived metrics
-    const totalStaff = employees.length || capacitySummary?.totalEmployees || 0;
-    const activeProjects = projects.filter((p) => p.status === "ACTIVE");
-    const plannedProjects = projects.filter((p) => p.status === "PLANNED");
-    const closedProjects = projects.filter((p) => p.status === "CLOSED");
-    const totalHours = activeProjects.reduce((sum, p) => sum + (p.estimatedHours || 0), 0);
+    const totalStaff = totalEmployeesCount || employees.length || capacitySummary?.totalEmployees || 0;
+    const totalProjects = projectSummary?.totalProjects ?? 0;
+    const activeProjectsCount = projectSummary?.activeProjects ?? 0;
+    const plannedProjectsCount = projectSummary?.plannedProjects ?? 0;
+    const closedProjectsCount = projectSummary?.closedProjects ?? 0;
+    const totalHours = projectSummary?.activeEstimatedHours != null
+        ? Number(projectSummary.activeEstimatedHours)
+        : 0;
     const avgUtilization = capacitySummary?.averageUtilization != null ? Math.round(capacitySummary.averageUtilization) : 0;
     const overloadedStaffCount = capacitySummary?.overloadedEmployeesCount || 0;
 
@@ -200,15 +211,15 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                             Danh mục Dự án
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
-                            <span className="text-lg font-bold text-slate-900">{projects.length}</span>
+                            <span className="text-lg font-bold text-slate-900">{totalProjects}</span>
                             <span className="text-[10px] text-slate-400">tổng số dự án</span>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium">
-                            <span className="text-emerald-700 font-bold">{activeProjects.length} Chạy</span>
+                            <span className="text-emerald-700 font-bold">{activeProjectsCount} Chạy</span>
                             <span className="text-slate-300">·</span>
-                            <span className="text-blue-700 font-bold">{plannedProjects.length} KH</span>
+                            <span className="text-blue-700 font-bold">{plannedProjectsCount} KH</span>
                             <span className="text-slate-300">·</span>
-                            <span className="text-slate-500 font-bold">{closedProjects.length} Đóng</span>
+                            <span className="text-slate-500 font-bold">{closedProjectsCount} Đóng</span>
                         </div>
                     </div>
                 </div>
@@ -368,7 +379,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         onClick={() => onNavigate("project")}
                         className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
                     >
-                        Xem tất cả ({projects.length}) →
+                        Xem tất cả ({totalProjects}) →
                     </button>
                 </div>
 

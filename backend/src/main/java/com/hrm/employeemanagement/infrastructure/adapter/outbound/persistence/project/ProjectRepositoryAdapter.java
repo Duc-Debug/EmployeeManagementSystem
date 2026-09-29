@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.project;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -250,5 +251,79 @@ public class ProjectRepositoryAdapter implements LoadProjectPort, SaveProjectPor
                         return countActiveProjects();
                 }
                 return projectRepository.countByOrgUnitBranchAndStatus(scopeOrgUnitId, ProjectStatus.ACTIVE.name());
+        }
+
+        @Override
+        public long countByStatus(String status) {
+                if (status == null) {
+                        return count();
+                }
+                return projectRepository.countByStatus(status);
+        }
+
+        @Override
+        public long countByOrgUnitBranchAndStatus(Long scopeOrgUnitId, String status) {
+                if (scopeOrgUnitId == null) {
+                        return countByStatus(status);
+                }
+                if (status == null) {
+                        return countByOrgUnitBranch(scopeOrgUnitId);
+                }
+                return projectRepository.countByOrgUnitBranchAndStatus(scopeOrgUnitId, status);
+        }
+
+        @Override
+        public long countManagedByAndStatus(Long employeeId, String status) {
+                if (employeeId == null) {
+                        return 0L;
+                }
+                if (status == null) {
+                        return countManagedBy(employeeId);
+                }
+                return projectRepository.countManagedByAndStatus(employeeId, status);
+        }
+
+        @Override
+        public long countMemberProjectsAndStatus(Long employeeId, String status) {
+                if (employeeId == null) {
+                        return 0L;
+                }
+                if (status == null) {
+                        return countMemberProjects(employeeId);
+                }
+                return projectRepository.countMemberProjectsAndStatus(employeeId, status);
+        }
+
+        @Override
+        public BigDecimal sumActiveEstimatedHours() {
+                BigDecimal sum = projectRepository.sumActiveEstimatedHours();
+                return sum != null ? sum : BigDecimal.ZERO;
+        }
+
+        @Override
+        public BigDecimal sumActiveEstimatedHoursByOrgUnitBranch(Long scopeOrgUnitId) {
+                if (scopeOrgUnitId == null) {
+                        return sumActiveEstimatedHours();
+                }
+                BigDecimal sum = projectRepository.sumActiveEstimatedHoursByOrgUnitBranch(scopeOrgUnitId);
+                return sum != null ? sum : BigDecimal.ZERO;
+        }
+
+        @Override
+        public BigDecimal sumActiveEstimatedHoursManagedBy(Long employeeId) {
+                if (employeeId == null) {
+                        return BigDecimal.ZERO;
+                }
+                BigDecimal sum = projectRepository.sumActiveEstimatedHoursManagedBy(employeeId);
+                return sum != null ? sum : BigDecimal.ZERO;
+        }
+
+        @Override
+        public BigDecimal sumActiveEstimatedHoursMemberProjects(Long employeeId) {
+                if (employeeId == null) {
+                        return BigDecimal.ZERO;
+                }
+                BigDecimal sum = projectRepository.sumActiveEstimatedHoursMemberProjects(employeeId);
+                return sum != null ? sum : BigDecimal.ZERO;
         }
 }
