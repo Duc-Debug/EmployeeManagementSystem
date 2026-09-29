@@ -71,7 +71,7 @@ test("Security Test 1 & 6: Client permission tampering does not bypass backend a
   // 3. Privileged request to backend: backend verifies JWT signature & database permissions, rejecting with 403
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
-    assert.ok(options.headers.get("Authorization").includes("valid-low-privilege-jwt"));
+    assert.equal(options.credentials, "include");
     return {
       ok: false,
       status: 403,
@@ -103,14 +103,14 @@ test("Security Test 1 & 6: Client permission tampering does not bypass backend a
   }
 });
 
-test("Security Test 2: JWT is NEVER stored in localStorage (mitigating XSS token theft)", () => {
+test("Security Test 2: JWT is NEVER exposed to JavaScript runtime or localStorage (eliminating XSS token theft)", () => {
   mockLocalStorageStore.clear();
-  setAuthToken("super-secret-jwt-token");
+  setAuthToken("attempted-token-input");
 
-  // In-memory accessor returns the active token
-  assert.equal(getAuthToken(), "super-secret-jwt-token");
+  // Zero-token in JS runtime: getAuthToken() always returns null
+  assert.equal(getAuthToken(), null);
 
-  // localStorage must NEVER contain the secret JWT token
+  // Zero-token in persistent storage: localStorage NEVER contains any token
   assert.equal(mockLocalStorageStore.get("nexushrm_auth_token"), undefined);
   assert.equal(mockLocalStorageStore.get("accessToken"), undefined);
   assert.equal(mockLocalStorageStore.get("token"), undefined);
@@ -121,14 +121,13 @@ test("Security Test 3: clearAuthSession and logout purges ALL auth tokens and cr
   mockSessionStorageStore.clear();
 
   // Populate state
-  setAuthToken("jwt-token-xyz");
   mockLocalStorageStore.set("nexushrm_auth_user", JSON.stringify({ id: 1, username: "admin" }));
   mockLocalStorageStore.set("accessToken", "legacy-token-xyz");
   mockLocalStorageStore.set("currentUser", JSON.stringify({ id: 1, username: "admin" }));
   mockLocalStorageStore.set("token", "legacy-token-2");
   mockSessionStorageStore.set("demo-session", "demo-data");
 
-  assert.equal(getAuthToken(), "jwt-token-xyz");
+  assert.equal(getAuthToken(), null);
   assert.notEqual(getStoredUser(), null);
 
   clearAuthSession();
@@ -145,19 +144,18 @@ test("Security Test 3: clearAuthSession and logout purges ALL auth tokens and cr
   assert.equal(getStoredUser(), null);
 });
 
-test("Security Test: logout notifies backend /auth/logout to blacklist token", async () => {
+test("Security Test: logout notifies backend /auth/logout via HttpOnly cookie", async () => {
   mockLocalStorageStore.clear();
-  setAuthToken("active-user-jwt");
   setStoredUser({ id: 99, username: "logout_test" });
 
   let backendLogoutCalled = false;
-  let sentAuthHeader = null;
+  let sentCredentials = null;
 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
     if (url.includes("/auth/logout")) {
       backendLogoutCalled = true;
-      sentAuthHeader = options.headers.get("Authorization");
+      sentCredentials = options.credentials;
       return {
         ok: true,
         status: 200,
@@ -171,7 +169,7 @@ test("Security Test: logout notifies backend /auth/logout to blacklist token", a
   try {
     await logout();
     assert.equal(backendLogoutCalled, true);
-    assert.equal(sentAuthHeader, "Bearer active-user-jwt");
+    assert.equal(sentCredentials, "include"); // Cookie sent automatically
     assert.equal(getAuthToken(), null);
     assert.equal(getStoredUser(), null);
   } finally {

@@ -16,10 +16,8 @@ export interface LoginPayload {
   username: string;
 }
 
-export interface AuthTokenResponse {
+export interface LoginResponse {
   roleCode: string;
-  token: string;
-  tokenType: string;
   userId: number;
   username: string;
   requiresPasswordChange?: boolean;
@@ -71,20 +69,18 @@ export function mapAuthUser(userRes: UserResultDto, requiresPasswordChange?: boo
 }
 
 export async function login(payload: LoginPayload): Promise<AuthUser> {
-  const loginRes = await apiRequest<AuthTokenResponse>("/auth/login", {
+  const loginRes = await apiRequest<LoginResponse>("/auth/login", {
     body: JSON.stringify(payload),
     method: "POST",
   });
 
-  const token = loginRes.token;
-  setAuthToken(token);
+  // Access token is held exclusively by browser HttpOnly cookie.
+  // JavaScript runtime NEVER receives, handles, or stores the raw JWT token.
+  setAuthToken();
 
-  // Fetch full user profile after login - strictly require /auth/me to succeed
+  // Fetch full user profile after login - authenticated via HttpOnly cookie
   try {
     const userRes = await apiRequest<UserResultDto>("/auth/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
       method: "GET",
     });
 

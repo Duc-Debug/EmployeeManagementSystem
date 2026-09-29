@@ -148,10 +148,10 @@ class JwtAndLocalStorageSecurityTest {
                                 "password", TEST_PASSWORD
                         ))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").doesNotExist())
                 .andReturn();
 
-        String token = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String token = loginResult.getResponse().getCookie(com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         // 1. Specialist can access their own profile
         mockMvc.perform(get("/api/v1/auth/me")
@@ -204,10 +204,10 @@ class JwtAndLocalStorageSecurityTest {
                                 "password", TEST_PASSWORD
                         ))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").doesNotExist())
                 .andReturn();
 
-        String token = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String token = loginResult.getResponse().getCookie(com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         // Verify token works initially
         mockMvc.perform(get("/api/v1/auth/me")
@@ -236,10 +236,10 @@ class JwtAndLocalStorageSecurityTest {
                                 "password", TEST_PASSWORD
                         ))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").doesNotExist())
                 .andReturn();
 
-        String oldToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        String oldToken = loginResult.getResponse().getCookie(com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter.COOKIE_NAME).getValue();
 
         String newPassword = "NewSecPassword@456";
 

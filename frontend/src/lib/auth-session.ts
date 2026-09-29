@@ -29,9 +29,8 @@ const listeners = new Set<() => void>();
 let cachedUserRaw: string | null = null;
 let cachedUserSnapshot: AuthUser | null = null;
 
-// In-memory token storage (mitigates XSS token exfiltration; HttpOnly cookie is authoritative)
-let inMemoryToken: string | null = null;
-
+// Security architecture: Access tokens are exclusively stored in HttpOnly SameSite cookies.
+// JavaScript runtime NEVER receives, handles, or stores raw JWT tokens to completely eliminate XSS token theft.
 function notify() {
   listeners.forEach((listener) => listener());
 }
@@ -42,11 +41,10 @@ export function subscribeAuth(callback: () => void) {
 }
 
 export function getAuthToken(): string | null {
-  return inMemoryToken;
+  return null;
 }
 
-export function setAuthToken(token: string): void {
-  inMemoryToken = token;
+export function setAuthToken(_token?: string): void {
   if (typeof window !== "undefined") {
     // Defense-in-depth: Actively eliminate JWT from localStorage to prevent XSS exfiltration
     localStorage.removeItem(TOKEN_KEY);
@@ -110,7 +108,6 @@ export function setStoredUser(user: AuthUser): void {
  * from localStorage and sessionStorage.
  */
 export function clearAuthSession(): void {
-  inMemoryToken = null;
   cachedUserRaw = null;
   cachedUserSnapshot = null;
   if (typeof window === "undefined") {

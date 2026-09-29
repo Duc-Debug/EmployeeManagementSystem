@@ -19,6 +19,7 @@ import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.Ap
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ChangePasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ForgotPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginRequest;
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.LoginResponse;
 import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ResetPasswordRequest;
 import com.hrm.employeemanagement.infrastructure.security.ForgotPasswordRateLimiter;
 import com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter;
@@ -106,9 +107,9 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthTokenResult>> login(@Valid @RequestBody LoginRequest request,
-                                                              HttpServletRequest httpRequest,
-                                                              HttpServletResponse httpResponse) {
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request,
+                                                            HttpServletRequest httpRequest,
+                                                            HttpServletResponse httpResponse) {
         String clientIp = httpRequest != null ? httpRequest.getRemoteAddr() : "unknown";
         String rateLimitKey = clientIp + ":" + (request.getUsername() != null ? request.getUsername().trim() : "");
 
@@ -142,8 +143,15 @@ public class AuthController {
                 httpResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
             }
 
+            LoginResponse loginResponse = new LoginResponse(
+                    result.getUserId(),
+                    result.getUsername(),
+                    result.getRoleCode(),
+                    result.isRequiresPasswordChange()
+            );
+
             return ResponseEntity.ok(
-                    ApiResponse.success("Đăng nhập thành công", result)
+                    ApiResponse.success("Đăng nhập thành công", loginResponse)
             );
         } catch (InvalidCredentialsException ex) {
             loginRateLimiter.recordFailedAttempt(rateLimitKey);
