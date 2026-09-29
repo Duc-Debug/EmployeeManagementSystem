@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
     Calendar as CalendarIcon,
     Plus,
@@ -13,6 +13,7 @@ import {
     ListFilter,
     AlertCircle,
     Info,
+    XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
@@ -111,14 +112,29 @@ export default function LeaveManagementView() {
     });
 
     const [filterStatus, setFilterStatus] = useState<string>("ALL");
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const showToast = (msg: string) => {
-        setToastMessage(msg);
-        setTimeout(() => setToastMessage(null), 3500);
-    };
+    const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+        }
+        setToast({ message: msg, type });
+        toastTimerRef.current = setTimeout(() => {
+            setToast(null);
+            toastTimerRef.current = null;
+        }, 3500);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current) {
+                clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
 
     // Tải dữ liệu từ Backend theo vai trò
     const loadLeaveData = async () => {
@@ -258,33 +274,42 @@ export default function LeaveManagementView() {
         }
         try {
             await cancelLeaveRequest(id);
-            showToast("Đã hủy đơn xin nghỉ phép thành công.");
+            showToast("Đã hủy đơn xin nghỉ phép thành công.", "success");
             await loadLeaveData();
         } catch (err: any) {
             console.error("Lỗi khi hủy đơn:", err);
-            showToast(err?.message || "Không thể hủy đơn nghỉ phép lúc này.");
+            showToast(err?.message || "Không thể hủy đơn nghỉ phép lúc này.", "error");
         }
     };
 
     // Gửi đơn mới qua Backend API (TC-01, TC-02, TC-03)
     const handleSubmitNewLeave = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!newLeave.startDate) {
+            showToast("Vui lòng chọn ngày bắt đầu nghỉ phép.", "error");
+            return;
+        }
+        if (!newLeave.endDate) {
+            showToast("Vui lòng chọn ngày kết thúc nghỉ phép.", "error");
+            return;
+        }
         if (!newLeave.reason.trim()) {
-            showToast("Vui lòng nhập lý do nghỉ phép.");
+            showToast("Vui lòng nhập lý do nghỉ phép.", "error");
             return;
         }
 
         const start = new Date(newLeave.startDate);
         const end = new Date(newLeave.endDate);
         if (end < start) {
-            showToast("Ngày kết thúc không được sớm hơn ngày bắt đầu.");
+            showToast("Ngày kết thúc không được sớm hơn ngày bắt đầu.", "error");
             return;
         }
 
         // AC-02 Validation: Chặn gửi nếu vượt quá quỹ phép năm còn lại
         if (isExceedingAnnualLeave) {
             showToast(
-                `Số ngày nghỉ (${estimatedWorkingDays} ngày) vượt quá số phép năm còn lại (${balance?.remainingDays} ngày). Vui lòng chọn loại 'Nghỉ không hưởng lương' hoặc điều chỉnh ngày nghỉ.`
+                `Số ngày nghỉ (${estimatedWorkingDays} ngày) vượt quá số phép năm còn lại (${balance?.remainingDays} ngày). Vui lòng chọn loại 'Nghỉ không hưởng lương' hoặc điều chỉnh ngày nghỉ.`,
+                "error"
             );
             return;
         }
@@ -298,7 +323,7 @@ export default function LeaveManagementView() {
                 reason: newLeave.reason.trim(),
             });
 
-            showToast("Gửi đơn nghỉ phép thành công. Đang chờ quản lý phê duyệt.");
+            showToast("Gửi đơn nghỉ phép thành công. Đang chờ quản lý phê duyệt.", "success");
             setIsCreateModalOpen(false);
             setNewLeave({
                 leaveType: "ANNUAL",
@@ -309,7 +334,7 @@ export default function LeaveManagementView() {
             await loadLeaveData();
         } catch (err: any) {
             // Hiển thị trực tiếp thông báo lỗi từ Backend nếu vi phạm hạn mức
-            showToast(err.message || "Không thể gửi đơn nghỉ phép. Vui lòng kiểm tra lại.");
+            showToast(err.message || "Không thể gửi đơn nghỉ phép. Vui lòng kiểm tra lại.", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -650,7 +675,7 @@ export default function LeaveManagementView() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmitNewLeave} className="mt-4 space-y-4 text-xs">
+                        <form noValidate onSubmit={handleSubmitNewLeave} className="mt-4 space-y-4 text-xs">
                             {/* Thông tin quỹ phép khả dụng */}
                             {balance && (
                                 <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-blue-900">
@@ -812,10 +837,21 @@ export default function LeaveManagementView() {
             )}
 
             {/* Toast popup */}
-            {toastMessage && (
-                <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-slate-900/90 px-4 py-2.5 text-xs font-bold text-white shadow-xl backdrop-blur-xs animate-in fade-in duration-200">
-                    <CheckCircle2 className="size-4 text-emerald-400" />
-                    <span>{toastMessage}</span>
+            {toast && (
+                <div
+                    className={cn(
+                        "fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-xl backdrop-blur-xs animate-in fade-in duration-200 border",
+                        toast.type === "error"
+                            ? "bg-slate-900/95 text-rose-200 border-rose-500/40"
+                            : "bg-slate-900/95 text-white border-slate-700/50"
+                    )}
+                >
+                    {toast.type === "error" ? (
+                        <XCircle className="size-4 text-rose-400 shrink-0" />
+                    ) : (
+                        <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+                    )}
+                    <span>{toast.message}</span>
                 </div>
             )}
         </div>
