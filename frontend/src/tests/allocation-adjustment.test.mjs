@@ -90,8 +90,8 @@ function handleRemoveError(errorMessage) {
   };
 }
 
-test("Allocation Adjustment Frontend Unit Tests (NCL-06-CN-004)", async (t) => {
-  await t.test("TC-01: Edit hours payload building and validation", () => {
+test("Allocation Adjustment Frontend Unit Tests", async (t) => {
+  await t.test("Edit hours payload building and validation", () => {
     // Valid hours
     const payload = buildAdjustPayload({
       action: "EDIT_HOURS",
@@ -115,7 +115,7 @@ test("Allocation Adjustment Frontend Unit Tests (NCL-06-CN-004)", async (t) => {
     );
   });
 
-  await t.test("TC-01: Move week payload and target week validations", () => {
+  await t.test("Move week payload and target week validations", () => {
     const payload = buildAdjustPayload({
       action: "MOVE_WEEK",
       targetYear: 2026,
@@ -141,20 +141,20 @@ test("Allocation Adjustment Frontend Unit Tests (NCL-06-CN-004)", async (t) => {
     assert.equal(validateMoveWeek(2026, 40, 2026, 45, 2026, 38), true);
   });
 
-  await t.test("TC-02: Remove allocation and 409 Conflict fallback to variance note", () => {
+  await t.test("Remove allocation and 409 Conflict fallback to variance note", () => {
     // Normal error
     const normalErr = handleRemoveError("Lỗi kết nối mạng");
     assert.equal(normalErr.isConflict, false);
     assert.equal(normalErr.promptVarianceNote, false);
 
-    // TC-02: 409 conflict when week ended + actual hours exist
+    // 409 conflict when week ended + actual hours exist
     const conflictErr = handleRemoveError("409 Conflict: Không thể gỡ bỏ dòng phân bổ vì tuần đã kết thúc và nhân sự đã có giờ làm việc thực tế");
     assert.equal(conflictErr.isConflict, true);
     assert.equal(conflictErr.promptVarianceNote, true);
     assert.match(conflictErr.userMessage, /Vui lòng ghi chú lý do chênh lệch/);
   });
 
-  await t.test("TC-02: Note variance payload building and validation", () => {
+  await t.test("Note variance payload building and validation", () => {
     const payload = buildAdjustPayload({
       action: "NOTE_VARIANCE",
       varianceReason: "Khách hàng dời lịch kiểm thử UAT",
@@ -169,7 +169,7 @@ test("Allocation Adjustment Frontend Unit Tests (NCL-06-CN-004)", async (t) => {
     );
   });
 
-  await t.test("TC-03: RBAC permission check - Only VT-03 (Resource Manager) can adjust", () => {
+  await t.test("RBAC permission check - Only VT-03 (Resource Manager) can adjust", () => {
     assert.equal(checkUserCanAdjust("VT-03"), true);
     assert.equal(checkUserCanAdjust("ROLE_VT_03"), true);
     assert.equal(checkUserCanAdjust("VT-01"), false); // Nhân viên
@@ -178,7 +178,7 @@ test("Allocation Adjustment Frontend Unit Tests (NCL-06-CN-004)", async (t) => {
     assert.equal(checkUserCanAdjust(null), false);
   });
 
-  await t.test("TC-04: Action name localization for history view", () => {
+  await t.test("Action name localization for history view", () => {
     assert.equal(formatActionName("EDIT_HOURS"), "Sửa số giờ");
     assert.equal(formatActionName("MOVE_WEEK"), "Chuyển tuần");
     assert.equal(formatActionName("REMOVE"), "Gỡ phân bổ");

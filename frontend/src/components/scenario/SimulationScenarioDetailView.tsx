@@ -168,7 +168,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
     const { scenario } = detail;
     if (scenario.status !== "saved") {
       const confirmSave = window.confirm(
-        "Theo quy tắc BR-05: Chỉ có thể chia sẻ kịch bản đã lưu để đảm bảo tính đóng băng của dữ liệu. Bạn có muốn Lưu kịch bản ngay để tiến hành chia sẻ?"
+        "Chỉ có thể chia sẻ kịch bản đã lưu để đảm bảo tính đóng băng của dữ liệu. Bạn có muốn Lưu kịch bản ngay để tiến hành chia sẻ?"
       );
       if (confirmSave) {
         try {
@@ -424,7 +424,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
                     ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                     : "bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100"
                 )}
-                title={isDraft ? "Cần lưu kịch bản trước khi chia sẻ (BR-05)" : "Chia sẻ kịch bản cho các vai trò liên quan"}
+                title={isDraft ? "Cần lưu kịch bản trước khi chia sẻ" : "Chia sẻ kịch bản cho các vai trò liên quan"}
               >
                 <Share2 className="h-3.5 w-3.5" />
                 <span>Chia sẻ</span>
@@ -434,7 +434,7 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
               <button
                 onClick={() => setIsApplyModalOpen(true)}
                 className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white transition shadow-xs flex items-center space-x-1.5"
-                title="Áp dụng các phân bổ từ kịch bản này vào dự án thật (NCL-08-CN-003)"
+                title="Áp dụng các phân bổ từ kịch bản này vào dự án thật"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 <span>Áp dụng vào phân bổ thật</span>

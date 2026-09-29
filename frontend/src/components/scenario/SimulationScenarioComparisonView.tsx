@@ -295,9 +295,6 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
                 <h1 className="text-xl font-bold text-slate-900">
                   So Sánh Đa Kịch Bản Mô Phỏng
                 </h1>
-                <span className="font-mono text-xs font-semibold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">
-                  NCL-08-CN-004
-                </span>
               </div>
               <p className="text-xs text-slate-500">
                 Đối chiếu năng lực, nhân sự quá tải và tổng giờ thiếu hụt giữa {scenarioIds.length} phương án kịch bản
