@@ -61,7 +61,10 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
                             setIsMenuOpen(false);
                             setIsSidebarOpen((prev) => !prev);
                         }}
-                        className="rounded-lg p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                        className="rounded-lg p-1 text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
+                        aria-label="Thu gọn hoặc mở rộng thanh điều hướng"
+                        title="Thu gọn hoặc mở rộng thanh điều hướng"
+                        type="button"
                     >
                         <Menu className="h-5 w-5" />
                     </button>
@@ -83,8 +86,8 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
 
                     {/* Đồng hồ hệ thống */}
                     <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1.5 px-3 shadow-xs">
-                        <Clock className="h-4 w-4 text-slate-400" />
-                        <span className="text-xs font-bold tracking-tight text-slate-700 min-w-[65px] text-center">
+                        <Clock className="h-4 w-4 text-slate-600" />
+                        <span className="text-xs font-bold tracking-tight text-slate-800 min-w-[65px] text-center">
                             {currentTime || "--:-- --"}
                         </span>
                     </div>
@@ -93,8 +96,9 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => setIsMenuOpen((prev) => !prev)}
-                            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-2.5 shadow-xs transition hover:bg-slate-50 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100 active:scale-95"
+                            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-2.5 shadow-xs transition hover:bg-slate-50 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100 active:scale-95 cursor-pointer"
                             title="Tài khoản cá nhân"
+                            aria-label={`Tài khoản cá nhân: ${displayName}`}
                             type="button"
                         >
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold shadow-2xs">
@@ -109,7 +113,7 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
                             <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 text-slate-700 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150">
                                 <div className="px-3 py-2 border-b border-slate-100 mb-1">
                                     <p className="text-xs font-bold text-slate-900">{displayName}</p>
-                                    <p className="text-[11px] text-slate-500 truncate">{displayEmail}</p>
+                                    <p className="text-[11px] text-slate-600 truncate">{displayEmail}</p>
                                 </div>
                                 <button
                                     onClick={() => {

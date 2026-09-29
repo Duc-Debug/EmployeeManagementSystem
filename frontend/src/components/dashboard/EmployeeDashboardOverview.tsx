@@ -210,12 +210,12 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Dự án tham gia
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{activeProjects.length}</span>
-                            <span className="text-[10px] text-slate-400">dự án đang chạy</span>
+                            <span className="text-[10px] text-slate-600">dự án đang chạy</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-indigo-700">
                             {projects.length} tổng dự án trong hệ thống
@@ -237,16 +237,16 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Phép còn lại (Năm {today.getFullYear()})
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{remainingDays}</span>
-                            <span className="text-[10px] text-slate-400">ngày khả dụng</span>
+                            <span className="text-[10px] text-slate-600">ngày khả dụng</span>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium">
-                            <span className="text-slate-600">Đã nghỉ: <strong className="text-slate-800">{usedDays}d</strong></span>
-                            <span className="text-slate-300">·</span>
+                            <span className="text-slate-700">Đã nghỉ: <strong className="text-slate-900">{usedDays}d</strong></span>
+                            <span className="text-slate-400">·</span>
                             <span className="text-amber-700 font-semibold">Chờ duyệt: {pendingDays}d</span>
                         </div>
                     </div>
@@ -266,16 +266,16 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Hồ sơ Kỹ năng
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">{mySkills.length}</span>
-                            <span className="text-[10px] text-slate-400">kỹ năng đã khai báo</span>
+                            <span className="text-[10px] text-slate-600">kỹ năng đã khai báo</span>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium">
                             <span className="text-emerald-700 font-bold">{approvedSkillsCount} Đã duyệt</span>
-                            <span className="text-slate-300">·</span>
+                            <span className="text-slate-400">·</span>
                             <span className="text-amber-700 font-bold">{mySkills.length - approvedSkillsCount} Chờ duyệt</span>
                         </div>
                     </div>
@@ -295,12 +295,12 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         </span>
                     </div>
                     <div className="mt-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                             Giờ chuẩn tuần
                         </p>
                         <div className="mt-0.5 flex items-baseline gap-1">
                             <span className="text-lg font-bold text-slate-900">40h</span>
-                            <span className="text-[10px] text-slate-400">/ tuần tiêu chuẩn</span>
+                            <span className="text-[10px] text-slate-600">/ tuần tiêu chuẩn</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-sky-700">
                             Đã tích hợp trừ tự động giờ nghỉ & lễ
@@ -312,7 +312,7 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
             {/* Quick Actions Bar */}
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">
                         Lối tắt Thao tác Nhanh
                     </h2>
                 </div>

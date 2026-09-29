@@ -212,7 +212,8 @@ export default function NotificationSettingsModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+            aria-label="Đóng hộp thoại"
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
             type="button"
           >
             <X className="h-5 w-5" />
@@ -258,6 +259,7 @@ export default function NotificationSettingsModal({
                     </div>
                     <input
                       type="checkbox"
+                      aria-label="Bật thông báo ứng dụng"
                       checked={formData.inAppEnabled ?? true}
                       onChange={(e) => setFormData((prev) => ({ ...prev, inAppEnabled: e.target.checked }))}
                       className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -274,6 +276,7 @@ export default function NotificationSettingsModal({
                     </div>
                     <input
                       type="checkbox"
+                      aria-label="Bật thông báo qua Email"
                       checked={formData.emailEnabled ?? true}
                       onChange={(e) => setFormData((prev) => ({ ...prev, emailEnabled: e.target.checked }))}
                       className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -311,6 +314,7 @@ export default function NotificationSettingsModal({
                       </div>
                     </div>
                     <select
+                      aria-label="Kênh nhận cảnh báo xung đột lịch và quá tải nguồn lực"
                       value={formData.scheduleConflictChannel || "ALL"}
                       onChange={(e) =>
                         handleChannelChange(
@@ -343,6 +347,7 @@ export default function NotificationSettingsModal({
                       </div>
                     </div>
                     <select
+                      aria-label="Kênh nhận cảnh báo thay đổi phân bổ dự án"
                       value={formData.allocationChangedChannel || "ALL"}
                       onChange={(e) =>
                         handleChannelChange(
@@ -370,6 +375,7 @@ export default function NotificationSettingsModal({
                       </div>
                     </div>
                     <select
+                      aria-label="Kênh nhận nhắc việc sắp đến hạn chót"
                       value={formData.taskDueReminderChannel || "ALL"}
                       onChange={(e) =>
                         handleChannelChange(
@@ -399,6 +405,7 @@ export default function NotificationSettingsModal({
                       </div>
                     </div>
                     <select
+                      aria-label="Kênh nhận thông báo giao việc mới"
                       value={formData.taskAssignedChannel || "ALL"}
                       onChange={(e) =>
                         handleChannelChange(
@@ -428,6 +435,7 @@ export default function NotificationSettingsModal({
                       </div>
                     </div>
                     <select
+                      aria-label="Kênh nhận thông báo chấm công tuần"
                       value={formData.timesheetReminderChannel || "ALL"}
                       onChange={(e) =>
                         handleChannelChange(
@@ -457,6 +465,7 @@ export default function NotificationSettingsModal({
                       </div>
                     </div>
                     <select
+                      aria-label="Kênh nhận thông báo thảo luận và gắn thẻ"
                       value={formData.taskCommentChannel || "IN_APP_ONLY"}
                       onChange={(e) =>
                         handleChannelChange(
@@ -486,6 +495,7 @@ export default function NotificationSettingsModal({
                     Chọn cách thức hệ thống gửi thông báo cho bạn
                   </p>
                   <select
+                    aria-label="Tần suất nhận thông báo"
                     value={formData.frequency || "IMMEDIATE"}
                     onChange={(e) =>
                       setFormData((prev) => ({
@@ -509,6 +519,7 @@ export default function NotificationSettingsModal({
                     Bắt đầu nhắc việc trước khi deadline tới
                   </p>
                   <select
+                    aria-label="Thời gian nhắc trước hạn chót"
                     value={formData.taskDueReminderDays ?? 3}
                     onChange={(e) =>
                       setFormData((prev) => ({
@@ -538,6 +549,7 @@ export default function NotificationSettingsModal({
                   </div>
                   <input
                     type="checkbox"
+                    aria-label="Bật khung giờ yên tĩnh"
                     checked={formData.quietHoursEnabled ?? false}
                     onChange={(e) =>
                       setFormData((prev) => ({
@@ -558,6 +570,7 @@ export default function NotificationSettingsModal({
                       <span className="text-xs text-slate-600">Từ:</span>
                       <input
                         type="time"
+                        aria-label="Giờ bắt đầu khung giờ yên tĩnh"
                         value={formData.quietHoursStart || "22:00"}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -572,6 +585,7 @@ export default function NotificationSettingsModal({
                       <span className="text-xs text-slate-600">Đến:</span>
                       <input
                         type="time"
+                        aria-label="Giờ kết thúc khung giờ yên tĩnh"
                         value={formData.quietHoursEnd || "07:00"}
                         onChange={(e) =>
                           setFormData((prev) => ({
