@@ -25,6 +25,7 @@ import {
   type ShareCandidateResult,
   type ScenarioShareResult,
 } from "@/lib/api/simulation-scenarios";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import { cn } from "@/lib/utils";
 
 interface ShareScenarioModalProps {
@@ -165,16 +166,16 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
   };
 
   const renderRoleBadge = (roleCode: string) => {
-    const code = roleCode.toUpperCase().replace(/_/g, "-");
-    if (code.includes("VT-01") || code.includes("DIRECTOR") || code.includes("ADMIN")) {
+    const canonical = normalizeRoleCode(roleCode);
+    if (canonical === "VT-01" || canonical === "VT-06") {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
           <Crown className="h-3 w-3 mr-1 text-purple-600" />
-          VT-01 (Giám đốc)
+          {canonical === "VT-06" ? "VT-06 (Quản trị viên)" : "VT-01 (Giám đốc)"}
         </span>
       );
     }
-    if (code.includes("VT-02") || code.includes("PM")) {
+    if (canonical === "VT-02") {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
           <Briefcase className="h-3 w-3 mr-1 text-blue-600" />
@@ -182,7 +183,7 @@ export const ShareScenarioModal: React.FC<ShareScenarioModalProps> = ({
         </span>
       );
     }
-    if (code.includes("VT-03") || code.includes("RM")) {
+    if (canonical === "VT-03") {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
           <Building2 className="h-3 w-3 mr-1 text-emerald-600" />

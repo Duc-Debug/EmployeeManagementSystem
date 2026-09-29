@@ -3,6 +3,7 @@
 import { API_BASE_URL, ApiError } from "../api-client";
 import { getAuthToken } from "../auth-session";
 import { getIsoWeeksInYear } from "../iso-week";
+import { normalizeRoleCode } from "../role-utils";
 
 /**
  * Tham số đầu vào cho API xuất báo cáo phân bổ dự án theo tuần (NCL-10-CN-003).
@@ -134,15 +135,15 @@ export function canExportProjectAllocationExcel(
     return false;
   }
   if (!roleCode) return false;
-  const normalized = roleCode.toUpperCase().replace(/_/g, "-");
+  const role = normalizeRoleCode(roleCode);
 
   // Ban Giám đốc (VT-01) có toàn quyền xuất
-  if (["VT-01", "ROLE-EXECUTIVE", "EXECUTIVE", "DIRECTOR"].includes(normalized)) {
+  if (role === "VT-01") {
     return true;
   }
 
   // Quản lý dự án (VT-02): Chỉ cho phép khi có đầy đủ ID và currentEmployeeId trùng khớp với projectManagerId
-  if (["VT-02", "ROLE-PM", "PM", "PROJECT-MANAGER"].includes(normalized)) {
+  if (role === "VT-02") {
     if (currentEmployeeId == null || projectManagerId == null) {
       return false;
     }

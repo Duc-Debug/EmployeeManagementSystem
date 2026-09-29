@@ -1,5 +1,6 @@
 import { apiRequest } from "../api-client";
 import { getAuthToken } from "../auth-session";
+import { normalizeRoleCode } from "../role-utils";
 
 export interface BillableRateItem {
   employeeId: number;
@@ -192,9 +193,9 @@ export function canAccessBillableRateTab(
   roleCode?: string | null,
   permissions?: readonly string[] | null
 ): boolean {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
+  const role = normalizeRoleCode(roleCode);
   return (
     permissions?.includes("BILLABLE_HOURS_REPORT_READ") === true ||
-    ["VT-01", "VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalized)
+    ["VT-01", "VT-03", "VT-06"].includes(role || "")
   );
 }

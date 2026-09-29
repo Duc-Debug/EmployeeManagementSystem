@@ -19,6 +19,7 @@ import { UploadBackupModal } from "./UploadBackupModal";
 import { BackupAuditLogsTable } from "./BackupAuditLogsTable";
 import { API_BASE_URL } from "@/lib/api-client";
 import { getAuthToken, useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import {
   Database,
   Calendar,
@@ -90,11 +91,7 @@ export function BackupManagementWorkspace() {
     }
   };
 
-  const normalizedRole = authUser?.roleCode ? authUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const isAdminRole =
-    normalizedRole === "VT-06" ||
-    normalizedRole === "ROLE-ADMIN" ||
-    normalizedRole === "ADMIN";
+  const isAdminRole = normalizeRoleCode(authUser?.roleCode) === "VT-06";
   const hasAccess = isAdminRole && authUser?.permissions?.includes("DATA_BACKUP_MANAGE") === true;
 
   useEffect(() => {

@@ -1,3 +1,5 @@
+import { normalizeRoleCode } from "./role-utils";
+
 export type RoleDataScope = "COMPANY" | "ORGANIZATION_BRANCH" | "SELF";
 
 const ROLE_DATA_SCOPE: Readonly<Record<string, RoleDataScope>> = {
@@ -11,6 +13,7 @@ const ROLE_DATA_SCOPE: Readonly<Record<string, RoleDataScope>> = {
 
 export function getDefaultDataScopeForRole(roleCode: string): RoleDataScope {
   if (!roleCode) return "SELF";
-  const normalized = roleCode.toUpperCase().replace(/_/g, "-");
-  return ROLE_DATA_SCOPE[normalized] || "SELF";
+  const canonical = normalizeRoleCode(roleCode);
+  if (!canonical) return "SELF";
+  return ROLE_DATA_SCOPE[canonical] || "SELF";
 }
