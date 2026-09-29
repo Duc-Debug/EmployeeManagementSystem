@@ -40,8 +40,8 @@ import { ApiError } from "@/lib/api-client";
  * quyền này được cấp cho toàn bộ 6 vai trò chính thức (VT-01 -> VT-06).
  */
 export function canReadProjectRoles(userRoleCode?: string | null): boolean {
-  if (!userRoleCode) return false;
-  return normalizeRoleCode(userRoleCode) !== null;
+  const role = normalizeRoleCode(userRoleCode);
+  return role !== "";
 }
 
 /**

@@ -11,6 +11,8 @@ import {
   isHr,
   isAdmin,
 } from "../lib/role-utils.ts";
+import { canReadProjectRoles } from "../components/rolecatalog/ProjectRoleCatalogView.tsx";
+import { isDepartmentManagerRole } from "../components/department/DepartmentTree.tsx";
 
 test("CANONICAL_ROLES contains all standard 6 role codes", () => {
   assert.equal(CANONICAL_ROLES.EXECUTIVE, "VT-01");
@@ -167,3 +169,40 @@ test("isRole matching function", () => {
   assert.equal(isRole("VT-04", ["VT-01", "VT-02"]), false);
   assert.equal(isRole(null, "VT-01"), false);
 });
+
+test("canReadProjectRoles correctly handles valid roles, aliases, and rejects unknown roles", () => {
+  assert.equal(canReadProjectRoles("VT-01"), true);
+  assert.equal(canReadProjectRoles("ROLE-ADMIN"), true);
+  assert.equal(canReadProjectRoles("DIRECTOR"), true);
+  assert.equal(canReadProjectRoles("PM"), true);
+  assert.equal(canReadProjectRoles("RM"), true);
+  assert.equal(canReadProjectRoles("STAFF"), true);
+  assert.equal(canReadProjectRoles("HR"), true);
+  assert.equal(canReadProjectRoles("UNKNOWN_ROLE"), false);
+  assert.equal(canReadProjectRoles("VT-99"), false);
+  assert.equal(canReadProjectRoles(""), false);
+  assert.equal(canReadProjectRoles(null), false);
+  assert.equal(canReadProjectRoles(undefined), false);
+});
+
+test("isDepartmentManagerRole correctly admits manager roles and rejects VT-04 & invalid roles", () => {
+  assert.equal(isDepartmentManagerRole("VT-01"), true);
+  assert.equal(isDepartmentManagerRole("VT-02"), true);
+  assert.equal(isDepartmentManagerRole("VT-03"), true);
+  assert.equal(isDepartmentManagerRole("VT-05"), true);
+  assert.equal(isDepartmentManagerRole("VT-06"), true);
+  assert.equal(isDepartmentManagerRole("ROLE-ADMIN"), true);
+  assert.equal(isDepartmentManagerRole("DIRECTOR"), true);
+  assert.equal(isDepartmentManagerRole("PM"), true);
+  assert.equal(isDepartmentManagerRole("RM"), true);
+  assert.equal(isDepartmentManagerRole("HR"), true);
+  assert.equal(isDepartmentManagerRole("VT-04"), false);
+  assert.equal(isDepartmentManagerRole("STAFF"), false);
+  assert.equal(isDepartmentManagerRole("DEVELOPER"), false);
+  assert.equal(isDepartmentManagerRole("UNKNOWN_ROLE"), false);
+  assert.equal(isDepartmentManagerRole("VT-99"), false);
+  assert.equal(isDepartmentManagerRole(""), false);
+  assert.equal(isDepartmentManagerRole(null), false);
+  assert.equal(isDepartmentManagerRole(undefined), false);
+});
+
