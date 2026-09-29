@@ -22,6 +22,7 @@ import {
     DATA_SCOPE_OPTIONS,
     DEFAULT_FORM_VALUES,
 } from "./employeeForm.constants";
+import { validatePassword, PASSWORD_POLICY_MESSAGE } from "../../../lib/password-policy";
 import TaskSelect from "../../task/TaskSelect";
 
 interface EmployeeProfileFormProps {
@@ -159,8 +160,8 @@ export default function EmployeeProfileForm({
             setErrorMessage("Vui lòng nhập tên đăng nhập.");
             return;
         }
-        if (!isEdit && (!formData.password || formData.password.length < 6)) {
-            setErrorMessage("Mật khẩu khởi tạo phải có ít nhất 6 ký tự.");
+        if (!isEdit && (!formData.password || !validatePassword(formData.password))) {
+            setErrorMessage(PASSWORD_POLICY_MESSAGE);
             return;
         }
         if (!formData.orgUnitId) {
@@ -360,7 +361,8 @@ export default function EmployeeProfileForm({
                                         <input
                                             type={showPassword ? "text" : "password"}
                                             required
-                                            placeholder="Tối thiểu 6 ký tự"
+                                            minLength={8}
+                                            placeholder="Tối thiểu 8 ký tự (gồm chữ và số)"
                                             value={formData.password || ""}
                                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                             className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-3.5 pr-10 text-xs font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
