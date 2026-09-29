@@ -1253,7 +1253,7 @@ export default function ProjectView() {
                                             <select
                                                 value={selectedProjectId || ''}
                                                 onChange={(e) => navigate(`/dashboard/projects?projectId=${e.target.value}`)}
-                                                className="appearance-none rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white max-w-[160px] xs:max-w-[220px] sm:max-w-xs truncate"
+                                                className="appearance-none rounded-lg border border-slate-300 bg-slate-50 py-1 pl-2.5 pr-7 text-xs font-bold text-indigo-900 outline-none transition focus:border-indigo-500 focus:bg-white max-w-[160px] sm:max-w-xs truncate"
                                             >
                                                 {projectsList.map((p) => (
                                                     <option key={p.id} value={p.id}>

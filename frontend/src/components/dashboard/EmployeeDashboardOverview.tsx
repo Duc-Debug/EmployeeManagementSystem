@@ -316,7 +316,7 @@ export default function EmployeeDashboardOverview({ onNavigate }: EmployeeDashbo
                         Lối tắt Thao tác Nhanh
                     </h2>
                 </div>
-                <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                     <button
                         type="button"
                         onClick={() => onNavigate("leave")}

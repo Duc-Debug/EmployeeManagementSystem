@@ -150,8 +150,8 @@ export default function PageQuickSearch() {
                 className={cn(
                     "flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-1.5 shadow-xs transition-all duration-200",
                     isOpen
-                        ? "w-[190px] xs:w-[230px] sm:w-[320px] bg-white border-indigo-400 ring-2 ring-indigo-100"
-                        : "w-[115px] xs:w-[150px] sm:w-[240px] hover:border-slate-300 hover:bg-slate-100/70"
+                        ? "w-[190px] sm:w-[320px] bg-white border-indigo-400 ring-2 ring-indigo-100"
+                        : "w-[120px] sm:w-[240px] hover:border-slate-300 hover:bg-slate-100/70"
                 )}
             >
                 <Search className="h-4 w-4 shrink-0 text-slate-400" />

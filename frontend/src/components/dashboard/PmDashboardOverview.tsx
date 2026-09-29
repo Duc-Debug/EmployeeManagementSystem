@@ -246,7 +246,7 @@ export default function PmDashboardOverview({ onNavigate }: PmDashboardOverviewP
                         Lối tắt Tác vụ Quản lý Dự án
                     </h3>
                 </div>
-                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                     <button
                         type="button"
                         onClick={() => onNavigate("project")}

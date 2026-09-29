@@ -290,7 +290,7 @@ export default function ExecutiveDashboardOverview({ onNavigate }: ExecutiveDash
                         Lối tắt Tác vụ Ban Giám Đốc
                     </h3>
                 </div>
-                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                     <button
                         type="button"
                         onClick={() => onNavigate("departments")}
