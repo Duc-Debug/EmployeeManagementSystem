@@ -1,38 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-
-// Helper logic mimicking URL query construction for GET /api/v1/my-allocations
-function buildMyAllocationsQuery(weekStart, weeks) {
-  const params = new URLSearchParams();
-  if (weekStart) {
-    params.append("week_start", weekStart);
-  }
-  if (weeks !== undefined && weeks !== null) {
-    params.append("weeks", String(weeks));
-  }
-  const queryStr = params.toString();
-  return `/my-allocations${queryStr ? `?${queryStr}` : ""}`;
-}
-
-// Helper logic formatting date range from Monday
-function formatWeeklyDateRange(mondayStr) {
-  const monday = new Date(mondayStr);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  const dFormat = (d) =>
-    `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-
-  return `${dFormat(monday)} — ${dFormat(sunday)}`;
-}
-
-// Helper logic checking project status label
-function getProjectStatusBadge(projectStatus) {
-  if (projectStatus?.toUpperCase() === "CLOSED") {
-    return "Dự án đã đóng";
-  }
-  return null;
-}
+import {
+  buildMyAllocationsQuery,
+  formatWeeklyDateRange,
+  getProjectStatusBadge,
+  validateFeedbackReason,
+  getFeedbackActionLabel,
+} from "../features/my-schedule/api/myScheduleApi.ts";
 
 test("API Query: Tạo URL truy vấn lịch tuần với đúng strict allow-list parameters (BR-01, AC-02)", () => {
   assert.equal(buildMyAllocationsQuery(), "/my-allocations");
@@ -98,15 +72,6 @@ test(" Business Rule Invariant: Feedback không làm thay đổi giờ phân b�
   assert.equal(updatedScheduleWithFeedback.confirmation_status, "HAS_FEEDBACK");
   assert.equal(updatedScheduleWithFeedback.feedback_note, "Trùng lịch");
 });
-
-// Helper testing feedback action button label across confirmation statuses
-function getFeedbackActionLabel(status, feedbackNote) {
-  const allowedStatuses = ["NOT_CONFIRMED", "CONFIRMED", "STALE", "HAS_FEEDBACK"];
-  if (!allowedStatuses.includes(status)) {
-    return null;
-  }
-  return feedbackNote ? "Chỉnh sửa phản hồi" : "Phản hồi";
-}
 
 test("Feedback Action Visibility: Nút phản hồi hiển thị hợp lệ ở cả 4 trạng thái NOT_CONFIRMED, CONFIRMED, STALE, HAS_FEEDBACK", () => {
   // 1. NOT_CONFIRMED: Chưa có feedback note -> "Phản hồi"

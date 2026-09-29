@@ -1,5 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  buildDedupKey,
+  canAccessDedupConfig,
+  validateDedupConfig,
+  formatChangeSummary,
+} from "../lib/api/notification-dedup.ts";
 
 test("Chống gửi trùng thông báo Frontend Logic & Validation Tests", async (t) => {
   await t.test("Khóa chống trùng dedup_key đúng format", () => {

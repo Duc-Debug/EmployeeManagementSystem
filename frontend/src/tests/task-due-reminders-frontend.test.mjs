@@ -1,5 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  formatDaysRemaining,
+  formatDueDateVietnamese,
+  checkIsSpecialist,
+  filterDueTasks,
+  buildScanUrl,
+  buildDirectUrl,
+  parseApiResponse,
+} from "../lib/api/task-due-reminders.ts";
 
 test("Nhắc việc sắp đến hạn Frontend Logic & Formatting Tests", async (t) => {
   // 1. Logic formatDaysRemaining

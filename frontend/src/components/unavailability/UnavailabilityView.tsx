@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useAuthUser } from "@/lib/auth-session";
 import {
   getEmployeeProfileByUserId,
-  getEmployees,
+  fetchAllEmployees,
   type EmployeeProfile,
 } from "@/lib/api/employees";
 import {
@@ -122,14 +122,13 @@ export default function UnavailabilityView() {
     let isMounted = true;
     async function loadDirectory() {
       try {
-        const res = await getEmployees(1, 200);
-        if (isMounted && res?.content) {
-          const map: Record<number, string> = {};
-          for (const emp of res.content) {
-            map[emp.id] = emp.fullName;
-          }
-          setEmployeesMap(map);
+        const employees = await fetchAllEmployees();
+        if (!isMounted) return;
+        const map: Record<number, string> = {};
+        for (const emp of employees) {
+          map[emp.id] = emp.fullName;
         }
+        setEmployeesMap(map);
       } catch {
         // Silently ignore if not authorized
       }

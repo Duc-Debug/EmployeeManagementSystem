@@ -1,44 +1,12 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+  isWeekWithinOutsourcedContract,
+  filterEmployeesByType,
+  canManageResourceAllocation,
+} from "../lib/api/outsourced-contracts.ts";
 
 describe("Outsourced Resource Allocation Frontend Logic & Contract Boundary Tests", () => {
-
-    // Helper: Xác định tuần có nằm trong hạn hợp đồng thuê ngoài hay không (QTN-21 / BR-03)
-    const isWeekWithinOutsourcedContract = (weekStartDate, weekEndDate, contractStartDate, contractEndDate) => {
-        if (!contractStartDate && !contractEndDate) return true;
-        if (contractStartDate && weekEndDate < contractStartDate) {
-            return {
-                valid: false,
-                reasonCode: "CONTRACT_OUT_OF_BOUNDS",
-                reasonMessage: `Hợp đồng thuê ngoài chưa có hiệu lực (bắt đầu từ ${contractStartDate})`
-            };
-        }
-        if (contractEndDate && weekStartDate > contractEndDate) {
-            return {
-                valid: false,
-                reasonCode: "CONTRACT_OUT_OF_BOUNDS",
-                reasonMessage: `Hợp đồng thuê ngoài đã hết hạn (kết thúc ngày ${contractEndDate})`
-            };
-        }
-        return { valid: true };
-    };
-
-    // Helper: Lọc danh sách nhân sự theo loại (NCL-14)
-    const filterEmployeesByType = (rows, typeFilter) => {
-        if (typeFilter === "INTERNAL") {
-            return rows.filter((r) => !r.isOutsourced);
-        }
-        if (typeFilter === "OUTSOURCED") {
-            return rows.filter((r) => r.isOutsourced);
-        }
-        return rows;
-    };
-
-    // Helper: Quyền phân bổ nguồn lực (RBAC)
-    const canManageResourceAllocation = (roleCode) => {
-        const normalized = (roleCode || "").toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "");
-        return normalized === "VT-03";
-    };
 
     const mockContractStart = "2027-06-01";
     const mockContractEnd = "2027-08-31";

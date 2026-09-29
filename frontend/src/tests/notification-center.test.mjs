@@ -1,5 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  formatBadge,
+  getLevelStyle,
+  buildNotificationQueryParams as buildQueryParams,
+  resolveDeepLink,
+  deleteNotificationFromList as deleteItem,
+} from "../lib/api/notifications.ts";
 
 test(" Trung tâm thông báo Frontend Logic & Formatting Tests", async (t) => {
   await t.test("Định dạng số lượng badge chưa đọc (unreadCount)", () => {
@@ -80,8 +87,6 @@ test(" Trung tâm thông báo Frontend Logic & Formatting Tests", async (t) => {
       { id: 2, title: "Item 2", isRead: true },
       { id: 3, title: "Item 3", isRead: false },
     ];
-
-    const deleteItem = (items, idToDelete) => items.filter((n) => n.id !== idToDelete);
 
     const updated = deleteItem(initialItems, 2);
     assert.equal(updated.length, 2);

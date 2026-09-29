@@ -1,5 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+    escapeCsv,
+    generateErrorRowsCsvContent,
+    canAccessDataImport,
+} from "../lib/api/employee-import.ts";
 
 describe("Employee Data Import Frontend Unit Tests", () => {
 
@@ -46,42 +51,10 @@ describe("Employee Data Import Frontend Unit Tests", () => {
         const invalidRows = rows.filter((r) => !r.valid);
         assert.equal(invalidRows.length, 1);
 
-        const escapeCsv = (val) => {
-            if (val === null || val === undefined) return '""';
-            const str = String(val).replace(/"/g, '""');
-            return `"${str}"`;
-        };
+        assert.equal(escapeCsv(null), '""');
+        assert.equal(escapeCsv('Tran "Binh" Thi'), '"Tran ""Binh"" Thi"');
 
-        const headers = [
-            "Dòng", "Mã nhân viên", "Họ và tên", "Tên đăng nhập", "Email",
-            "Phòng ban / Đơn vị", "Mã vai trò", "Chức danh chuyên môn", "Giờ chuẩn",
-            "Ngày bắt đầu", "Ngày kết thúc HĐ", "Thuê ngoài", "Chi tiết lỗi",
-        ];
-
-        const csvRows = [
-            headers.map(escapeCsv).join(","),
-            ...invalidRows.map((r) =>
-                [
-                    r.rowNumber,
-                    r.employeeCode || "",
-                    r.fullName || "",
-                    r.username || "",
-                    r.email || "",
-                    r.orgUnitIdentifier || "",
-                    r.roleCode || "",
-                    r.professionalRole || "",
-                    r.standardHoursPerWeek ?? "",
-                    r.startDate || "",
-                    r.contractEndDate || "",
-                    r.isOutsourced ? "TRUE" : "FALSE",
-                    r.errors.join("; "),
-                ]
-                    .map(escapeCsv)
-                    .join(",")
-            ),
-        ];
-
-        const csvContent = "\uFEFF" + csvRows.join("\r\n");
+        const csvContent = generateErrorRowsCsvContent(rows);
 
         assert.ok(csvContent.startsWith("\uFEFF"));
         assert.ok(csvContent.includes('"Tran ""Binh"" Thi"'));

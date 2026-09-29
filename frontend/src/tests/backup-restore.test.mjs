@@ -24,8 +24,9 @@ describe("Data Backup and Recovery Frontend Tests", () => {
 
   test("validateRestoreConfirmation enforces exact 'RESTORE' string and minimum 10 char reason", () => {
     assert.equal(validateRestoreConfirmation("RESTORE", "Phục hồi kế hoạch dự án tuần 38").valid, true);
-    assert.equal(validateRestoreConfirmation("restore", "Phục hồi kế hoạch dự án tuần 38").valid, true);
-    assert.equal(validateRestoreConfirmation("  restore  ", "Phục hồi kế hoạch dự án tuần 38").valid, true);
+    assert.equal(validateRestoreConfirmation("  RESTORE  ", "Phục hồi kế hoạch dự án tuần 38").valid, true);
+    assert.equal(validateRestoreConfirmation("restore", "Phục hồi kế hoạch dự án tuần 38").valid, false);
+    assert.equal(validateRestoreConfirmation("Restore", "Phục hồi kế hoạch dự án tuần 38").valid, false);
     assert.equal(validateRestoreConfirmation("WRONG", "Phục hồi kế hoạch dự án tuần 38").valid, false);
     assert.equal(validateRestoreConfirmation("RESTORE", "Quá ngắn").valid, false);
     assert.equal(validateRestoreConfirmation("", "").valid, false);

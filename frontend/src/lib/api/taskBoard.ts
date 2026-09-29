@@ -76,3 +76,66 @@ export async function moveTaskBoardStatus(
     body: JSON.stringify({ newStatus }),
   });
 }
+
+export function groupCardsByStatus(cards: TaskBoardCard[]): Record<TaskStatus, TaskBoardCard[]> {
+  return {
+    TODO: cards.filter((c) => c.status === "TODO"),
+    IN_PROGRESS: cards.filter((c) => c.status === "IN_PROGRESS"),
+    IN_REVIEW: cards.filter((c) => c.status === "IN_REVIEW"),
+    DONE: cards.filter((c) => c.status === "DONE"),
+    CANCELLED: cards.filter((c) => c.status === "CANCELLED"),
+  };
+}
+
+export function handleCardDrop(
+  boardData: Record<TaskStatus, TaskBoardCard[]>,
+  taskId: number,
+  newStatus: TaskStatus
+) {
+  const allCards = [
+    ...boardData.TODO,
+    ...boardData.IN_PROGRESS,
+    ...boardData.IN_REVIEW,
+    ...boardData.DONE,
+    ...boardData.CANCELLED,
+  ];
+  const card = allCards.find((c) => c.taskId === taskId);
+  if (!card) return { success: false, reason: "NOT_FOUND", boardData };
+  if (card.status === newStatus) return { success: false, reason: "SAME_STATUS", boardData };
+  if (!card.canMove) return { success: false, reason: "FORBIDDEN", boardData };
+
+  const updated: Record<TaskStatus, TaskBoardCard[]> = {
+    TODO: boardData.TODO.filter((c) => c.taskId !== taskId),
+    IN_PROGRESS: boardData.IN_PROGRESS.filter((c) => c.taskId !== taskId),
+    IN_REVIEW: boardData.IN_REVIEW.filter((c) => c.taskId !== taskId),
+    DONE: boardData.DONE.filter((c) => c.taskId !== taskId),
+    CANCELLED: boardData.CANCELLED.filter((c) => c.taskId !== taskId),
+  };
+  const movedCard = { ...card, status: newStatus };
+  updated[newStatus].push(movedCard);
+
+  return { success: true, movedCard, boardData: updated };
+}
+
+export function filterCardsBySearch(cards: TaskBoardCard[], query?: string | null): TaskBoardCard[] {
+  if (!query || !query.trim()) return cards;
+  const q = query.toLowerCase().trim();
+  return cards.filter(
+    (c) =>
+      c.taskCode.toLowerCase().includes(q) ||
+      c.name.toLowerCase().includes(q) ||
+      (c.projectCode && c.projectCode.toLowerCase().includes(q)) ||
+      c.assignees.some((a) => a.fullName.toLowerCase().includes(q))
+  );
+}
+
+export function resolveEmployeeId(
+  user?: { id?: number } | null,
+  directProfile?: { id?: number } | null,
+  empList: Array<{ id: number; userId?: number }> = []
+): number | null {
+  if (directProfile?.id != null) return directProfile.id;
+  if (!user?.id) return null;
+  const found = empList.find((e) => e.userId === user.id);
+  return found ? found.id : null;
+}

@@ -67,6 +67,14 @@ public class SecurityConfig {
                     if (h2ConsoleEnabled) {
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
+                    // [P2-9] Whitelist cho Swagger UI và tài liệu OpenAPI 3
+                    auth.requestMatchers(
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/v3/api-docs/**",
+                            "/swagger-resources/**",
+                            "/webjars/**"
+                    ).permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/org-units/tree").authenticated();
                     auth.requestMatchers("/api/v1/org-units/**").hasAuthority("VT-06");
                     auth.requestMatchers("/api/v1/users/**").authenticated();

@@ -24,6 +24,7 @@ import {
   compareScenarios,
   type ScenarioComparisonResult,
 } from "@/lib/api/simulation-scenarios";
+import { findRecommendedScenario } from "@/lib/scenario-comparison";
 import { cn } from "@/lib/utils";
 
 interface SimulationScenarioComparisonViewProps {
@@ -68,28 +69,7 @@ export const SimulationScenarioComparisonView: React.FC<SimulationScenarioCompar
 
   // Logic phát hiện kịch bản tối ưu nhất (Khuyến nghị cho BGĐ)
   const recommendedScenarioId = useMemo<number | null>(() => {
-    if (!data || data.scenarios.length === 0) return null;
-    const sorted = [...data.scenarios].sort((a, b) => {
-      // 1. Ít nhân sự quá tải hơn
-      if (a.overloadedEmployeesCount !== b.overloadedEmployeesCount) {
-        return a.overloadedEmployeesCount - b.overloadedEmployeesCount;
-      }
-      // 2. Tổng giờ thiếu hụt ít hơn
-      if (a.totalShortfallHours !== b.totalShortfallHours) {
-        return a.totalShortfallHours - b.totalShortfallHours;
-      }
-      // 3. Đỉnh tải thấp hơn
-      if (a.peakUtilizationPercentage !== b.peakUtilizationPercentage) {
-        return a.peakUtilizationPercentage - b.peakUtilizationPercentage;
-      }
-      // 4. Giờ làm thêm cần thiết ít hơn
-      if (a.totalRequiredAdditionalHours !== b.totalRequiredAdditionalHours) {
-        return a.totalRequiredAdditionalHours - b.totalRequiredAdditionalHours;
-      }
-      // 5. Tỷ lệ tải trung bình tối ưu hơn
-      return (a.averageUtilizationPercentage ?? 0) - (b.averageUtilizationPercentage ?? 0);
-    });
-    return sorted[0]?.scenarioId ?? null;
+    return findRecommendedScenario(data?.scenarios);
   }, [data]);
 
   const formatNumber = (num: number | undefined | null, decimals = 1) => {
