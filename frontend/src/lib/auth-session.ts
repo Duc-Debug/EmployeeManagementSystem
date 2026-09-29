@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { DataScope, RoleCode, UserStatus } from "@/types/hrm";
+import { normalizeRoleCode } from "./role-utils";
 
 export interface AuthUser {
   dataScope: DataScope;
@@ -67,7 +68,14 @@ export function getStoredUser(): AuthUser | null {
   }
   try {
     cachedUserRaw = raw;
-    cachedUserSnapshot = JSON.parse(raw) as AuthUser;
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (parsed && parsed.roleCode) {
+      const canonical = normalizeRoleCode(parsed.roleCode);
+      if (canonical) {
+        parsed.roleCode = canonical;
+      }
+    }
+    cachedUserSnapshot = parsed;
     return cachedUserSnapshot;
   } catch {
     cachedUserRaw = null;
@@ -80,9 +88,14 @@ export function setStoredUser(user: AuthUser): void {
   if (typeof window === "undefined") {
     return;
   }
-  const serialized = JSON.stringify(user);
+  const canonicalRole = normalizeRoleCode(user.roleCode) || user.roleCode;
+  const canonicalUser: AuthUser = {
+    ...user,
+    roleCode: canonicalRole,
+  };
+  const serialized = JSON.stringify(canonicalUser);
   cachedUserRaw = serialized;
-  cachedUserSnapshot = user;
+  cachedUserSnapshot = canonicalUser;
   localStorage.setItem(USER_KEY, serialized);
   notify();
 }

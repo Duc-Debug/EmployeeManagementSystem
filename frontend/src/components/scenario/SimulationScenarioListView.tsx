@@ -25,14 +25,15 @@ import { CreateSimulationScenarioModal } from "./CreateSimulationScenarioModal";
 import { SimulationScenarioDetailView } from "./SimulationScenarioDetailView";
 import { SimulationScenarioComparisonView } from "./SimulationScenarioComparisonView";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import { cn } from "@/lib/utils";
 import type { OrgUnitTreeNode } from "@/types/hrm";
 
 export const SimulationScenarioListView: React.FC = () => {
   const user = useAuthUser();
-  const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const isVT03 = normalizedRole === "VT-03" || normalizedRole === "ROLE-RM" || normalizedRole === "RM";
-  const isVT01 = normalizedRole === "VT-01" || normalizedRole === "ROLE-BGD" || normalizedRole === "BGD" || normalizedRole === "DIRECTOR";
+  const role = normalizeRoleCode(user?.roleCode);
+  const isVT03 = role === "VT-03";
+  const isVT01 = role === "VT-01";
   const canCompare = isVT01 || user?.permissions?.includes("RESOURCE_SCENARIO_COMPARE");
 
   const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);

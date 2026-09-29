@@ -97,8 +97,9 @@ export function TwoStepRestoreModal({
           <button
             type="button"
             onClick={handleClose}
+            aria-label="Đóng hộp thoại"
             disabled={isRestoring}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>

@@ -359,9 +359,10 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                   setIsOpen(false);
                   setIsSettingsOpen(true);
                 }}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
                 type="button"
                 title="Cài đặt thông báo"
+                aria-label="Cài đặt thông báo"
               >
                 <Settings className="h-4 w-4" />
               </button>
@@ -377,7 +378,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 className={`px-2 py-1 rounded-md transition font-medium ${
                   statusFilter === "ALL"
                     ? "bg-white text-slate-800 shadow-xs"
-                    : "text-slate-500 hover:text-slate-700"
+                    : "text-slate-600 hover:text-slate-800"
                 }`}
                 type="button"
               >
@@ -388,7 +389,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                 className={`px-2 py-1 rounded-md transition font-medium ${
                   statusFilter === "UNREAD"
                     ? "bg-white text-indigo-700 shadow-xs"
-                    : "text-slate-500 hover:text-slate-700"
+                    : "text-slate-600 hover:text-slate-800"
                 }`}
                 type="button"
               >
@@ -399,6 +400,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
             {/* Level Filter Dropdown */}
             <div className="flex items-center gap-1">
               <select
+                aria-label="Lọc theo mức độ nghiêm trọng"
                 value={levelFilter}
                 onChange={(e) => setLevelFilter(e.target.value as "ALL" | NotificationLevel)}
                 className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -422,16 +424,16 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
             {isLoading && notifications.length === 0 ? (
-              <div className="p-10 text-center text-xs text-slate-400">
+              <div className="p-10 text-center text-xs text-slate-500">
                 Đang tải thông báo...
               </div>
             ) : notifications.length === 0 ? (
               <div className="p-10 text-center">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                   <Bell className="h-5 w-5" />
                 </div>
-                <p className="text-xs font-medium text-slate-600">Bạn chưa có thông báo nào</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs font-medium text-slate-700">Bạn chưa có thông báo nào</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   Các cảnh báo quá tải, xung đột và nhắc việc sẽ xuất hiện tại đây.
                 </p>
               </div>
@@ -487,7 +489,7 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                       </p>
                     )}
 
-                    <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400">
+                    <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-500">
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         <span>{formatTimeAgo(n.createdAt)}</span>
@@ -510,18 +512,18 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                             <span className="text-[10px] text-rose-600 font-medium">Xóa?</span>
                             <button
                               onClick={(e) => handleDeleteItem(n.id, e)}
-                              className="text-[10px] font-bold text-rose-700 hover:underline"
+                              className="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
                               type="button"
                             >
                               Có
                             </button>
-                            <span className="text-slate-300">|</span>
+                            <span className="text-slate-400">|</span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setConfirmDeleteId(null);
                               }}
-                              className="text-[10px] text-slate-500 hover:underline"
+                              className="text-[10px] text-slate-600 hover:underline cursor-pointer"
                               type="button"
                             >
                               Không
@@ -533,8 +535,9 @@ export function NotificationPopover({ onSelectTask }: NotificationPopoverProps) 
                               e.stopPropagation();
                               setConfirmDeleteId(n.id);
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition"
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer"
                             title="Xóa thông báo khỏi danh sách"
+                            aria-label="Xóa thông báo"
                             type="button"
                           >
                             <Trash2 className="h-3.5 w-3.5" />

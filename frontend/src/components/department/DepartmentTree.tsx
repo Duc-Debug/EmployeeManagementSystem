@@ -22,6 +22,7 @@ import {
     Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import {
     getOrgTree,
     createOrgUnit,
@@ -1153,6 +1154,19 @@ function TreeNodeItem({
     );
 }
 
+export const DEPARTMENT_MANAGER_ROLES = new Set<string>([
+    "VT-01",
+    "VT-02",
+    "VT-03",
+    "VT-05",
+    "VT-06",
+]);
+
+export function isDepartmentManagerRole(roleCode?: string | null): boolean {
+    const canonical = normalizeRoleCode(roleCode);
+    return canonical !== "" && DEPARTMENT_MANAGER_ROLES.has(canonical);
+}
+
 // ----------------------------------------------------------------------
 // Modal Form Component for Adding / Editing Department Node
 // ----------------------------------------------------------------------
@@ -1227,14 +1241,8 @@ function DepartmentTreeModal({ modal, tree, users, onClose, onSave }: Department
     }, [tree, modal]);
 
     const managerOptions = useMemo(() => {
-        const managerRoles = new Set(["VT-01", "VT-02", "VT-03", "VT-05", "VT-06", "ROLE_ADMIN", "ADMIN", "DIRECTOR", "MANAGER", "LEADER", "HR_MANAGER"]);
-
-        // 1. Lọc theo role quản lý (loại bỏ VT-04 / nhân viên thường)
-        let eligible = users.filter((u) => {
-            const r = (u.roleCode || "").toUpperCase();
-            if (r === "VT-04") return false;
-            return managerRoles.has(r) || !r.startsWith("VT-");
-        });
+        // 1. Lọc theo role quản lý (loại bỏ VT-04 / nhân viên thường & role không hợp lệ)
+        let eligible = users.filter((u) => isDepartmentManagerRole(u.roleCode));
 
         // 2. Nếu ở trong nhánh cụ thể (không phải toàn công ty), ưu tiên lọc người thuộc nhánh
         if (branchUnitIds && branchUnitIds.size > 0) {

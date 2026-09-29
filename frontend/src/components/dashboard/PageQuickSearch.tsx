@@ -154,7 +154,7 @@ export default function PageQuickSearch() {
                         : "w-[180px] sm:w-[240px] hover:border-slate-300 hover:bg-slate-100/70"
                 )}
             >
-                <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                <Search className="h-4 w-4 shrink-0 text-slate-500" />
                 <input
                     ref={inputRef}
                     type="text"
@@ -166,7 +166,8 @@ export default function PageQuickSearch() {
                     onFocus={() => setIsOpen(true)}
                     onKeyDown={handleInputKeyDown}
                     placeholder="Tìm trang khả dụng..."
-                    className="w-full bg-transparent text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none"
+                    aria-label="Tìm kiếm trang khả dụng"
+                    className="w-full bg-transparent text-xs font-medium text-slate-800 placeholder-slate-500 focus:outline-none"
                 />
 
                 {searchQuery ? (
@@ -176,12 +177,14 @@ export default function PageQuickSearch() {
                             setSearchQuery("");
                             inputRef.current?.focus();
                         }}
-                        className="rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+                        className="rounded-full p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
+                        aria-label="Xóa từ khóa tìm kiếm"
+                        title="Xóa từ khóa tìm kiếm"
                     >
                         <X className="h-3 w-3" />
                     </button>
                 ) : (
-                    <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                    <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
                         <span className="text-[9px]">Ctrl</span> K
                     </kbd>
                 )}

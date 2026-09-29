@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import { normalizeRoleCode } from "../role-utils";
 
 export interface WeeklyIdlenessDetail {
   year: number;
@@ -168,8 +169,8 @@ export async function fetchAllProlongedIdleStaff(
 
 export function canAccessProlongedIdleness(roleCode?: string | null): boolean {
   if (!roleCode) return false;
-  const normalized = roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "");
-  return ["VT-01", "VT-03", "VT-06", "ADMIN"].includes(normalized);
+  const normalized = normalizeRoleCode(roleCode);
+  return ["VT-01", "VT-03", "VT-06"].includes(normalized);
 }
 
 export function validateAcknowledgeForm({ actionTaken, notes }: { actionTaken?: string | null; notes?: string | null }) {

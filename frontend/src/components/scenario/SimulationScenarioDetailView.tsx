@@ -39,6 +39,7 @@ import { ApplyScenarioModal } from "./ApplyScenarioModal";
 import { ShareScenarioModal } from "./ShareScenarioModal";
 import { RecruitmentScenarioSection } from "./recruitment/RecruitmentScenarioSection";
 import { useAuthUser } from "@/lib/auth-session";
+import { normalizeRoleCode } from "@/lib/role-utils";
 import { cn } from "@/lib/utils";
 
 interface SimulationScenarioDetailViewProps {
@@ -51,12 +52,12 @@ export const SimulationScenarioDetailView: React.FC<SimulationScenarioDetailView
   onBack,
 }) => {
   const user = useAuthUser();
-  const normalizedRole = user?.roleCode ? user.roleCode.toUpperCase().replace(/_/g, "-") : "";
-  const isVT03 = normalizedRole === "VT-03" || normalizedRole === "ROLE-RM" || normalizedRole === "RM";
+  const role = normalizeRoleCode(user?.roleCode);
+  const isVT03 = role === "VT-03";
   const canReadRecruitment = Boolean(
     user?.permissions?.includes("RESOURCE_RECRUITMENT_SCENARIO_READ") ||
-    ["VT-03", "VT-06", "ROLE-ADMIN", "ADMIN"].includes(normalizedRole)
-  ) && normalizedRole !== "VT-01";
+    role === "VT-03" || role === "VT-06"
+  ) && role !== "VT-01";
 
   const [detail, setDetail] = useState<ScenarioDetailResult | null>(null);
   const [simulation, setSimulation] = useState<ScenarioSimulationResult | null>(null);

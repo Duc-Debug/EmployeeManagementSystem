@@ -148,7 +148,8 @@ export default function NotificationDedupConfigModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            aria-label="Đóng hộp thoại"
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
             type="button"
           >
             <X className="h-5 w-5" />
