@@ -14,8 +14,11 @@ RUN ./mvnw clean package -DskipTests
 # ==========================================
 FROM eclipse-temurin:21-jre-alpine
 
-# Tạo group và user non-root an toàn
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Tạo group, user non-root và khởi tạo trước các thư mục dữ liệu runtime
+RUN addgroup -S appgroup \
+    && adduser -S appuser -G appgroup \
+    && mkdir -p /app/uploads/backups /app/uploads/task-attachments \
+    && chown -R appuser:appgroup /app
 
 WORKDIR /app
 
