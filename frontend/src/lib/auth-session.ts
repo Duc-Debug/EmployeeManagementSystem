@@ -65,7 +65,7 @@ export function getStoredUser(): AuthUser | null {
   if (typeof window === "undefined") {
     return null;
   }
-  const raw = localStorage.getItem(USER_KEY);
+  const raw = localStorage.getItem(USER_KEY) || localStorage.getItem("currentUser");
   if (!raw) {
     cachedUserRaw = null;
     cachedUserSnapshot = null;
@@ -129,7 +129,7 @@ export function clearAuthSession(): void {
   localStorage.removeItem("currentUser");
   localStorage.removeItem("token");
   try {
-    sessionStorage.removeItem("demo-session");
+    sessionStorage.clear();
   } catch {
     // Ignore restricted environment errors
   }

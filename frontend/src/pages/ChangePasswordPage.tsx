@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, ArrowRight, LogOut } from "lucide-react";
 import { changePassword, logout } from "@/lib/api/auth";
-import { useAuthUser, setStoredUser } from "@/lib/auth-session";
+import { useAuthUser, setStoredUser, clearAuthSession } from "@/lib/auth-session";
+import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 export default function ChangePasswordPage() {
     const user = useAuthUser();
@@ -33,8 +34,8 @@ export default function ChangePasswordPage() {
             return;
         }
 
-        if (newPassword.length < 6) {
-            setError("Mật khẩu mới phải chứa ít nhất 6 ký tự.");
+        if (!isValidPassword(newPassword)) {
+            setError(PASSWORD_POLICY_MESSAGE);
             return;
         }
 
@@ -136,9 +137,9 @@ export default function ChangePasswordPage() {
                                 type={showPassword ? "text" : "password"}
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
-                                placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                                placeholder="Nhập mật khẩu mới (tối thiểu 8 ký tự, gồm chữ và số)"
                                 required
-                                minLength={6}
+                                minLength={8}
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                             />
                         </div>
@@ -153,7 +154,7 @@ export default function ChangePasswordPage() {
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 placeholder="Nhập lại mật khẩu mới"
                                 required
-                                minLength={6}
+                                minLength={8}
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                             />
                         </div>

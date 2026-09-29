@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resetPassword } from "@/lib/api/auth";
+import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import InteractiveParticleBackground from "./InteractiveParticleBackground";
 
 export default function ResetPasswordPage() {
@@ -63,8 +64,8 @@ export default function ResetPasswordPage() {
       setError("Vui lòng cung cấp mã token khôi phục mật khẩu.");
       return;
     }
-    if (newPassword.length < 8) {
-      setError("Mật khẩu mới phải có tối thiểu 8 ký tự.");
+    if (!isValidPassword(newPassword)) {
+      setError(PASSWORD_POLICY_MESSAGE);
       return;
     }
     if (newPassword !== confirmPassword) {

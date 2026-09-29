@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getStoredUser } from "@/lib/auth-session";
+import { clearAuthSession, getStoredUser } from "@/lib/auth-session";
 import { getCurrentUser } from "@/lib/api/auth";
 
 interface RequireAuthProps {
@@ -25,6 +25,7 @@ export default function RequireAuth({ children, allowPasswordChangeOnly = false 
     }, [isAuthenticated]);
 
     if (!isAuthenticated) {
+        clearAuthSession();
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 

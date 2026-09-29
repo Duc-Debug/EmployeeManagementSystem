@@ -11,6 +11,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto.ApiResponse;
+
 import java.net.URI;
 import java.util.List;
 
@@ -45,7 +47,7 @@ public class OrgUnitController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
-    public ResponseEntity<OrgUnitResponse> createUnit(@Valid @RequestBody CreateOrgUnitRequest request) {
+    public ResponseEntity<ApiResponse<OrgUnitResponse>> createUnit(@Valid @RequestBody CreateOrgUnitRequest request) {
         OrgUnitResult result = createOrgUnitUseCase.execute(request.toCommand());
 
         URI location = ServletUriComponentsBuilder
@@ -53,50 +55,50 @@ public class OrgUnitController {
                 .path("/{id}")
                 .buildAndExpand(result.id())
                 .toUri();
-        return ResponseEntity.created(location).body(OrgUnitResponse.fromResult(result));
+        return ResponseEntity.created(location).body(ApiResponse.success("Tạo đơn vị thành công", OrgUnitResponse.fromResult(result)));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
-    public ResponseEntity<OrgUnitResponse> updateUnit(
+    public ResponseEntity<ApiResponse<OrgUnitResponse>> updateUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id,
             @Valid @RequestBody UpdateOrgUnitRequest request) {
         OrgUnitResult result = updateOrgUnitUseCase.execute(request.toCommand(id));
-        return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật đơn vị thành công", OrgUnitResponse.fromResult(result)));
     }
 
     @PatchMapping("/{id}/move")
     @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
-    public ResponseEntity<OrgUnitResponse> moveUnit(
+    public ResponseEntity<ApiResponse<OrgUnitResponse>> moveUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id,
             @Valid @RequestBody MoveOrgUnitRequest request) {
         OrgUnitResult result = moveOrgUnitUseCase.execute(request.toCommand(id));
-        return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
+        return ResponseEntity.ok(ApiResponse.success("Di chuyển đơn vị thành công", OrgUnitResponse.fromResult(result)));
     }
 
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
-    public ResponseEntity<OrgUnitResponse> deactivateUnit(
+    public ResponseEntity<ApiResponse<OrgUnitResponse>> deactivateUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id) {
         OrgUnitResult result = deactivateOrgUnitUseCase.execute(new DeactivateOrgUnitCommand(id));
-        return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
+        return ResponseEntity.ok(ApiResponse.success("Vô hiệu hóa đơn vị thành công", OrgUnitResponse.fromResult(result)));
     }
 
     @PatchMapping("/{id}/activate")
     @PreAuthorize("hasAuthority('VT-06') or hasAuthority('ORG_UNIT_MANAGE')")
-    public ResponseEntity<OrgUnitResponse> activateUnit(
+    public ResponseEntity<ApiResponse<OrgUnitResponse>> activateUnit(
             @PathVariable @Positive(message = "ID phải là số dương và lớn hơn 0.") Long id) {
         OrgUnitResult result = activateOrgUnitUseCase.execute(new ActivateOrgUnitCommand(id));
-        return ResponseEntity.ok(OrgUnitResponse.fromResult(result));
+        return ResponseEntity.ok(ApiResponse.success("Kích hoạt đơn vị thành công", OrgUnitResponse.fromResult(result)));
     }
 
     @GetMapping("/tree")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<OrgUnitNodeResponse>> getOrgTree() {
+    public ResponseEntity<ApiResponse<List<OrgUnitNodeResponse>>> getOrgTree() {
         List<OrgUnitNodeResult> treeResult = getOrgTreeUseCase.execute();
         List<OrgUnitNodeResponse> response = treeResult.stream()
                 .map(OrgUnitNodeResponse::fromResult)
                 .toList();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

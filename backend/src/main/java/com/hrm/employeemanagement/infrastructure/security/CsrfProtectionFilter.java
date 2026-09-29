@@ -45,6 +45,10 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
         List<String> rawPatterns = new ArrayList<>(List.of(
                 "^http://localhost(:[0-9]+)?$",
                 "^http://127\\.0\\.0\\.1(:[0-9]+)?$",
+                "^http://192\\.168\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
+                "^http://10\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
+                "^http://172\\.16\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
+                "^http://26\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
                 "^https://employee-management-system-izcr9mk17-duc-debug\\.vercel\\.app$"
         ));
 

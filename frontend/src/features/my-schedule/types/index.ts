@@ -41,6 +41,9 @@ export interface ProvideFeedbackResponse {
 export interface MyAllocationsErrorResponse {
   timestamp: string;
   status: number;
-  error_code: string;
+  errorCode: string;
+  code?: string;
+  /** @deprecated Use errorCode instead */
+  error_code?: string;
   message: string;
 }

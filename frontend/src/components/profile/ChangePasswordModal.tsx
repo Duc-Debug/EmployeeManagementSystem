@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Lock, Eye, EyeOff, UserCheck, X, Loader2 } from "lucide-react";
 import { changePassword } from "@/lib/api/auth";
+import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 interface ChangePasswordModalProps {
     isOpen: boolean;
@@ -32,8 +33,8 @@ export default function ChangePasswordModal({ isOpen, onClose, onSuccess }: Chan
             return;
         }
 
-        if (newPassword.length < 6) {
-            setError("Mật khẩu phải chứa ít nhất 6 ký tự.");
+        if (!isValidPassword(newPassword)) {
+            setError(PASSWORD_POLICY_MESSAGE);
             return;
         }
 
