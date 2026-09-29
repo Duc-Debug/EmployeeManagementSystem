@@ -1,6 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.email;
 
-import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
+import com.hrm.employeemanagement.application.port.outbound.email.EmailSenderPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
  * Restricted exclusively to dev/local/test profiles to prevent credential logging in production.
  */
 @Component
-@Profile({"dev", "local", "test"})
-public class ConsoleSimulatedEmailAdapter implements SimulatedEmailPort {
+@Profile("!gmail & (dev | local | test)")
+public class ConsoleSimulatedEmailAdapter implements EmailSenderPort {
 
     private static final Logger log = LoggerFactory.getLogger(ConsoleSimulatedEmailAdapter.class);
 

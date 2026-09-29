@@ -46,6 +46,9 @@ export default function LoginPage({ onLogin, initialError }: AdminLoginPageProps
             if (params.get("resetSuccess") === "true") {
                 setResetSuccessAlert(true);
             }
+            if (params.get("forgot") === "true") {
+                setIsForgotPasswordOpen(true);
+            }
         }
     }, []);
 

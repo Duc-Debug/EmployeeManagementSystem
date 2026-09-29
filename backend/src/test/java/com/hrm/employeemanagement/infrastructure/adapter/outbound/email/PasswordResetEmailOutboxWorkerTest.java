@@ -1,6 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.email;
 
-import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
+import com.hrm.employeemanagement.application.port.outbound.email.EmailSenderPort;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.email.PasswordResetEmailOutboxJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.email.SpringDataPasswordResetEmailOutboxRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,13 +21,13 @@ import static org.mockito.Mockito.*;
 class PasswordResetEmailOutboxWorkerTest {
 
     private SpringDataPasswordResetEmailOutboxRepository repository;
-    private SimulatedEmailPort emailPort;
+    private EmailSenderPort emailPort;
     private PasswordResetEmailOutboxWorker worker;
 
     @BeforeEach
     void setUp() {
         repository = mock(SpringDataPasswordResetEmailOutboxRepository.class);
-        emailPort = mock(SimulatedEmailPort.class);
+        emailPort = mock(EmailSenderPort.class);
         worker = new PasswordResetEmailOutboxWorker(repository, emailPort);
     }
 

@@ -13,3 +13,10 @@ docs/plans/
 .idea/
 
 backend/uploads/backups
+
+### Google OAuth & Gmail API ###
+/credentials.json
+/backend/credentials/
+/tokens/
+/backend/tokens/
+

@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
+import com.hrm.employeemanagement.application.port.outbound.email.EmailSenderPort;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.email.PasswordResetEmailOutboxJpaEntity;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.email.SpringDataPasswordResetEmailOutboxRepository;
 
@@ -18,10 +18,10 @@ public class PasswordResetEmailOutboxWorker {
     private static final Logger log = LoggerFactory.getLogger(PasswordResetEmailOutboxWorker.class);
 
     private final SpringDataPasswordResetEmailOutboxRepository repository;
-    private final SimulatedEmailPort emailPort;
+    private final EmailSenderPort emailPort;
 
     public PasswordResetEmailOutboxWorker(SpringDataPasswordResetEmailOutboxRepository repository,
-                                          SimulatedEmailPort emailPort) {
+                                          EmailSenderPort emailPort) {
         this.repository = repository;
         this.emailPort = emailPort;
     }
