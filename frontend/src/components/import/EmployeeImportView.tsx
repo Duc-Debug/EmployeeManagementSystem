@@ -151,9 +151,7 @@ export default function EmployeeImportView({ onSuccess, onClose }: EmployeeImpor
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-              NCL-12-CN-004
-            </span>
+           
             <span className="text-xs text-slate-500 font-medium">Hệ thống & Cài đặt</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">

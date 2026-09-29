@@ -15,8 +15,8 @@ import {
 } from "../lib/api/allocation-periods.ts";
 import { getMaxIsoWeeks } from "../lib/iso-week.ts";
 
-test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-06-CN-009)", async (t) => {
-  await t.test("TC-01: Kiểm tra tuần thuộc kỳ kế hoạch (isWeekWithinPeriod)", () => {
+test("Allocation Planning Period Frontend Logic & Validation Tests", async (t) => {
+  await t.test("Kiểm tra tuần thuộc kỳ kế hoạch (isWeekWithinPeriod)", () => {
     const periodQ1 = {
       id: 1,
       name: "Kế hoạch Quý 1/2026",
@@ -36,7 +36,7 @@ test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-0
     assert.equal(isWeekWithinPeriod(periodQ1, 2025, 5), false);
   });
 
-  await t.test("TC-02: Validation form tạo kỳ mới thành công với dữ liệu hợp lệ", () => {
+  await t.test("Validation form tạo kỳ mới thành công với dữ liệu hợp lệ", () => {
     const validPayload = {
       name: "Kế hoạch Quý 2/2026",
       periodType: "QUARTER",
@@ -50,7 +50,7 @@ test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-0
     assert.equal(result.errors.length, 0);
   });
 
-  await t.test("TC-03: Validation form tạo kỳ từ chối tên rỗng hoặc dải tuần sai", () => {
+  await t.test("Validation form tạo kỳ từ chối tên rỗng hoặc dải tuần sai", () => {
     // Tên rỗng
     const emptyName = validateCreatePeriodForm({
       name: "   ",
@@ -85,7 +85,7 @@ test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-0
     assert.equal(outOfBounds.errors.length, 2);
   });
 
-  await t.test("TC-04: Validation mở lại kỳ phân bổ bắt buộc lý do >= 10 ký tự (TC-04)", () => {
+  await t.test("Validation mở lại kỳ phân bổ bắt buộc lý do >= 10 ký tự ", () => {
     // Rỗng
     assert.equal(validateUnlockPeriodForm("").isValid, false);
     assert.equal(validateUnlockPeriodForm("   ").isValid, false);
@@ -101,7 +101,7 @@ test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-0
     assert.equal(validReason.error, null);
   });
 
-  await t.test("TC-05: Kiểm tra phân quyền truy cập giao diện theo vai trò (RBAC)", () => {
+  await t.test("Kiểm tra phân quyền truy cập giao diện theo vai trò (RBAC)", () => {
     // VT-03 (Quản lý nguồn lực): Toàn quyền
     const vt03 = checkPeriodPermissions("VT-03");
     assert.equal(vt03.canManage, true);
@@ -125,7 +125,7 @@ test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-0
     assert.equal(vt05.canView, false);
   });
 
-  await t.test("TC-06: Preset Quý 4 tự động phát hiện năm 53 tuần ISO-8601 (2026)", () => {
+  await t.test("Preset Quý 4 tự động phát hiện năm 53 tuần ISO-8601 (2026)", () => {
     assert.equal(getMaxIsoWeeks(2025), 52);
     assert.equal(getMaxIsoWeeks(2026), 53);
     assert.equal(getMaxIsoWeeks(2020), 53);
@@ -136,7 +136,7 @@ test("Allocation Planning Period Frontend Logic & QTN-18 Validation Tests (NCL-0
     assert.equal(q4EndWeek2026, 53);
   });
 
-  await t.test("TC-07: Xuất dữ liệu bản chụp Baseline thành chuỗi CSV UTF-8 đúng định dạng", () => {
+  await t.test("Xuất dữ liệu bản chụp Baseline thành chuỗi CSV UTF-8 đúng định dạng", () => {
     const mockSnapshot = {
       snapshotVersion: 1,
       items: [

@@ -105,7 +105,7 @@ export function validateOverloadSubmission(
     if (!reason || !reason.trim()) {
         return {
             valid: false,
-            error: 'Vui lòng nhập lý do chấp nhận quá tải (QTN-11).',
+            error: 'Vui lòng nhập lý do chấp nhận quá tải.',
         };
     }
     return { valid: true };

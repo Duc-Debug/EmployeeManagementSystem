@@ -210,7 +210,7 @@ export default function HrDashboardOverview({ onNavigate }: HrDashboardOverviewP
                             <span className="text-[10px] text-slate-400">đơn cần duyệt</span>
                         </div>
                         <div className="mt-1 text-[10px] font-medium text-amber-700">
-                            {pendingLeaves.length > 0 ? "Cần xử lý kịp thời theo QTN-10" : "Đã duyệt hết yêu cầu"}
+                            {pendingLeaves.length > 0 ? "Cần xử lý kịp thời" : "Đã duyệt hết yêu cầu"}
                         </div>
                     </div>
                 </div>

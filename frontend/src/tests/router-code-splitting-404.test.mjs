@@ -14,7 +14,7 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
         const appTsx = fs.readFileSync(path.join(frontendDir, "src/App.tsx"), "utf-8");
         const dashboardTsx = fs.readFileSync(path.join(frontendDir, "src/components/dashboard/Dashboard.tsx"), "utf-8");
 
-        test("TC-01: App.tsx uses React.lazy() for major route components", () => {
+        test("App.tsx uses React.lazy() for major route components", () => {
             assert.match(appTsx, /const\s+ResetPasswordPage\s*=\s*lazy\(/);
             assert.match(appTsx, /const\s+(ChangePasswordPage|ForceChangePasswordPage)\s*=\s*lazy\(/);
             assert.match(appTsx, /const\s+NotFoundPage\s*=\s*lazy\(/);
@@ -25,11 +25,11 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             assert.match(appTsx, /const\s+SkilldeclarationView\s*=\s*lazy\(/);
         });
 
-        test("TC-02: App.tsx uses Suspense with PageLoading fallback", () => {
+        test("App.tsx uses Suspense with PageLoading fallback", () => {
             assert.match(appTsx, /<Suspense\s+fallback={<PageLoading\s*\/>}>/);
         });
 
-        test("TC-03: Dashboard.tsx renders <Outlet /> instead of manual activeTab conditional switching", () => {
+        test("Dashboard.tsx renders <Outlet /> instead of manual activeTab conditional switching", () => {
             assert.match(dashboardTsx, /<Outlet\s*\/>/);
             assert.doesNotMatch(dashboardTsx, /activeTab\s*===\s*["']departments["']/);
             assert.doesNotMatch(dashboardTsx, /activeTab\s*===\s*["']skills["']/);
@@ -38,7 +38,7 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             assert.doesNotMatch(dashboardTsx, /activeTab\s*===\s*["']leave["']/);
         });
 
-        test("TC-04: Nested routes configured under /dashboard with catch-all 404", () => {
+        test("Nested routes configured under /dashboard with catch-all 404", () => {
             assert.match(appTsx, /<Route\s+path=["']\/dashboard["']/);
             assert.match(appTsx, /<Route\s+path=["']overview["']/);
             assert.match(appTsx, /<Route\s+path=["']projects["']/);
@@ -69,13 +69,13 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             return { renderLogin: true };
         }
 
-        test("TC-05: Unauthenticated access to protected route redirects to /login", () => {
+        test(" Unauthenticated access to protected route redirects to /login", () => {
             const result = simulateRequireAuth({ token: null, user: null, pathname: "/dashboard/overview" });
             assert.equal(result.redirect, "/login");
             assert.equal(result.reason, "UNAUTHENTICATED");
         });
 
-        test("TC-06: Authenticated user with requiresPasswordChange=true is forced to /change-password", () => {
+        test("Authenticated user with requiresPasswordChange=true is forced to /change-password", () => {
             const user = { username: "user1", requiresPasswordChange: true };
             const result = simulateRequireAuth({
                 token: "valid-jwt",
@@ -86,7 +86,7 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             assert.equal(result.reason, "MANDATORY_PASSWORD_CHANGE");
         });
 
-        test("TC-07: Authenticated user with requiresPasswordChange=true can access /change-password without redirect loop", () => {
+        test("Authenticated user with requiresPasswordChange=true can access /change-password without redirect loop", () => {
             const user = { username: "user1", requiresPasswordChange: true };
             const result = simulateRequireAuth({
                 token: "valid-jwt",
@@ -98,13 +98,13 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             assert.equal(result.render, true);
         });
 
-        test("TC-08: Authenticated user accessing /login is redirected to dashboard without loop", () => {
+        test("Authenticated user accessing /login is redirected to dashboard without loop", () => {
             const user = { username: "user1", requiresPasswordChange: false };
             const result = simulateLoginRoute({ token: "valid-jwt", user });
             assert.equal(result.redirect, "/dashboard/overview");
         });
 
-        test("TC-09: Authenticated user with requiresPasswordChange visiting /login is redirected to /change-password", () => {
+        test("Authenticated user with requiresPasswordChange visiting /login is redirected to /change-password", () => {
             const user = { username: "user1", requiresPasswordChange: true };
             const result = simulateLoginRoute({ token: "valid-jwt", user });
             assert.equal(result.redirect, "/change-password");
@@ -165,19 +165,19 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             return "NotFoundPage";
         }
 
-        test("TC-10: Unknown root route renders NotFoundPage", () => {
+        test("Unknown root route renders NotFoundPage", () => {
             assert.equal(matchRoute("/not-existing"), "NotFoundPage");
             assert.equal(matchRoute("/foo/bar/baz"), "NotFoundPage");
             assert.equal(matchRoute("/admin/unknown-page"), "NotFoundPage");
         });
 
-        test("TC-11: Unknown dashboard nested route renders NotFoundPage", () => {
+        test("Unknown dashboard nested route renders NotFoundPage", () => {
             assert.equal(matchRoute("/dashboard/not-existing"), "NotFoundPage");
             assert.equal(matchRoute("/dashboard/invalid-sub-path"), "NotFoundPage");
             assert.equal(matchRoute("/dashboard/test404"), "NotFoundPage");
         });
 
-        test("TC-12: Valid routes match correctly", () => {
+        test("Valid routes match correctly", () => {
             assert.equal(matchRoute("/login"), "LoginRoute");
             assert.equal(matchRoute("/dashboard"), "DashboardOverview");
             assert.equal(matchRoute("/dashboard/overview"), "DashboardOverview");
@@ -190,7 +190,7 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
     describe("4. Build Output Bundle & Code Splitting Verification", () => {
         const distAssetsDir = path.join(frontendDir, "dist/assets");
 
-        test("TC-13: Build directory dist/assets exists (verified post-build)", (t) => {
+        test("Build directory dist/assets exists (verified post-build)", (t) => {
             if (!fs.existsSync(distAssetsDir)) {
                 t.skip("dist/assets not found (running pre-build); verification skipped until build stage");
                 return;
@@ -198,7 +198,7 @@ describe("Task P2-2: Routing, Code Splitting & 404 Verification Tests", () => {
             assert.ok(fs.existsSync(distAssetsDir), "dist/assets must exist after build");
         });
 
-        test("TC-14: Initial bundle is well below 2.07 MB and split into route chunks", (t) => {
+        test("Initial bundle is well below 2.07 MB and split into route chunks", (t) => {
             if (!fs.existsSync(distAssetsDir)) {
                 t.skip("dist/assets not found (running pre-build); verification skipped until build stage");
                 return;
