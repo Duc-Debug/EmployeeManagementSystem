@@ -1086,7 +1086,7 @@ export default function ProjectView() {
     const handleProjectCreated = async (newProjectId: number) => {
         await loadProjects();
         navigate(`/dashboard/projects?projectId=${newProjectId}`);
-        showToast('Dự án đã được tạo thành công trong Database!', 'success');
+        showToast('Đã tạo dự án thành công.', 'success');
     };
 
     const handleProjectUpdated = async (updatedProject: ProjectResult) => {
@@ -1490,7 +1490,7 @@ export default function ProjectView() {
                                     loadProjectDemands(selectedProjectId);
                                     loadMilestonesForProject(selectedProjectId);
                                 }
-                                showToast('Đã làm mới dữ liệu từ Database', 'info');
+                                showToast('Đã làm mới dữ liệu.', 'info');
                             }}
                             className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition cursor-pointer shadow-2xs"
                             title="Làm mới dữ liệu từ máy chủ"
