@@ -37,6 +37,8 @@ class CorsUtilsTest {
         assertThat(CorsUtils.isSafeOriginPattern("https://*.github.io")).isFalse();
         assertThat(CorsUtils.isSafeOriginPattern("https://*.pages.dev")).isFalse();
         assertThat(CorsUtils.isSafeOriginPattern("https://*")).isFalse();
+        assertThat(CorsUtils.isSafeOriginPattern("http://26.*:*")).isFalse();
+        assertThat(CorsUtils.isSafeOriginPattern("http://172.32.*:*")).isFalse();
         assertThat(CorsUtils.isSafeOriginPattern(null)).isFalse();
         assertThat(CorsUtils.isSafeOriginPattern("   ")).isFalse();
     }

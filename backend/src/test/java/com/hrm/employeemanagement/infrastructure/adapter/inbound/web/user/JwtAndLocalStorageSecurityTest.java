@@ -381,6 +381,11 @@ class JwtAndLocalStorageSecurityTest {
                         .cookie(jwtCookie))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("thiếu bằng chứng xác thực CSRF")));
+
+        // Direct cross-site forgery attempt on /auth/logout without cookie or custom header must also be rejected
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("thiếu bằng chứng xác thực CSRF")));
     }
 
     @Test

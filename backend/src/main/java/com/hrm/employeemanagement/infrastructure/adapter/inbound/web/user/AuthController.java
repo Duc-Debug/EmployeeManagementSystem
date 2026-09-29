@@ -30,6 +30,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -58,6 +59,12 @@ public class AuthController {
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
     private final UserStatusCache userStatusCache;
     private final JwtProperties jwtProperties;
+
+    @Value("${app.security.cookie.secure:true}")
+    private boolean cookieSecure = true;
+
+    @Value("${app.security.cookie.same-site:None}")
+    private String cookieSameSite = "None";
 
     @Autowired
     public AuthController(AuthenticateUserUseCase authenticateUserUseCase,
@@ -133,8 +140,8 @@ public class AuthController {
 
             ResponseCookie cookie = ResponseCookie.from(JwtAuthenticationFilter.COOKIE_NAME, result.getToken())
                     .httpOnly(true)
-                    .secure(true)
-                    .sameSite("None")
+                    .secure(cookieSecure)
+                    .sameSite(cookieSameSite)
                     .path("/")
                     .maxAge(maxAgeSeconds)
                     .build();
@@ -189,8 +196,8 @@ public class AuthController {
 
         ResponseCookie clearCookie = ResponseCookie.from(JwtAuthenticationFilter.COOKIE_NAME, "")
                 .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(0)
                 .build();

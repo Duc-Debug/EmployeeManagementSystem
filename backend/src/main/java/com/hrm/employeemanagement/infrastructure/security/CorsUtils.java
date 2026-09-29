@@ -34,18 +34,35 @@ public final class CorsUtils {
                 || trimmed.contains("*.azurewebsites.net")) {
             return false;
         }
-        // If it contains a wildcard '*', ensure it is restricted strictly to local dev or private subnets
+        // If it contains a wildcard '*', ensure it is restricted strictly to local dev or RFC 1918 private subnets
         if (trimmed.contains("*")) {
             boolean isLocalOrPrivateNet = trimmed.startsWith("http://localhost:")
                     || trimmed.startsWith("http://127.0.0.1:")
                     || trimmed.startsWith("http://192.168.")
                     || trimmed.startsWith("http://10.")
-                    || trimmed.startsWith("http://172.16.")
-                    || trimmed.startsWith("http://26.");
+                    || (trimmed.startsWith("http://172.") && isRfc1918ClassB(trimmed));
             if (!isLocalOrPrivateNet) {
                 return false;
             }
         }
         return true;
+    }
+
+    private static boolean isRfc1918ClassB(String origin) {
+        // RFC 1918: 172.16.0.0 - 172.31.255.255
+        try {
+            String prefix = origin.replace("http://172.", "");
+            int dotIdx = prefix.indexOf('.');
+            int colonIdx = prefix.indexOf(':');
+            int endIdx = dotIdx != -1 ? dotIdx : (colonIdx != -1 ? colonIdx : prefix.length());
+            String secondOctetStr = prefix.substring(0, endIdx).replace("*", "");
+            if (secondOctetStr.isEmpty()) {
+                return true; // 172.*
+            }
+            int secondOctet = Integer.parseInt(secondOctetStr);
+            return secondOctet >= 16 && secondOctet <= 31;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 }

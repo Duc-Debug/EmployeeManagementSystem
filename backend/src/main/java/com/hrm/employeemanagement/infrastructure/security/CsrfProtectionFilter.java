@@ -49,8 +49,7 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
                 "^http://127\\.0\\.0\\.1(:[0-9]+)?$",
                 "^http://192\\.168\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
                 "^http://10\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
-                "^http://172\\.16\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
-                "^http://26\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
+                "^http://172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+(:[0-9]+)?$",
                 "^https://employee-management-system-izcr9mk17-duc-debug\\.vercel\\.app$"
         ));
 
@@ -151,7 +150,11 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
                 || "1".equals(request.getHeader("X-NexusHRM-CSRF"));
         boolean hasBearerAuth = authHeader != null && authHeader.regionMatches(true, 0, "Bearer ", 0, 7);
 
-        if (hasAuthCookie && !hasTrustedOrigin && !hasTrustedReferer && !hasCustomHeader && !hasBearerAuth) {
+        // Both requests bearing auth cookie AND state-changing session revocation (/auth/logout)
+        // are strictly protected against CSRF forgery
+        boolean isProtectedMutation = hasAuthCookie || "/api/v1/auth/logout".equals(requestUri);
+
+        if (isProtectedMutation && !hasTrustedOrigin && !hasTrustedReferer && !hasCustomHeader && !hasBearerAuth) {
             rejectCsrf(response, "Yêu cầu bị từ chối do thiếu bằng chứng xác thực CSRF hợp lệ (Origin, Referer, hoặc X-Requested-With).");
             return;
         }
