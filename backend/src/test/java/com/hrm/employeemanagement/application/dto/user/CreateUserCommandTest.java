@@ -43,6 +43,25 @@ class CreateUserCommandTest {
     }
 
     @Test
+    @DisplayName("Báo lỗi khi password vi phạm chính sách (dưới 8 ký tự hoặc thiếu chữ/số)")
+    void testWeakPassword_ThrowsException() {
+        // Less than 8 characters
+        assertThrows(IllegalArgumentException.class, () -> {
+            new CreateUserCommand("john_doe", "pass1", "VT-04", "EMP-001", "John Doe", 10L);
+        });
+
+        // No digits
+        assertThrows(IllegalArgumentException.class, () -> {
+            new CreateUserCommand("john_doe", "onlyletters", "VT-04", "EMP-001", "John Doe", 10L);
+        });
+
+        // No letters
+        assertThrows(IllegalArgumentException.class, () -> {
+            new CreateUserCommand("john_doe", "123456789", "VT-04", "EMP-001", "John Doe", 10L);
+        });
+    }
+
+    @Test
     @DisplayName("Báo lỗi khi orgUnitId bị null")
     void testNullOrgUnitId_ThrowsException() {
         assertThrows(IllegalArgumentException.class, () -> {

@@ -1,5 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.dto;
 
+import com.hrm.employeemanagement.infrastructure.adapter.inbound.web.user.validation.ValidPassword;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -12,7 +13,7 @@ public class CreateUserRequest {
     private String username;
 
     @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 6, message = "Mật khẩu tối thiểu 6 ký tự")
+    @ValidPassword
     private String password;
 
     @NotBlank(message = "Mã vai trò không được để trống")

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { changePassword } from "@/lib/api/auth";
 import { clearAuthSession, getAuthToken, getStoredUser } from "@/lib/auth-session";
+import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import InteractiveParticleBackground from "./InteractiveParticleBackground";
 
 export default function ForceChangePasswordPage() {
@@ -60,8 +61,8 @@ export default function ForceChangePasswordPage() {
       setError("Vui lòng nhập mật khẩu hiện tại.");
       return;
     }
-    if (newPassword.length < 8) {
-      setError("Mật khẩu mới phải có tối thiểu 8 ký tự.");
+    if (!isValidPassword(newPassword)) {
+      setError(PASSWORD_POLICY_MESSAGE);
       return;
     }
     if (newPassword === currentPassword) {
