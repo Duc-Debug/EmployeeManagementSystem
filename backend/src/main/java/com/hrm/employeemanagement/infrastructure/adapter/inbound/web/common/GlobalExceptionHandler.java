@@ -1,5 +1,7 @@
 package com.hrm.employeemanagement.infrastructure.adapter.inbound.web.common;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -10,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,14 +42,13 @@ import com.hrm.employeemanagement.domain.exception.user.UserNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 
 @RestControllerAdvice
-@Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // 1. Handle OrgUnitNotFoundException (404 NOT FOUND)
     @ExceptionHandler(OrgUnitNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(OrgUnitNotFoundException ex) {
+    public ResponseEntity<ErrorResponse> handleOrgUnitNotFound(OrgUnitNotFoundException ex) {
         ErrorResponse response = ErrorResponse.of(
                 "ORG_UNIT_NOT_FOUND",
                 ex.getMessage(),
@@ -113,7 +115,7 @@ public class GlobalExceptionHandler {
             org.springframework.orm.ObjectOptimisticLockingFailureException.class,
             jakarta.persistence.OptimisticLockException.class
     })
-    public ResponseEntity<ErrorResponse> handleGenericOptimisticLocking(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleOptimisticLocking(Exception ex) {
         ErrorResponse response = ErrorResponse.of(
                 "CONCURRENT_MODIFICATION_CONFLICT",
                 "Dữ liệu đã được cập nhật bởi một thao tác khác cùng thời điểm. Vui lòng tải lại và thử lại.",
@@ -329,18 +331,43 @@ public class GlobalExceptionHandler {
     // 8. Handle DTO Validation Exceptions (@Valid Request Body)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        // Specific requirement for MyAllocations feedback reason
+        if (ex.getBindingResult().getTarget() instanceof com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.MyAllocationsController.ProvideScheduleFeedbackRequest
+                || "provideScheduleFeedbackRequest".equalsIgnoreCase(ex.getBindingResult().getObjectName())) {
+            String msg = ex.getBindingResult().getAllErrors().stream()
+                    .map(org.springframework.context.support.DefaultMessageSourceResolvable::getDefaultMessage)
+                    .filter(java.util.Objects::nonNull)
+                    .findFirst()
+                    .orElse("Lý do hoặc ý kiến phản hồi không được để trống");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ErrorResponse.of("INVALID_FEEDBACK_REASON", msg, HttpStatus.BAD_REQUEST.value()));
+        }
+
         String detailMessage = ex.getBindingResult().getAllErrors().stream()
                 .map(error -> {
-                    String fieldName = ((FieldError) error).getField();
-                    String errorMessage = error.getDefaultMessage();
-                    return fieldName + ": " + errorMessage;
+                    if (error instanceof FieldError fieldError) {
+                        return fieldError.getField() + ": " + (fieldError.getDefaultMessage() != null ? fieldError.getDefaultMessage() : "không hợp lệ");
+                    }
+                    String objName = error.getObjectName() != null ? error.getObjectName() : "object";
+                    String msg = error.getDefaultMessage() != null ? error.getDefaultMessage() : "không hợp lệ";
+                    return objName + ": " + msg;
                 })
                 .collect(Collectors.joining("; "));
+
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        for (ObjectError error : ex.getBindingResult().getAllErrors()) {
+            if (error instanceof FieldError fieldError) {
+                fieldErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
+            } else {
+                fieldErrors.put(error.getObjectName(), error.getDefaultMessage());
+            }
+        }
 
         ErrorResponse response = ErrorResponse.of(
                 "VALIDATION_ERROR",
                 "Validation failed for fields: " + detailMessage,
-                HttpStatus.BAD_REQUEST.value());
+                HttpStatus.BAD_REQUEST.value(),
+                fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
@@ -411,8 +438,11 @@ public class GlobalExceptionHandler {
     // Validation
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        String errorCode = (ex.getMessage() != null && ex.getMessage().contains("QTN-24"))
+                ? "INVALID_FEEDBACK_REASON"
+                : "INVALID_ARGUMENT";
         ErrorResponse response = ErrorResponse.of(
-                "INVALID_ARGUMENT",
+                errorCode,
                 ex.getMessage(),
                 HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -422,12 +452,63 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+        String lowerMsg = rootMsg != null ? rootMsg.toLowerCase() : "";
         log.error("Data integrity violation: ", ex);
-        ErrorResponse response = ErrorResponse.of(
-                "DATA_INTEGRITY_VIOLATION",
-                rootMsg != null ? rootMsg : "Dữ liệu không hợp lệ hoặc tham chiếu tới đối tượng không tồn tại (User ID / Org Unit ID không hợp lệ)",
-                HttpStatus.BAD_REQUEST.value());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+
+        // Check for Unique Constraint violations -> 409 CONFLICT
+        if (lowerMsg.contains("unique") || lowerMsg.contains("duplicate") || lowerMsg.contains("uk_")) {
+            if (lowerMsg.contains("email") || lowerMsg.contains("uk_users_email")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ErrorResponse.of("DUPLICATE_EMAIL", "Email đã tồn tại trong hệ thống", HttpStatus.CONFLICT.value()));
+            }
+            if (lowerMsg.contains("username") || lowerMsg.contains("uk_users_username") || lowerMsg.contains("users")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ErrorResponse.of("DUPLICATE_USERNAME", "Tên đăng nhập đã tồn tại trong hệ thống", HttpStatus.CONFLICT.value()));
+            }
+            if (lowerMsg.contains("employee_code") || lowerMsg.contains("employees")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ErrorResponse.of("DUPLICATE_EMPLOYEE_CODE", "Mã nhân viên đã tồn tại trong hệ thống", HttpStatus.CONFLICT.value()));
+            }
+            if (lowerMsg.contains("user_id")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ErrorResponse.of("DUPLICATE_USER_LINK", "Người dùng này đã được liên kết với một hồ sơ nhân viên khác", HttpStatus.CONFLICT.value()));
+            }
+            if (lowerMsg.contains("uk_project_roles_name") || lowerMsg.contains("project_roles.name")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ErrorResponse.of("DUPLICATE_PROJECT_ROLE", "Tên vai trò chuyên môn đã tồn tại trong hệ thống", HttpStatus.CONFLICT.value()));
+            }
+            if (lowerMsg.contains("uk_tasks_project_task_code") || lowerMsg.contains("task")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ErrorResponse.of("DUPLICATE_TASK_CODE", "Mã công việc đã tồn tại trong dự án hoặc vi phạm toàn vẹn dữ liệu", HttpStatus.CONFLICT.value()));
+            }
+            if (lowerMsg.contains("milestone")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ErrorResponse.of("DUPLICATE_MILESTONE", "Tên mốc tiến độ đã tồn tại trong dự án hoặc vi phạm toàn vẹn dữ liệu", HttpStatus.CONFLICT.value()));
+            }
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ErrorResponse.of("DATA_INTEGRITY_VIOLATION", "Dữ liệu vi phạm ràng buộc toàn vẹn hoặc đã tồn tại trong hệ thống", HttpStatus.CONFLICT.value()));
+        }
+
+        // Check for Foreign Key Constraint violations -> 400 BAD REQUEST
+        if (lowerMsg.contains("foreign key") || lowerMsg.contains("fk_") || lowerMsg.contains("referential integrity")) {
+            if (lowerMsg.contains("org_unit") || lowerMsg.contains("org unit")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ErrorResponse.of("DATA_INTEGRITY_VIOLATION", "Đơn vị tổ chức được chỉ định không tồn tại trong hệ thống", HttpStatus.BAD_REQUEST.value()));
+            }
+            if (lowerMsg.contains("department")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ErrorResponse.of("DATA_INTEGRITY_VIOLATION", "Phòng ban được chỉ định không tồn tại trong hệ thống", HttpStatus.BAD_REQUEST.value()));
+            }
+            if (lowerMsg.contains("role")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ErrorResponse.of("DATA_INTEGRITY_VIOLATION", "Vai trò được chỉ định không tồn tại trong hệ thống", HttpStatus.BAD_REQUEST.value()));
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ErrorResponse.of("DATA_INTEGRITY_VIOLATION", "Dữ liệu tham chiếu không hợp lệ hoặc không tồn tại trong hệ thống", HttpStatus.BAD_REQUEST.value()));
+        }
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of("DATA_INTEGRITY_VIOLATION", rootMsg != null ? rootMsg : "Dữ liệu không đáp ứng các ràng buộc toàn vẹn của hệ thống", HttpStatus.BAD_REQUEST.value()));
     }
 
     // 14.2. Handle AccessDeniedException (@PreAuthorize security check failures)
@@ -793,14 +874,623 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    // --- User Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRoleNotFound(com.hrm.employeemanagement.domain.exception.role.RoleNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "ROLE_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmployeeCode(com.hrm.employeemanagement.domain.exception.employee.DuplicateEmployeeCodeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_EMPLOYEE_CODE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler({
+            com.hrm.employeemanagement.domain.exception.user.InvalidCredentialsException.class,
+            org.springframework.security.authentication.BadCredentialsException.class
+    })
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(RuntimeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_CREDENTIALS",
+                ex.getMessage(),
+                HttpStatus.UNAUTHORIZED.value());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @ExceptionHandler({
+            com.hrm.employeemanagement.domain.exception.user.UserLockedException.class,
+            org.springframework.security.authentication.DisabledException.class
+    })
+    public ResponseEntity<ErrorResponse> handleUserLocked(RuntimeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "USER_LOCKED",
+                ex.getMessage(),
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler({
+            com.hrm.employeemanagement.domain.exception.user.SelfLockingException.class,
+            com.hrm.employeemanagement.domain.exception.user.LastAdminProtectionException.class,
+            com.hrm.employeemanagement.domain.exception.user.UserAlreadyLockedException.class,
+            com.hrm.employeemanagement.domain.exception.user.UserAlreadyActiveException.class,
+            com.hrm.employeemanagement.domain.exception.user.InvalidPasswordException.class,
+            com.hrm.employeemanagement.domain.exception.user.InvalidResetTokenException.class
+    })
+    public ResponseEntity<ErrorResponse> handleBusinessRuleViolation(RuntimeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "BUSINESS_RULE_VIOLATION",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // --- Project Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleProjectNotFound(com.hrm.employeemanagement.domain.exception.project.ProjectNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateProjectCode(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectCodeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_PROJECT_CODE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResourceDemand(com.hrm.employeemanagement.domain.exception.project.DuplicateResourceDemandException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_RESOURCE_DEMAND",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidProjectData(com.hrm.employeemanagement.domain.exception.project.InvalidProjectDataException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PROJECT_DATA",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidProjectDateRange(com.hrm.employeemanagement.domain.exception.project.InvalidProjectDateRangeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PROJECT_DATE_RANGE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleProjectTemplateNotFound(com.hrm.employeemanagement.domain.exception.projecttemplate.ProjectTemplateNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_TEMPLATE_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidResourceDemand(com.hrm.employeemanagement.domain.exception.project.InvalidResourceDemandException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_RESOURCE_DEMAND",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectDateNotConfiguredException.class)
+    public ResponseEntity<ErrorResponse> handleProjectDateNotConfigured(com.hrm.employeemanagement.domain.exception.project.ProjectDateNotConfiguredException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_DATE_NOT_CONFIGURED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectAlreadyClosedException.class)
+    public ResponseEntity<ErrorResponse> handleProjectAlreadyClosed(com.hrm.employeemanagement.domain.exception.project.ProjectAlreadyClosedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_ALREADY_CLOSED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectNotClosedException.class)
+    public ResponseEntity<ErrorResponse> handleProjectNotClosed(com.hrm.employeemanagement.domain.exception.project.ProjectNotClosedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_NOT_CLOSED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException.class)
+    public ResponseEntity<ErrorResponse> handleProjectHasUnfinishedTasks(com.hrm.employeemanagement.domain.exception.project.ProjectHasUnfinishedTasksException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_HAS_UNFINISHED_TASKS",
+                ex.getMessage(),
+                HttpStatus.UNPROCESSABLE_ENTITY.value());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateProjectMember(com.hrm.employeemanagement.domain.exception.project.DuplicateProjectMemberException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_PROJECT_MEMBER",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleProjectMemberNotFound(com.hrm.employeemanagement.domain.exception.project.ProjectMemberNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_MEMBER_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException.class)
+    public ResponseEntity<ErrorResponse> handleMemberHasActiveTasks(com.hrm.employeemanagement.domain.exception.project.MemberHasActiveTasksException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "MEMBER_HAS_ACTIVE_TASKS",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateProjectRoleCode(com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleCodeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_PROJECT_ROLE_CODE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateProjectRoleName(com.hrm.employeemanagement.domain.exception.role.DuplicateProjectRoleNameException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_PROJECT_ROLE_NAME",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleDataException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidProjectRoleData(com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleDataException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PROJECT_ROLE_DATA",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidProjectRoleState(com.hrm.employeemanagement.domain.exception.role.InvalidProjectRoleStateException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PROJECT_ROLE_STATE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    // --- Task Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTaskNotFound(com.hrm.employeemanagement.domain.exception.task.TaskNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TASK_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.ProjectClosedException.class)
+    public ResponseEntity<ErrorResponse> handleProjectClosed(com.hrm.employeemanagement.domain.exception.task.ProjectClosedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_CLOSED",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.CyclicTaskHierarchyException.class)
+    public ResponseEntity<ErrorResponse> handleCyclicTaskHierarchy(com.hrm.employeemanagement.domain.exception.task.CyclicTaskHierarchyException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CYCLIC_TASK_HIERARCHY",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.CyclicTaskDependencyException.class)
+    public ResponseEntity<ErrorResponse> handleCyclicTaskDependency(com.hrm.employeemanagement.domain.exception.task.CyclicTaskDependencyException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CYCLIC_TASK_DEPENDENCY",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.AssigneeNotInProjectException.class)
+    public ResponseEntity<ErrorResponse> handleAssigneeNotInProject(com.hrm.employeemanagement.domain.exception.task.AssigneeNotInProjectException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "ASSIGNEE_NOT_IN_PROJECT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidTaskData(com.hrm.employeemanagement.domain.exception.task.InvalidTaskDataException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_TASK_DATA",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.TaskHasChildrenException.class)
+    public ResponseEntity<ErrorResponse> handleTaskHasChildren(com.hrm.employeemanagement.domain.exception.task.TaskHasChildrenException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TASK_HAS_CHILDREN",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.TaskHasTimesheetException.class)
+    public ResponseEntity<ErrorResponse> handleTaskHasTimesheet(com.hrm.employeemanagement.domain.exception.task.TaskHasTimesheetException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TASK_HAS_TIMESHEET",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.AssigneeInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleAssigneeInactive(com.hrm.employeemanagement.domain.exception.task.AssigneeInactiveException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "ASSIGNEE_INACTIVE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.task.TaskNotAssignedToUserException.class)
+    public ResponseEntity<ErrorResponse> handleTaskNotAssignedToUser(com.hrm.employeemanagement.domain.exception.task.TaskNotAssignedToUserException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TASK_NOT_ASSIGNED_TO_USER",
+                ex.getMessage(),
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    // --- Skill Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSkillGroupNotFound(com.hrm.employeemanagement.domain.exception.skill.SkillGroupNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "SKILL_GROUP_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.DuplicateSkillNameException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateSkillName(com.hrm.employeemanagement.domain.exception.skill.DuplicateSkillNameException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_SKILL_NAME",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.skill.InvalidSkillMergeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidSkillMerge(com.hrm.employeemanagement.domain.exception.skill.InvalidSkillMergeException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_SKILL_MERGE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // --- Milestone Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.milestone.MilestoneNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleMilestoneNotFound(com.hrm.employeemanagement.domain.exception.milestone.MilestoneNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "MILESTONE_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.milestone.ProjectHasNoWbsException.class)
+    public ResponseEntity<ErrorResponse> handleProjectHasNoWbs(com.hrm.employeemanagement.domain.exception.milestone.ProjectHasNoWbsException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "PROJECT_HAS_NO_WBS",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.milestone.DuplicateMilestoneNameException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateMilestoneName(com.hrm.employeemanagement.domain.exception.milestone.DuplicateMilestoneNameException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "DUPLICATE_MILESTONE_NAME",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.milestone.TaskNotInProjectException.class)
+    public ResponseEntity<ErrorResponse> handleTaskNotInProject(com.hrm.employeemanagement.domain.exception.milestone.TaskNotInProjectException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "TASK_NOT_IN_PROJECT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.milestone.InvalidMilestoneDataException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidMilestoneData(com.hrm.employeemanagement.domain.exception.milestone.InvalidMilestoneDataException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_MILESTONE_DATA",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // --- Allocation & MyAllocations Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.InvalidQueryParameterException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidQueryParameter(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.InvalidQueryParameterException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_QUERY_PARAMETER",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.InvalidWeekFormatException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidWeekFormat(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.InvalidWeekFormatException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_WEEK_FORMAT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.InvalidWeeksFormatException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidWeeksFormat(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.InvalidWeeksFormatException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_WEEKS_FORMAT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.WeekStartNotMondayException.class)
+    public ResponseEntity<ErrorResponse> handleWeekStartNotMonday(com.hrm.employeemanagement.infrastructure.adapter.inbound.web.allocation.WeekStartNotMondayException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "WEEK_START_NOT_MONDAY",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.CannotRemoveAllocationWithActualHoursException.class)
+    public ResponseEntity<ErrorResponse> handleCannotRemoveAllocationWithActualHours(com.hrm.employeemanagement.domain.exception.allocation.CannotRemoveAllocationWithActualHoursException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "CANNOT_REMOVE_ALLOCATION_WITH_ACTUAL_HOURS",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.AllocationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAllocationNotFound(com.hrm.employeemanagement.domain.exception.allocation.AllocationNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "ALLOCATION_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationAdjustmentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAllocationAdjustment(com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationAdjustmentException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_ALLOCATION_ADJUSTMENT",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.AllocationPeriodLockedException.class)
+    public ResponseEntity<ErrorResponse> handleAllocationPeriodLocked(com.hrm.employeemanagement.domain.exception.allocation.AllocationPeriodLockedException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "ALLOCATION_PERIOD_LOCKED",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.AllocationPeriodNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAllocationPeriodNotFound(com.hrm.employeemanagement.domain.exception.allocation.AllocationPeriodNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "ALLOCATION_PERIOD_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationPeriodStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPeriodState(com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationPeriodStateException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PERIOD_STATE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationPeriodException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPeriod(com.hrm.employeemanagement.domain.exception.allocation.InvalidAllocationPeriodException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PERIOD_DATA",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // --- Reservation Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.reservation.ReservationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleReservationNotFound(com.hrm.employeemanagement.domain.exception.reservation.ReservationNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "RESERVATION_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.reservation.InvalidReservationDataException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidReservationData(com.hrm.employeemanagement.domain.exception.reservation.InvalidReservationDataException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_RESERVATION_DATA",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.reservation.InvalidReservationStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidReservationState(com.hrm.employeemanagement.domain.exception.reservation.InvalidReservationStateException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_RESERVATION_STATE",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleAllocationEmployeeInactive(com.hrm.employeemanagement.domain.exception.allocation.EmployeeInactiveException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "EMPLOYEE_INACTIVE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // --- Unavailability Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.unavailability.UnavailabilityDeclarationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUnavailabilityDeclarationNotFound(com.hrm.employeemanagement.domain.exception.unavailability.UnavailabilityDeclarationNotFoundException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "UNAVAILABILITY_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.unavailability.InvalidUnavailabilityPeriodException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidUnavailabilityPeriod(com.hrm.employeemanagement.domain.exception.unavailability.InvalidUnavailabilityPeriodException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_PERIOD",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.unavailability.InvalidUnavailabilityStatusException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidUnavailabilityStatus(com.hrm.employeemanagement.domain.exception.unavailability.InvalidUnavailabilityStatusException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_STATUS",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.exception.unavailability.UnavailabilityConflictException.class)
+    public ResponseEntity<ErrorResponse> handleUnavailabilityConflict(com.hrm.employeemanagement.domain.exception.unavailability.UnavailabilityConflictException ex) {
+        ErrorResponse response = ErrorResponse.of(
+                "UNAVAILABILITY_CONFLICT",
+                ex.getMessage(),
+                HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    // --- Backup Domain Handlers ---
+    @ExceptionHandler(com.hrm.employeemanagement.domain.backup.exception.BackupAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleBackupAccessDenied(com.hrm.employeemanagement.domain.backup.exception.BackupAccessDeniedException e) {
+        log.warn("Từ chối truy cập sao lưu & phục hồi: {}", e.getMessage());
+        ErrorResponse response = ErrorResponse.of(
+                "FORBIDDEN",
+                e.getMessage(),
+                HttpStatus.FORBIDDEN.value());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.backup.exception.BackupNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleBackupNotFound(com.hrm.employeemanagement.domain.backup.exception.BackupNotFoundException e) {
+        ErrorResponse response = ErrorResponse.of(
+                "NOT_FOUND",
+                e.getMessage(),
+                HttpStatus.NOT_FOUND.value());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.backup.exception.InvalidBackupStatusException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidBackupStatus(com.hrm.employeemanagement.domain.backup.exception.InvalidBackupStatusException e) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_BACKUP_STATUS",
+                e.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.backup.exception.InvalidRestoreConfirmationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRestoreConfirmation(com.hrm.employeemanagement.domain.backup.exception.InvalidRestoreConfirmationException e) {
+        ErrorResponse response = ErrorResponse.of(
+                "INVALID_CONFIRMATION",
+                e.getMessage(),
+                HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(com.hrm.employeemanagement.domain.backup.exception.BackupRestoreFailedException.class)
+    public ResponseEntity<ErrorResponse> handleBackupRestoreFailed(com.hrm.employeemanagement.domain.backup.exception.BackupRestoreFailedException e) {
+        log.error("Phục hồi sao lưu thất bại: {}", e.getMessage());
+        ErrorResponse response = ErrorResponse.of(
+                "RESTORE_FAILED",
+                e.getMessage(),
+                HttpStatus.UNPROCESSABLE_ENTITY.value());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
+    }
+
     // 15. Catch-all Internal Server Error (500 INTERNAL SERVER ERROR)
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         log.error("Unhandled internal server error occurred", ex);
 
         ErrorResponse response = ErrorResponse.of(
                 "INTERNAL_SERVER_ERROR",
-                "Máy chủ gặp lỗi khi xử lý dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị viên.",
+                "Đã xảy ra lỗi hệ thống. Vui lòng liên hệ quản trị viên hoặc thử lại sau.",
                 HttpStatus.INTERNAL_SERVER_ERROR.value());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }

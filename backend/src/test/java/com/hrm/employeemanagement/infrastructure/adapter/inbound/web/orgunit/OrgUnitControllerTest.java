@@ -75,12 +75,13 @@ class OrgUnitControllerTest {
                                 .andExpect(status().isCreated())
                                 .andExpect(header().exists("Location"))
                                 .andExpect(header().string("Location", "http://localhost/api/v1/org-units/2"))
-                                .andExpect(jsonPath("$.id").value(2))
-                                .andExpect(jsonPath("$.unitCode").value("DEV-CENTER"))
-                                .andExpect(jsonPath("$.parentId").value(1))
-                                .andExpect(jsonPath("$.managerId").value(10))
-                                .andExpect(jsonPath("$.treePath").value("/1/2/"))
-                                .andExpect(jsonPath("$.level").value(2));
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.id").value(2))
+                                .andExpect(jsonPath("$.data.unitCode").value("DEV-CENTER"))
+                                .andExpect(jsonPath("$.data.parentId").value(1))
+                                .andExpect(jsonPath("$.data.managerId").value(10))
+                                .andExpect(jsonPath("$.data.treePath").value("/1/2/"))
+                                .andExpect(jsonPath("$.data.level").value(2));
         }
 
         @Test
@@ -191,8 +192,9 @@ class OrgUnitControllerTest {
 
                 mockMvc.perform(patch("/api/v1/org-units/2/activate"))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.id").value(2))
-                                .andExpect(jsonPath("$.status").value("ACTIVE"));
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.id").value(2))
+                                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
         }
 
         @Test
