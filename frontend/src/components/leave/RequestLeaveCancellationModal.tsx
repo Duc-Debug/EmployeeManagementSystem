@@ -59,7 +59,7 @@ export default function RequestLeaveCancellationModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+        <form noValidate onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
           {/* Tóm tắt thông tin đơn */}
           <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3.5 space-y-1">
             <div className="flex justify-between">
