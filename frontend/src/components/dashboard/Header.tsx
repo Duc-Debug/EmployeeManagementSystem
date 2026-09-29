@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { Menu, Settings, Clock, User, LogOut } from "lucide-react";
 import UserProfileModal from "../profile/UserProfileModal";
-import { useAuthUser, clearAuthSession } from "@/lib/auth-session";
+import { useAuthUser } from "@/lib/auth-session";
+import { logout } from "@/lib/api/auth";
 import { NotificationPopover } from "./NotificationPopover";
 import PageQuickSearch from "./PageQuickSearch";
 
@@ -20,7 +20,6 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
     const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
 
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const navigate = useNavigate();
 
     useEffect(() => {
         const updateClock = () => {
@@ -48,14 +47,9 @@ export default function Header({ setIsSidebarOpen }: HeaderProps) {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         setIsMenuOpen(false);
-        clearAuthSession();
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("token");
-        localStorage.removeItem("currentUser");
-        sessionStorage.clear();
-        navigate("/login", { replace: true });
+        await logout();
     };
 
     return (

@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   LogOut,
 } from "lucide-react";
-import { changePassword } from "@/lib/api/auth";
+import { changePassword, logout } from "@/lib/api/auth";
 import { clearAuthSession, getAuthToken, getStoredUser } from "@/lib/auth-session";
 import InteractiveParticleBackground from "./InteractiveParticleBackground";
 
@@ -45,11 +45,8 @@ export default function ForceChangePasswordPage() {
     }
   }, [token, user, navigate]);
 
-  const handleLogout = () => {
-    clearAuthSession();
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("currentUser");
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    await logout();
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -83,8 +80,6 @@ export default function ForceChangePasswordPage() {
       setSuccess(true);
       // Clean old session since backend invalidates session version
       clearAuthSession();
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("currentUser");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Đổi mật khẩu thất bại. Vui lòng thử lại.";
       setError(msg);

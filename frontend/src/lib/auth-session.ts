@@ -41,7 +41,7 @@ export function getAuthToken(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("accessToken");
 }
 
 export function setAuthToken(token: string): void {
@@ -49,6 +49,8 @@ export function setAuthToken(token: string): void {
     return;
   }
   localStorage.setItem(TOKEN_KEY, token);
+  // Remove redundant legacy key if present to avoid dual-storage confusion
+  localStorage.removeItem("accessToken");
   notify();
 }
 
@@ -84,9 +86,15 @@ export function setStoredUser(user: AuthUser): void {
   cachedUserRaw = serialized;
   cachedUserSnapshot = user;
   localStorage.setItem(USER_KEY, serialized);
+  // Remove redundant legacy key if present
+  localStorage.removeItem("currentUser");
   notify();
 }
 
+/**
+ * Purges all authentication tokens, user state, and temporary session keys
+ * from localStorage and sessionStorage.
+ */
 export function clearAuthSession(): void {
   if (typeof window === "undefined") {
     return;
@@ -95,6 +103,16 @@ export function clearAuthSession(): void {
   cachedUserSnapshot = null;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+
+  // Defense-in-depth: Thoroughly clean legacy and duplicate credentials
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("currentUser");
+  localStorage.removeItem("token");
+  try {
+    sessionStorage.removeItem("demo-session");
+  } catch {
+    // Ignore restricted environment errors
+  }
   notify();
 }
 

@@ -1,4 +1,5 @@
 import { apiRequest } from "../api-client";
+import { getAuthToken } from "../auth-session";
 
 export interface BillableRateItem {
   employeeId: number;
@@ -109,7 +110,7 @@ export async function downloadBillableRateReport(
   const queryStr = params.toString();
   const url = `/reports/billable-rate/export${queryStr ? `?${queryStr}` : ""}`;
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const token = getAuthToken();
   const baseUrl = "/api/v1";
 
   const response = await fetch(`${baseUrl}${url}`, {

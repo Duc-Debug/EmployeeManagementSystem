@@ -3,6 +3,7 @@
 import { apiRequest } from "../api-client";
 import {
   clearAuthSession,
+  getAuthToken,
   getStoredUser,
   setAuthToken,
   setStoredUser,
@@ -151,7 +152,20 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<stri
   return "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.";
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      await apiRequest<void>("/auth/logout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch {
+      // Backend logout failure should not block clearing local session
+    }
+  }
   clearAuthSession();
   if (typeof window !== "undefined") {
     window.location.href = "/login";

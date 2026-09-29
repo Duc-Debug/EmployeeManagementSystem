@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import LoginPageContainer from "@/components/auth/LoginPageContainer";
-import { getStoredUser } from "@/lib/auth-session";
+import { getAuthToken, getStoredUser } from "@/lib/auth-session";
 
 export default function LoginRoute() {
-    const token = localStorage.getItem("accessToken") || localStorage.getItem("nexushrm_auth_token");
+    const token = getAuthToken();
     const user = getStoredUser();
 
     useEffect(() => {

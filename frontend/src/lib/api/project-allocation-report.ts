@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "../api-client";
+import { getAuthToken } from "../auth-session";
 
 export interface AllocatedMemberDetailItem {
   employeeId: number;
@@ -133,7 +134,7 @@ export async function downloadProjectAllocationReport(
   const queryStr = params.toString();
   const url = `/reports/project-allocation/${query.projectId}/export${queryStr ? `?${queryStr}` : ""}`;
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const token = getAuthToken();
   const baseUrl = "/api/v1";
 
   const response = await fetch(`${baseUrl}${url}`, {
