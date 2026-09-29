@@ -103,12 +103,25 @@ test("Security Test 1 & 6: Client permission tampering does not bypass backend a
   }
 });
 
+test("Security Test 2: JWT is NEVER stored in localStorage (mitigating XSS token theft)", () => {
+  mockLocalStorageStore.clear();
+  setAuthToken("super-secret-jwt-token");
+
+  // In-memory accessor returns the active token
+  assert.equal(getAuthToken(), "super-secret-jwt-token");
+
+  // localStorage must NEVER contain the secret JWT token
+  assert.equal(mockLocalStorageStore.get("nexushrm_auth_token"), undefined);
+  assert.equal(mockLocalStorageStore.get("accessToken"), undefined);
+  assert.equal(mockLocalStorageStore.get("token"), undefined);
+});
+
 test("Security Test 3: clearAuthSession and logout purges ALL auth tokens and credentials", async () => {
   mockLocalStorageStore.clear();
   mockSessionStorageStore.clear();
 
-  // Populate multiple legacy and primary storage keys
-  mockLocalStorageStore.set("nexushrm_auth_token", "jwt-token-xyz");
+  // Populate state
+  setAuthToken("jwt-token-xyz");
   mockLocalStorageStore.set("nexushrm_auth_user", JSON.stringify({ id: 1, username: "admin" }));
   mockLocalStorageStore.set("accessToken", "legacy-token-xyz");
   mockLocalStorageStore.set("currentUser", JSON.stringify({ id: 1, username: "admin" }));

@@ -29,6 +29,9 @@ const listeners = new Set<() => void>();
 let cachedUserRaw: string | null = null;
 let cachedUserSnapshot: AuthUser | null = null;
 
+// In-memory token storage (mitigates XSS token exfiltration; HttpOnly cookie is authoritative)
+let inMemoryToken: string | null = null;
+
 function notify() {
   listeners.forEach((listener) => listener());
 }
@@ -39,19 +42,17 @@ export function subscribeAuth(callback: () => void) {
 }
 
 export function getAuthToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("accessToken");
+  return inMemoryToken;
 }
 
 export function setAuthToken(token: string): void {
-  if (typeof window === "undefined") {
-    return;
+  inMemoryToken = token;
+  if (typeof window !== "undefined") {
+    // Defense-in-depth: Actively eliminate JWT from localStorage to prevent XSS exfiltration
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("token");
   }
-  localStorage.setItem(TOKEN_KEY, token);
-  // Remove redundant legacy key if present to avoid dual-storage confusion
-  localStorage.removeItem("accessToken");
   notify();
 }
 
@@ -109,11 +110,13 @@ export function setStoredUser(user: AuthUser): void {
  * from localStorage and sessionStorage.
  */
 export function clearAuthSession(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
+  inMemoryToken = null;
   cachedUserRaw = null;
   cachedUserSnapshot = null;
+  if (typeof window === "undefined") {
+    notify();
+    return;
+  }
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 

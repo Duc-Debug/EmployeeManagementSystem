@@ -18,12 +18,14 @@ import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -292,5 +294,68 @@ class JwtAndLocalStorageSecurityTest {
         assertThat(claims.get("tv")).isNotNull();
         // Crucial security architecture check: permissions claim must NOT be present in JWT
         assertThat(claims.get("permissions")).isNull();
+    }
+
+    @Test
+    @DisplayName("Test: Login sets HttpOnly and SameSite cookie, and protected endpoints authenticate via cookie without Authorization header")
+    void testLoginSetsHttpOnlySameSiteCookieAndProtectedEndpointAuthenticatesViaCookie() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String setCookieHeader = loginResult.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertThat(setCookieHeader).isNotNull();
+        assertThat(setCookieHeader).contains("nexushrm_jwt=");
+        assertThat(setCookieHeader).containsIgnoringCase("HttpOnly");
+        assertThat(setCookieHeader).containsIgnoringCase("SameSite=Lax");
+        assertThat(setCookieHeader).containsIgnoringCase("Path=/");
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+        assertThat(jwtCookie.getValue()).isNotBlank();
+
+        // Access protected endpoint /api/v1/auth/me using ONLY the HttpOnly cookie (NO Authorization header)
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .cookie(jwtCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value(TEST_SPECIALIST_USER))
+                .andExpect(jsonPath("$.data.roleCode").value("VT-04"));
+    }
+
+    @Test
+    @DisplayName("Test: Logout with HttpOnly cookie clears cookie and blacklists token")
+    void testLogoutWithCookieClearsCookieAndBlacklistsToken() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", TEST_SPECIALIST_USER,
+                                "password", TEST_PASSWORD
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie jwtCookie = loginResult.getResponse().getCookie("nexushrm_jwt");
+        assertThat(jwtCookie).isNotNull();
+
+        // Perform logout with ONLY the cookie
+        MvcResult logoutResult = mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(jwtCookie))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String clearCookieHeader = logoutResult.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertThat(clearCookieHeader).isNotNull();
+        assertThat(clearCookieHeader).contains("nexushrm_jwt=");
+        assertThat(clearCookieHeader).contains("Max-Age=0");
+
+        // Subsequent call with the logged-out cookie must fail (401 Unauthorized) because token was blacklisted
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .cookie(jwtCookie))
+                .andExpect(status().isUnauthorized());
     }
 }

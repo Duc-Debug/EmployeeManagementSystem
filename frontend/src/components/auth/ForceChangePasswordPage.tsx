@@ -36,7 +36,8 @@ export default function ForceChangePasswordPage() {
 
   useEffect(() => {
     document.title = "Đổi mật khẩu lần đầu | Employee Management System";
-    if (!token) {
+    const isAuthenticated = Boolean(user && user.id) || Boolean(token && token !== "undefined" && token !== "null" && token.trim() !== "");
+    if (!isAuthenticated) {
       navigate("/login", { replace: true });
       return;
     }

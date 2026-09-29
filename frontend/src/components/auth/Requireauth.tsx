@@ -11,8 +11,9 @@ export default function RequireAuth({ children, allowPasswordChangeOnly = false 
     const location = useLocation();
     const token = getAuthToken();
     const user = getStoredUser();
+    const isAuthenticated = Boolean(user && user.id) || Boolean(token && token !== "undefined" && token !== "null" && token.trim() !== "");
 
-    if (!token || token === "undefined" || token === "null" || token.trim() === "") {
+    if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 

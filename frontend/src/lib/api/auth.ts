@@ -154,17 +154,17 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<stri
 
 export async function logout(): Promise<void> {
   const token = getAuthToken();
-  if (token) {
-    try {
-      await apiRequest<void>("/auth/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-    } catch {
-      // Backend logout failure should not block clearing local session
+  try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
+    await apiRequest<void>("/auth/logout", {
+      method: "POST",
+      headers,
+    });
+  } catch {
+    // Backend logout failure should not block clearing local session
   }
   clearAuthSession();
   if (typeof window !== "undefined") {

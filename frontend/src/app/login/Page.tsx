@@ -11,8 +11,10 @@ export default function LoginRoute() {
         document.title = "Đăng nhập quản trị | Employee Management System";
     }, []);
 
+    const isAuthenticated = Boolean(user && user.id) || Boolean(token && token !== "undefined" && token !== "null" && token.trim() !== "");
+
     // Nếu đã đăng nhập, tự động chuyển hướng về trang tương ứng
-    if (token && token !== "undefined" && token !== "null" && token.trim() !== "") {
+    if (isAuthenticated) {
         if (user?.requiresPasswordChange) {
             return <Navigate to="/change-password" replace />;
         }
