@@ -44,7 +44,8 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                         </div>
                         <button
                             onClick={onClose}
-                            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                            aria-label="Đóng hộp thoại"
+                            className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
                         >
                             <X className="h-5 w-5" />
                         </button>
@@ -61,24 +62,24 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                         </div>
                     )}
                     <div className="rounded-xl bg-slate-50 p-5 border border-slate-100 mb-6">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-4">
                             Thông tin tài khoản
                         </h3>
                         <div className="grid grid-cols-2 gap-4 text-xs">
                             <div>
-                                <span className="text-slate-400 block mb-0.5">Họ và tên:</span>
+                                <span className="text-slate-600 block mb-0.5">Họ và tên:</span>
                                 <p className="font-bold text-slate-800 text-sm">{userInfo.name}</p>
                             </div>
                             <div>
-                                <span className="text-slate-400 block mb-0.5">Email:</span>
+                                <span className="text-slate-600 block mb-0.5">Email:</span>
                                 <p className="font-semibold text-slate-800 text-sm">{userInfo.email}</p>
                             </div>
                             <div>
-                                <span className="text-slate-400 block mb-0.5">Chức vụ:</span>
+                                <span className="text-slate-600 block mb-0.5">Chức vụ:</span>
                                 <p className="font-semibold text-slate-800 text-sm">{userInfo.role}</p>
                             </div>
                             <div>
-                                <span className="text-slate-400 block mb-0.5">Phòng ban:</span>
+                                <span className="text-slate-600 block mb-0.5">Phòng ban:</span>
                                 <p className="font-semibold text-slate-800 text-sm">{userInfo.department}</p>
                             </div>
                         </div>
