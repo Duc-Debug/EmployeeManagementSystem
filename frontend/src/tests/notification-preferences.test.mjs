@@ -1,5 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  validateCriticalChannels,
+  isValidReminderDays,
+  isInQuietHours,
+  createDefaultNotificationPreferenceForm as createDefaultForm,
+  prepareNotificationPreferencePayload as preparePayload,
+} from "../lib/api/notification-preferences.ts";
 
 test("Cấu hình kênh và tần suất nhận thông báo Logic Tests", async (t) => {
   await t.test("Ràng buộc kênh thông báo trọng yếu (BR-03: Không được tắt cả 2 kênh)", () => {

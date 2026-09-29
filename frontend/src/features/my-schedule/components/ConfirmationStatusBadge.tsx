@@ -1,6 +1,7 @@
 import React from "react";
 import { CheckCircle2, AlertTriangle, Clock, MessageSquareQuote } from "lucide-react";
 import type { ConfirmationStatus } from "../types";
+import { getFeedbackActionLabel } from "../api/myScheduleApi";
 
 interface ConfirmationStatusBadgeProps {
   status: ConfirmationStatus;
@@ -109,10 +110,12 @@ export const ConfirmationStatusBadge: React.FC<ConfirmationStatusBadgeProps> = (
     }
   };
 
+  const feedbackActionLabel = getFeedbackActionLabel(status, feedbackNote);
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {renderStatusIndicator()}
-      {onOpenFeedback && (
+      {onOpenFeedback && feedbackActionLabel && (
         <button
           type="button"
           onClick={onOpenFeedback}
@@ -123,7 +126,7 @@ export const ConfirmationStatusBadge: React.FC<ConfirmationStatusBadgeProps> = (
           }`}
         >
           <MessageSquareQuote className="w-3.5 h-3.5 opacity-70" />
-          <span>{feedbackNote ? "Chỉnh sửa phản hồi" : "Phản hồi"}</span>
+          <span>{feedbackActionLabel}</span>
         </button>
       )}
     </div>

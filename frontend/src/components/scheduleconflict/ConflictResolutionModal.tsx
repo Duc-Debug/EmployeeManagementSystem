@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, CheckCircle2, UserCheck, AlertCircle, FileText } from "lucide-react";
 import { resolveScheduleConflictWithNote } from "@/lib/api/schedule-conflict";
 import type { ScheduleConflict } from "@/lib/api/schedule-conflict";
-import { getEmployees } from "@/lib/api/employees";
+import { fetchAllEmployees } from "@/lib/api/employees";
 import type { EmployeeProfile } from "@/lib/api/employees";
 import { getOrgTree } from "@/lib/api/org-units";
 import { flattenActiveOrgTree } from "@/lib/organization";
@@ -33,8 +33,7 @@ export default function ConflictResolutionModal({
     const loadEmployeeList = useCallback(async () => {
         try {
             setLoadingEmployees(true);
-            const [empRes, treeRes] = await Promise.allSettled([
-                getEmployees(1, 1000),
+            const [treeRes] = await Promise.allSettled([
                 getOrgTree(),
             ]);
 
@@ -47,9 +46,8 @@ export default function ConflictResolutionModal({
                 setOrgUnitNamesMap(map);
             }
 
-            if (empRes.status === "fulfilled" && empRes.value?.content) {
-                setEmployees(empRes.value.content);
-            }
+            const allEmployees = await fetchAllEmployees();
+            setEmployees(allEmployees);
         } catch (err) {
             console.error("Lỗi khi tải danh sách nhân viên:", err);
         } finally {

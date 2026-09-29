@@ -6,110 +6,14 @@ import assert from "node:assert/strict";
  * Thực thi quy tắc nghiệp vụ QTN-23: Ngưỡng quá tải và ngưỡng nhàn rỗi do Ban Giám Đốc đặt
  */
 
-// 1. Helper phân quyền RBAC cho chức năng cảnh báo nhàn rỗi kéo dài
-function canAccessProlongedIdleness(roleCode) {
-  if (!roleCode) return false;
-  const normalized = roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "");
-  return ["VT-01", "VT-03", "VT-06", "ADMIN"].includes(normalized);
-}
-
-// 2. Helper validation form xác nhận xử lý cảnh báo (TC-04)
-function validateAcknowledgeForm({ actionTaken, notes }) {
-  const errors = [];
-  const trimmedAction = actionTaken ? actionTaken.trim() : "";
-
-  if (!trimmedAction) {
-    errors.push("Hành động xử lý không được để trống.");
-  } else if (trimmedAction.length < 5) {
-    errors.push("Hành động xử lý phải có ít nhất 5 ký tự.");
-  }
-
-  if (notes && notes.length > 500) {
-    errors.push("Ghi chú không được vượt quá 500 ký tự.");
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-}
-
-// 3. Helper tính mức độ nghiêm trọng của cảnh báo (Severity Level)
-function classifyIdlenessSeverity(consecutiveWeeks, threshold = 3) {
-  if (consecutiveWeeks >= threshold + 2) {
-    return { level: "CRITICAL", label: "Nghiêm trọng", color: "rose" };
-  }
-  if (consecutiveWeeks >= threshold) {
-    return { level: "WARNING", label: "Cảnh báo", color: "amber" };
-  }
-  return { level: "NORMAL", label: "Bình thường", color: "emerald" };
-}
-
-// 4. Helper xây dựng query string cho API rà soát
-function buildProlongedIdlenessQueryParams({
-  orgUnitId,
-  fromYear,
-  fromWeek,
-  durationWeeks = 4,
-  consecutiveThreshold = 3,
-  status,
-  search,
-  page = 0,
-  size = 10,
-}) {
-  const params = new URLSearchParams();
-  if (orgUnitId !== undefined && orgUnitId !== null) params.append("orgUnitId", String(orgUnitId));
-  if (fromYear !== undefined && fromYear !== null) params.append("fromYear", String(fromYear));
-  if (fromWeek !== undefined && fromWeek !== null) params.append("fromWeek", String(fromWeek));
-  params.append("durationWeeks", String(Math.max(1, durationWeeks)));
-  params.append("consecutiveThreshold", String(Math.max(1, consecutiveThreshold)));
-  if (status) params.append("status", status);
-  if (search && search.trim()) params.append("search", search.trim());
-  params.append("page", String(Math.max(0, page)));
-  params.append("size", String(Math.max(1, size)));
-  return params.toString();
-}
-
-// 5. Helper tính toán tổng quan thống kê nhân sự nhàn rỗi
-function calculateIdlenessMetrics(items, reportTotalEmptyHours = null) {
-  if (!items || items.length === 0) {
-    return { totalIdle: 0, totalEmptyHours: 0, averageUtil: 0 };
-  }
-  const totalIdle = items.length;
-  const totalEmptyHours = reportTotalEmptyHours !== null ? reportTotalEmptyHours : items.reduce((sum, item) => sum + (item.totalEmptyHours || 0), 0);
-  const sumUtil = items.reduce((sum, item) => sum + (item.averageUtilization || 0), 0);
-  const averageUtil = Number((sumUtil / totalIdle).toFixed(1));
-  return { totalIdle, totalEmptyHours, averageUtil };
-}
-
-// 6. Helper sinh nội dung CSV xuất báo cáo cảnh báo UTF-8 BOM
-function generateIdlenessCsvContent(items) {
-  const headers = [
-    "Mã nhân viên",
-    "Họ và tên",
-    "Phòng ban",
-    "Vị trí chuyên môn",
-    "Số tuần nhàn rỗi liên tiếp",
-    "Tỷ lệ sử dụng trung bình (%)",
-    "Tổng giờ trống (h)",
-    "Trạng thái",
-    "Hành động can thiệp",
-  ];
-
-  const rows = items.map((item) => [
-    `"${item.employeeCode}"`,
-    `"${(item.fullName || "").replace(/"/g, '""')}"`,
-    `"${(item.departmentName || "").replace(/"/g, '""')}"`,
-    `"${(item.positionTitle || "").replace(/"/g, '""')}"`,
-    item.consecutiveIdleWeeks,
-    item.averageUtilization,
-    item.totalEmptyHours,
-    `"${item.status === 'ACKNOWLEDGED' ? 'Đã xử lý' : 'Chưa xử lý'}"`,
-    `"${(item.actionTaken || '').replace(/"/g, '""')}"`,
-  ]);
-
-  return "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-}
+import {
+  canAccessProlongedIdleness,
+  validateAcknowledgeForm,
+  classifyIdlenessSeverity,
+  buildProlongedIdlenessQueryParams,
+  calculateIdlenessMetrics,
+  generateIdlenessCsvContent,
+} from "../lib/api/prolonged-idleness.ts";
 
 test("Prolonged Idleness Warning Frontend Logic & Tests", async (t) => {
   await t.test("Phân quyền RBAC — Chỉ VT-01 (BGĐ), VT-03 (RM), VT-06 (Admin) được truy cập", () => {

@@ -23,9 +23,37 @@ public record LeaveRequestResult(
         String cancellationReason,
         LocalDateTime cancellationRequestedAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String employeeName,
+        String orgUnitName
 ) {
+    public LeaveRequestResult(
+            Long id,
+            Long employeeId,
+            LeaveType leaveType,
+            LocalDate startDate,
+            LocalDate endDate,
+            int daysCount,
+            BigDecimal hoursDeducted,
+            String reason,
+            LeaveStatus status,
+            Long approverId,
+            String approverComment,
+            String cancellationReason,
+            LocalDateTime cancellationRequestedAt,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
+        this(id, employeeId, leaveType, startDate, endDate, daysCount, hoursDeducted, reason, status,
+                approverId, approverComment, cancellationReason, cancellationRequestedAt, createdAt, updatedAt,
+                null, null);
+    }
+
     public static LeaveRequestResult fromDomain(LeaveRequest domain) {
+        return fromDomain(domain, null, null);
+    }
+
+    public static LeaveRequestResult fromDomain(LeaveRequest domain, String employeeName, String orgUnitName) {
         return new LeaveRequestResult(
                 domain.getId(),
                 domain.getEmployeeId(),
@@ -41,7 +69,9 @@ public record LeaveRequestResult(
                 domain.getCancellationReason(),
                 domain.getCancellationRequestedAt(),
                 domain.getCreatedAt(),
-                domain.getUpdatedAt()
+                domain.getUpdatedAt(),
+                employeeName,
+                orgUnitName
         );
     }
 }

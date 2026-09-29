@@ -1,5 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import {
+  validateOutsourcedForm,
+  canDeclareOutsourced,
+  searchEmployeeProfiles as search,
+} from "../lib/api/outsourced-contracts.ts";
 
 describe("Outsourced Employee Declaration Frontend Logic & Validation Tests", () => {
 
@@ -157,31 +162,21 @@ describe("Outsourced Employee Declaration Frontend Logic & Validation Tests", ()
             { id: "3", fullName: "Nguyễn Thị Chi", employeeCode: "EXT-002", department: "Phòng Phần mềm 2", providerName: "TMA Solutions", isOutsourced: true },
         ];
 
-        const search = (term) => {
-            const q = term.trim().toLowerCase();
-            return profiles.filter((p) =>
-                p.fullName.toLowerCase().includes(q) ||
-                p.employeeCode.toLowerCase().includes(q) ||
-                p.department.toLowerCase().includes(q) ||
-                (p.providerName && p.providerName.toLowerCase().includes(q))
-            );
-        };
-
         // Search by provider
-        const fptResults = search("FPT");
+        const fptResults = search(profiles, "FPT");
         assert.equal(fptResults.length, 1);
         assert.equal(fptResults[0].employeeCode, "EXT-001");
 
-        const tmaResults = search("TMA Solutions");
+        const tmaResults = search(profiles, "TMA Solutions");
         assert.equal(tmaResults.length, 1);
         assert.equal(tmaResults[0].employeeCode, "EXT-002");
 
         // Search by employee code
-        const codeResults = search("EXT");
+        const codeResults = search(profiles, "EXT");
         assert.equal(codeResults.length, 2);
 
         // Search by internal person
-        const internalResults = search("Lê Văn An");
+        const internalResults = search(profiles, "Lê Văn An");
         assert.equal(internalResults.length, 1);
         assert.equal(internalResults[0].isOutsourced, false);
     });

@@ -1,27 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-function getMaxIsoWeeks(year) {
-  const dec28 = new Date(Date.UTC(year, 11, 28));
-  const day = dec28.getUTCDay() || 7;
-  dec28.setUTCDate(dec28.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
-  return Math.ceil(((dec28.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
-
-function addIsoWeeks(startYear, startWeek, count) {
-  let curYear = startYear;
-  let curWeek = startWeek;
-  for (let i = 1; i < count; i++) {
-    curWeek++;
-    const maxWeeks = getMaxIsoWeeks(curYear);
-    if (curWeek > maxWeeks) {
-      curYear++;
-      curWeek = 1;
-    }
-  }
-  return { year: curYear, week: curWeek };
-}
+import {
+  getMaxIsoWeeks,
+  addIsoWeeksPreset as addIsoWeeks,
+} from "../lib/iso-week.ts";
 
 test("ISO-8601 Week Calculations & 53-Week Years", async (t) => {
   await t.test("Correct max weeks in year (2025 has 52 weeks, 2026 has 53 weeks)", () => {

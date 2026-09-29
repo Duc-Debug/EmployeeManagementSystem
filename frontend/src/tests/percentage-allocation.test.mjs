@@ -1,16 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-function convertPercentageToHours(percentage, availableHours) {
-  const validPct = Math.max(0, Math.min(100, percentage));
-  const validAvail = Math.max(0, availableHours);
-  return Number(((validAvail * validPct) / 100).toFixed(2));
-}
-
-function convertHoursToPercentage(hours, availableHours) {
-  if (!availableHours || availableHours <= 0) return 0;
-  return Math.round((Math.max(0, hours) / availableHours) * 100);
-}
+import {
+  convertPercentageToHours,
+  convertHoursToPercentage,
+} from "../lib/percentage-allocation.ts";
 
 test("Percentage to Hours Conversion Tests", async (t) => {
   await t.test("Standard 40h week with presets", () => {

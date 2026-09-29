@@ -1,50 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-function buildBulkPayload({
-  employeeId,
-  projectId,
-  startYear,
-  startWeek,
-  endYear,
-  endWeek,
-  allocationMode,
-  allocatedHours,
-  allocationPercentage,
-  description,
-}) {
-  const payload = {
-    employeeId,
-    projectId,
-    startYear,
-    startWeek,
-    endYear,
-    endWeek,
-    description: description || undefined,
-  };
-
-  if (allocationMode === "percentage") {
-    payload.allocationPercentagePerWeek = allocationPercentage;
-  } else {
-    payload.allocatedHoursPerWeek = allocatedHours;
-  }
-
-  return payload;
-}
-
-function computeProjectedBulkAllocation(weeks, percentage) {
-  return weeks.map((w) => {
-    const netAvailable = w.netAvailableHours;
-    const hours = Number(((netAvailable * percentage) / 100).toFixed(2));
-    return {
-      year: w.year,
-      week: w.week,
-      netAvailableHours: netAvailable,
-      projectedHours: hours,
-      percentage,
-    };
-  });
-}
+import {
+  buildBulkPayload,
+  computeProjectedBulkAllocation,
+} from "../lib/percentage-allocation.ts";
 
 test("Bulk Percentage Allocation Tests", async (t) => {
   await t.test("Bulk payload contains allocationPercentagePerWeek when mode is percentage", () => {

@@ -17,6 +17,7 @@ import com.hrm.employeemanagement.application.dto.project.CancelProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.CloseProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.CreateProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.ProjectResult;
+import com.hrm.employeemanagement.application.dto.project.ProjectSummaryResult;
 import com.hrm.employeemanagement.application.dto.project.ReopenProjectCommand;
 import com.hrm.employeemanagement.application.dto.project.UpdateProjectCommand;
 import com.hrm.employeemanagement.application.dto.projecttemplate.CreateProjectFromTemplateCommand;
@@ -110,6 +111,15 @@ public class ProjectController {
                                 ApiResponse.success(
                                                 "Lay danh sach du an thanh cong",
                                                 projects));
+        }
+
+        @GetMapping("/summary")
+        public ResponseEntity<ApiResponse<ProjectSummaryResult>> getProjectSummary() {
+                ProjectSummaryResult summary = getProjectListUseCase.getProjectSummary();
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                "Lấy thông tin tổng hợp dự án thành công",
+                                                summary));
         }
 
         @GetMapping("/{id:[0-9]+}")

@@ -1,30 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// Helper logic mimicking RBAC check in CompanyWeeklyCapacityView (BR-05, AC-03)
-function checkCanAccessAllocationNotifications(roleCode) {
-  if (!roleCode) return false;
-  const normalized = roleCode.toUpperCase().replace(/_/g, "-").replace(/^ROLE-/, "");
-  return normalized === "VT-02" || normalized === "VT-03";
-}
-
-// Helper logic mimicking URL query construction in getAllocationNotifications
-function buildNotificationQuery(params) {
-  const searchParams = new URLSearchParams();
-  if (params?.projectId != null) searchParams.append("projectId", String(params.projectId));
-  if (params?.page != null) searchParams.append("page", String(params.page));
-  if (params?.size != null) searchParams.append("size", String(params.size));
-  const queryStr = searchParams.toString();
-  return `/allocations/notifications${queryStr ? `?${queryStr}` : ""}`;
-}
-
-// Helper logic mimicking consecutive week range display formatting (BR-04, TC-02)
-function formatConsecutiveWeekRange(startYear, startWeek, endYear, endWeek) {
-  if (startYear === endYear && startWeek === endWeek) {
-    return `tuần ${startWeek}/${startYear}`;
-  }
-  return `từ tuần ${startWeek}/${startYear} đến tuần ${endWeek}/${endYear}`;
-}
+import {
+  checkCanAccessAllocationNotifications,
+  buildNotificationQuery,
+  formatConsecutiveWeekRange,
+} from "../lib/api/allocations.ts";
 
 test("RBAC: VT-02 (PM) và VT-03 (RM) được phép truy cập màn hình thông báo phân bổ", () => {
   assert.equal(checkCanAccessAllocationNotifications("VT-02"), true);

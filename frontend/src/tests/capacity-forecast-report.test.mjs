@@ -1,67 +1,11 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-function calculateWeeklyForecast(availableHours, committedHours, reservedHours) {
-  const committedRemainingHours = availableHours - committedHours;
-  const projectedRemainingHours = availableHours - committedHours - reservedHours;
-
-  let committedUtilization = null;
-  if (availableHours > 0) {
-    committedUtilization = Number(((committedHours / availableHours) * 100).toFixed(1));
-  } else if (committedHours === 0) {
-    committedUtilization = 0.0;
-  }
-
-  let projectedUtilization = null;
-  if (availableHours > 0) {
-    projectedUtilization = Number((((committedHours + reservedHours) / availableHours) * 100).toFixed(1));
-  } else if (committedHours + reservedHours === 0) {
-    projectedUtilization = 0.0;
-  }
-
-  let status = "AVAILABLE";
-  if (
-    projectedRemainingHours < 0 ||
-    (availableHours === 0 && committedHours + reservedHours > 0) ||
-    (projectedUtilization !== null && projectedUtilization > 100)
-  ) {
-    status = "OVER_CAPACITY";
-  } else if (projectedUtilization !== null && projectedUtilization >= 80) {
-    status = "NEAR_FULL";
-  }
-
-  return {
-    committedRemainingHours,
-    projectedRemainingHours,
-    committedUtilization,
-    projectedUtilization,
-    status
-  };
-}
-
-function canAccessCapacityForecastTab(permissions, roleCode) {
-  const normalized = roleCode ? roleCode.toUpperCase().replace(/_/g, "-") : "";
-  if (permissions && permissions.length > 0) {
-    return permissions.includes("CAPACITY_FORECAST_REPORT_READ");
-  }
-  return ["VT-01", "VT-03", "ROLE-VT-01", "ROLE-VT-03", "DIRECTOR", "RESOURCE-MANAGER"].includes(normalized);
-}
-
-function visibleOrgUnitIdsForRole(tree, roleCode, scopeOrgUnitId) {
-  const flatten = (nodes) => nodes.flatMap((node) => [node, ...flatten(node.children || [])]);
-  if (roleCode !== "VT-03" || scopeOrgUnitId == null) return flatten(tree).map((node) => node.id);
-
-  const findScopeRoot = (nodes) => {
-    for (const node of nodes) {
-      if (node.id === scopeOrgUnitId) return node;
-      const match = findScopeRoot(node.children || []);
-      if (match) return match;
-    }
-    return null;
-  };
-  const root = findScopeRoot(tree);
-  return root ? flatten([root]).map((node) => node.id) : [];
-}
+import {
+  calculateWeeklyForecast,
+  canAccessCapacityForecastTab,
+  visibleOrgUnitIdsForRole,
+} from "../lib/api/capacity-forecast.ts";
 
 describe("Capacity Forecast Report Logic Tests", () => {
   test("BR-03 & BR-04: Tách riêng giờ giữ chỗ khỏi giờ cam kết chính thức", () => {

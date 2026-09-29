@@ -95,11 +95,46 @@ export async function triggerScanDueReminders(scanDate?: string): Promise<TaskDu
  * Định dạng chuỗi ngày YYYY-MM-DD sang định dạng tiếng Việt DD/MM/YYYY trực quan.
  */
 export function formatDueDateVietnamese(dateStr?: string | null): string {
-  if (!dateStr || typeof dateStr !== "string") return "Chưa cập nhật";
-  const parts = dateStr.trim().split("-");
+  if (!dateStr || typeof dateStr !== "string") return "";
+  const clean = dateStr.split("T")[0].trim();
+  const parts = clean.split("-");
   if (parts.length === 3 && parts[0].length === 4) {
     const [year, month, day] = parts;
     return `${day}/${month}/${year}`;
   }
   return dateStr;
+}
+
+export function buildScanUrl(scanDate?: string): string {
+  const query = scanDate ? `?scanDate=${encodeURIComponent(scanDate)}` : "";
+  return `/tasks/due-reminders/scan${query}`;
+}
+
+export function buildDirectUrl(projectId: number | string, taskId: number | string): string {
+  return `/projects/${projectId}/tasks/${taskId}`;
+}
+
+export function checkIsSpecialist(currentUser?: { roleCode?: string | null; roleName?: string | null } | null): boolean {
+  if (!currentUser) return false;
+  const normalizedRole = currentUser?.roleCode ? currentUser.roleCode.toUpperCase().replace(/_/g, "-") : "";
+  return (
+    ["VT-04", "ROLE-EMPLOYEE", "EMPLOYEE", "MEMBER", "DEVELOPER"].includes(normalizedRole) ||
+    (currentUser.roleName
+      ? currentUser.roleName.toLowerCase().includes("chuyên môn") || currentUser.roleName.toLowerCase().includes("nhân viên")
+      : false)
+  );
+}
+
+export function filterDueTasks<T extends { daysRemaining: number }>(tasks: T[], filter: string): T[] {
+  if (filter === "CRITICAL") {
+    return tasks.filter((t) => t.daysRemaining <= 1);
+  }
+  if (filter === "UPCOMING_DAYS") {
+    return tasks.filter((t) => t.daysRemaining >= 2);
+  }
+  return tasks;
+}
+
+export function parseApiResponse<T>(data: unknown): T[] {
+  return Array.isArray(data) ? (data as T[]) : [];
 }

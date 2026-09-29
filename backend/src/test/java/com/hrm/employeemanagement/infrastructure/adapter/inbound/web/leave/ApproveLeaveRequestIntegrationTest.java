@@ -422,6 +422,8 @@ class ApproveLeaveRequestIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data[?(@.id == " + leaveInScope.getId() + ")]").exists())
+                    .andExpect(jsonPath("$.data[?(@.id == " + leaveInScope.getId() + ")].employeeName").value(staffEmployee.getFullName()))
+                    .andExpect(jsonPath("$.data[?(@.id == " + leaveInScope.getId() + ")].orgUnitName").isNotEmpty())
                     .andExpect(jsonPath("$.data[?(@.id == " + leaveOutOfScope.getId() + ")]").doesNotExist());
 
             // RM truy vấn GET /api/v1/leave-requests/pending?page=0&size=10 -> trả về PageResult có phân trang
@@ -433,6 +435,8 @@ class ApproveLeaveRequestIntegrationTest {
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.content").isArray())
                     .andExpect(jsonPath("$.data.content[?(@.id == " + leaveInScope.getId() + ")]").exists())
+                    .andExpect(jsonPath("$.data.content[?(@.id == " + leaveInScope.getId() + ")].employeeName").value(staffEmployee.getFullName()))
+                    .andExpect(jsonPath("$.data.content[?(@.id == " + leaveInScope.getId() + ")].orgUnitName").isNotEmpty())
                     .andExpect(jsonPath("$.data.content[?(@.id == " + leaveOutOfScope.getId() + ")]").doesNotExist())
                     .andExpect(jsonPath("$.data.totalElements").value(1))
                     .andExpect(jsonPath("$.data.totalPages").value(1))

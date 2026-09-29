@@ -69,6 +69,9 @@ public class Backup {
             Long createdBy,
             String createdByName
     ) {
+        String effectiveCreatedByName = (createdByName != null && !createdByName.trim().isEmpty())
+                ? createdByName.trim()
+                : (isAutomatic ? "Hệ thống (Auto Scheduler)" : "Quản trị viên");
         return new Backup(
                 null,
                 backupCode,
@@ -82,7 +85,7 @@ public class Backup {
                 BackupStatus.IN_PROGRESS,
                 isAutomatic,
                 createdBy,
-                createdByName,
+                effectiveCreatedByName,
                 LocalDateTime.now(),
                 null,
                 null
