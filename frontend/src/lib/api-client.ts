@@ -1,6 +1,6 @@
 "use client";
 
-import { clearAuthSession, getAuthToken } from "./auth-session";
+import { clearAuthSession } from "./auth-session";
 
 const metaEnv = typeof import.meta !== "undefined"
   ? (import.meta as unknown as { env?: Record<string, string> }).env
@@ -37,7 +37,6 @@ export async function apiRequest<T = unknown>(
     ? path
     : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
-  const token = getAuthToken();
   const headers = new Headers(options.headers || {});
 
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
@@ -46,13 +45,17 @@ export async function apiRequest<T = unknown>(
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
   }
-
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (!headers.has("X-Requested-With")) {
+    headers.set("X-Requested-With", "XMLHttpRequest");
   }
+  if (!headers.has("ngrok-skip-browser-warning")) {
+    headers.set("ngrok-skip-browser-warning", "true");
+  }
+
 
   try {
     const response = await fetch(url, {
+      credentials: options.credentials || "include",
       ...options,
       headers,
     });
@@ -134,7 +137,7 @@ export async function apiRequest<T = unknown>(
     }
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new ApiError(
-        "Không thể kết nối đến máy chủ Backend (http://localhost:8080). Vui lòng kiểm tra máy chủ đã được khởi động chưa.",
+        "Không thể kết nối đến máy chủ . Vui lòng kiểm tra máy chủ đã được khởi động chưa.",
         0
       );
     }

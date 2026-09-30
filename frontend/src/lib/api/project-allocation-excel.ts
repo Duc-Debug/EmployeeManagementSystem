@@ -1,7 +1,6 @@
 "use client";
 
 import { API_BASE_URL, ApiError } from "../api-client";
-import { getAuthToken } from "../auth-session";
 import { getIsoWeeksInYear } from "../iso-week";
 import { normalizeRoleCode } from "../role-utils";
 
@@ -172,16 +171,10 @@ export async function exportProjectAllocationExcel(
   }
 
   const url = buildExportProjectAllocationUrl(params);
-  const token = getAuthToken();
-
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
 
   const response = await fetch(url, {
     method: "GET",
-    headers,
+    credentials: "include",
   });
 
   if (!response.ok) {

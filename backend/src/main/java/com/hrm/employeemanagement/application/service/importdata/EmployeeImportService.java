@@ -269,17 +269,21 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
 
         for (RawEmployeeImportRow raw : rawRows) {
             List<String> errors = new ArrayList<>();
+            List<String> errorFields = new ArrayList<>();
 
             // 1. Mã nhân viên
             String employeeCode = cleanString(raw.employeeCode());
             if (employeeCode == null || employeeCode.isBlank()) {
                 errors.add("Mã nhân viên không được để trống");
+                errorFields.add("employeeCode");
             } else {
                 String codeKey = employeeCode.toLowerCase(Locale.ROOT);
                 if (seenEmployeeCodes.contains(codeKey)) {
                     errors.add("Mã nhân viên '" + employeeCode + "' bị trùng lặp trong tệp");
+                    errorFields.add("employeeCode");
                 } else if (loadEmployeePort.existsByEmployeeCode(employeeCode)) {
                     errors.add("Mã nhân viên '" + employeeCode + "' đã tồn tại trong hệ thống");
+                    errorFields.add("employeeCode");
                 } else {
                     seenEmployeeCodes.add(codeKey);
                 }
@@ -289,8 +293,10 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
             String fullName = cleanString(raw.fullName());
             if (fullName == null || fullName.isBlank()) {
                 errors.add("Họ và tên không được để trống");
+                errorFields.add("fullName");
             } else if (fullName.length() < 2 || fullName.length() > 100) {
                 errors.add("Họ và tên phải từ 2 đến 100 ký tự");
+                errorFields.add("fullName");
             }
 
             // 3. Tên đăng nhập & Email
@@ -302,6 +308,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                     username = email;
                 } else {
                     errors.add("Tên đăng nhập không được để trống");
+                    errorFields.add("username");
                 }
             }
 
@@ -309,10 +316,13 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                 String userKey = username.toLowerCase(Locale.ROOT);
                 if (seenUsernames.contains(userKey)) {
                     errors.add("Tên đăng nhập '" + username + "' bị trùng lặp trong tệp");
+                    errorFields.add("username");
                 } else if (loadUserPort.existsByUsername(username)) {
                     errors.add("Tên đăng nhập '" + username + "' đã tồn tại trong hệ thống");
+                    errorFields.add("username");
                 } else if (loadUserPort.existsByEmail(username)) {
                     errors.add("Tên đăng nhập '" + username + "' xung đột với email của tài khoản khác");
+                    errorFields.add("username");
                 } else {
                     seenUsernames.add(userKey);
                 }
@@ -323,12 +333,16 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                 String normalizedEmail = email.toLowerCase(Locale.ROOT);
                 if (!normalizedEmail.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
                     errors.add("Email '" + email + "' không đúng định dạng chuẩn");
+                    errorFields.add("email");
                 } else if (seenEmails.contains(normalizedEmail)) {
                     errors.add("Email '" + email + "' bị trùng lặp trong tệp");
+                    errorFields.add("email");
                 } else if (loadUserPort.existsByEmail(normalizedEmail)) {
                     errors.add("Email '" + email + "' đã tồn tại trong hệ thống");
+                    errorFields.add("email");
                 } else if (loadUserPort.existsByUsername(normalizedEmail)) {
                     errors.add("Email '" + email + "' xung đột với tên đăng nhập của tài khoản khác");
+                    errorFields.add("email");
                 } else {
                     seenEmails.add(normalizedEmail);
                 }
@@ -341,10 +355,12 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
 
             if (orgUnitIdentifier == null || orgUnitIdentifier.isBlank()) {
                 errors.add("Phòng ban / Đơn vị không được để trống");
+                errorFields.add("orgUnitIdentifier");
             } else {
                 OrgUnit matchedUnit = orgUnitLookup.get(orgUnitIdentifier.trim().toLowerCase(Locale.ROOT));
                 if (matchedUnit == null) {
                     errors.add("Phòng ban / Đơn vị '" + orgUnitIdentifier + "' không tồn tại trong hệ thống");
+                    errorFields.add("orgUnitIdentifier");
                 } else {
                     resolvedOrgUnitId = matchedUnit.getId().getValue();
                     resolvedOrgUnitName = matchedUnit.getUnitName();
@@ -360,11 +376,13 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                     RoleCode parsedRoleCode = RoleCode.fromCode(roleCode);
                     if (parsedRoleCode == RoleCode.VT_06) {
                         errors.add("Không cho phép tạo tài khoản Quản trị viên hệ thống (VT-06) qua tính năng nhập tệp");
+                        errorFields.add("roleCode");
                     } else {
                         roleCode = parsedRoleCode.getCode();
                     }
                 } catch (Exception e) {
                     errors.add("Mã vai trò '" + roleCode + "' không hợp lệ (hỗ trợ VT-01, VT-02, VT-03, VT-04, VT-05)");
+                    errorFields.add("roleCode");
                 }
             }
 
@@ -379,11 +397,13 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                     int parsedHours = Integer.parseInt(rawStandardHours);
                     if (parsedHours <= 0 || parsedHours > 168) {
                         errors.add("Giờ làm việc chuẩn (" + parsedHours + "h) phải lớn hơn 0 và không vượt quá 168h/tuần");
+                        errorFields.add("standardHoursPerWeek");
                     } else {
                         standardHours = parsedHours;
                     }
                 } catch (NumberFormatException e) {
                     errors.add("Giờ làm việc chuẩn '" + rawStandardHours + "' không đúng định dạng số");
+                    errorFields.add("standardHoursPerWeek");
                 }
             }
 
@@ -395,6 +415,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                     startDate = parseDate(rawStartDate);
                 } catch (Exception e) {
                     errors.add("Ngày bắt đầu '" + rawStartDate + "' không đúng định dạng (hỗ trợ dd/MM/yyyy hoặc yyyy-MM-dd)");
+                    errorFields.add("startDate");
                 }
             }
 
@@ -405,11 +426,13 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                     contractEndDate = parseDate(rawContractEndDate);
                 } catch (Exception e) {
                     errors.add("Ngày kết thúc hợp đồng '" + rawContractEndDate + "' không đúng định dạng (hỗ trợ dd/MM/yyyy hoặc yyyy-MM-dd)");
+                    errorFields.add("contractEndDate");
                 }
             }
 
             if (startDate != null && contractEndDate != null && contractEndDate.isBefore(startDate)) {
                 errors.add("Ngày kết thúc hợp đồng (" + contractEndDate + ") không được trước ngày bắt đầu (" + startDate + ")");
+                errorFields.add("contractEndDate");
             }
 
             // 10. Nhân viên thuê ngoài (Phân biệt ô trống và giá trị sai định dạng)
@@ -423,6 +446,7 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                     isOutsourced = false;
                 } else {
                     errors.add("Trường thuê ngoài '" + rawIsOutsourced + "' không hợp lệ (nhập Có/Không hoặc True/False)");
+                    errorFields.add("isOutsourced");
                 }
             }
 
@@ -449,7 +473,8 @@ public class EmployeeImportService implements PreviewEmployeeImportUseCase, Conf
                     contractEndDate,
                     isOutsourced,
                     isValid,
-                    errors
+                    errors,
+                    errorFields
             ));
         }
 

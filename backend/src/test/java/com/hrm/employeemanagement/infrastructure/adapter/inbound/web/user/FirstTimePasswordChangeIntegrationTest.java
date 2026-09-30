@@ -10,7 +10,9 @@ import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.us
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataEmployeeRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataRoleRepository;
 import com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.user.repository.SpringDataUserRepository;
+import com.hrm.employeemanagement.infrastructure.security.JwtAuthenticationFilter;
 import com.hrm.employeemanagement.infrastructure.security.UserStatusCache;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -141,8 +143,9 @@ class FirstTimePasswordChangeIntegrationTest {
                 .andExpect(jsonPath("$.data.requiresPasswordChange").value(true))
                 .andReturn();
 
-        JsonNode loginData1 = objectMapper.readTree(loginResult1.getResponse().getContentAsString()).path("data");
-        String token1 = loginData1.path("token").asText();
+        Cookie cookie1 = loginResult1.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME);
+        assertThat(cookie1).isNotNull();
+        String token1 = cookie1.getValue();
         assertThat(token1).isNotBlank();
 
         // 3. Access protected API (e.g. GET /api/v1/users) -> must be blocked with 403 PASSWORD_CHANGE_REQUIRED
@@ -192,8 +195,9 @@ class FirstTimePasswordChangeIntegrationTest {
                 .andExpect(jsonPath("$.data.requiresPasswordChange").value(false))
                 .andReturn();
 
-        JsonNode loginData2 = objectMapper.readTree(loginResult2.getResponse().getContentAsString()).path("data");
-        String token2 = loginData2.path("token").asText();
+        Cookie cookie2 = loginResult2.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME);
+        assertThat(cookie2).isNotNull();
+        String token2 = cookie2.getValue();
         assertThat(token2).isNotBlank();
 
         // 8. Access /auth/me with token2 -> must succeed (200 OK) with requiresPasswordChange = false
@@ -259,8 +263,10 @@ class FirstTimePasswordChangeIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        String token = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data").path("token").asText();
+        Cookie cookie = loginResult.getResponse().getCookie(JwtAuthenticationFilter.COOKIE_NAME);
+        assertThat(cookie).isNotNull();
+        String token = cookie.getValue();
+        assertThat(token).isNotBlank();
 
         // The very first request after login to /auth/me MUST succeed (200 OK) even though cache was stale!
         mockMvc.perform(get("/api/v1/auth/me")

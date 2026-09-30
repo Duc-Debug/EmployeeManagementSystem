@@ -13,8 +13,8 @@ import {
   ShieldAlert,
   LogOut,
 } from "lucide-react";
-import { changePassword } from "@/lib/api/auth";
-import { clearAuthSession, getAuthToken, getStoredUser } from "@/lib/auth-session";
+import { changePassword, logout } from "@/lib/api/auth";
+import { clearAuthSession, getStoredUser } from "@/lib/auth-session";
 import { isValidPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import InteractiveParticleBackground from "./InteractiveParticleBackground";
 
@@ -33,24 +33,26 @@ export default function ForceChangePasswordPage() {
   const [success, setSuccess] = useState(false);
 
   const user = getStoredUser();
-  const token = getAuthToken();
 
   useEffect(() => {
     document.title = "Đổi mật khẩu lần đầu | Employee Management System";
-    if (!token) {
+    const isAuthenticated = Boolean(user && user.id);
+    if (!isAuthenticated) {
       navigate("/login", { replace: true });
       return;
     }
     if (user && !user.requiresPasswordChange) {
       navigate("/", { replace: true });
     }
-  }, [token, user, navigate]);
+  }, [user, navigate]);
 
-  const handleLogout = () => {
-    clearAuthSession();
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("currentUser");
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Đăng xuất thất bại:", error);
+      alert("Đăng xuất thất bại từ máy chủ. Vui lòng kiểm tra lại kết nối và thử lại.");
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -84,8 +86,6 @@ export default function ForceChangePasswordPage() {
       setSuccess(true);
       // Clean old session since backend invalidates session version
       clearAuthSession();
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("currentUser");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Đổi mật khẩu thất bại. Vui lòng thử lại.";
       setError(msg);

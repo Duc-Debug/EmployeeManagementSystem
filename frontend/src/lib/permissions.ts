@@ -4,6 +4,18 @@ import { getStoredUser, type AuthUser } from "./auth-session";
 import { normalizeRoleCode } from "./role-utils";
 
 /**
+ * SECURITY ARCHITECTURE NOTICE:
+ * Client-side permission checks (can, canAny, canAll, hasRole) are strictly
+ * for User Experience (UX) optimizations: conditionally hiding/showing menus,
+ * buttons, and routes.
+ *
+ * The client storage (localStorage / in-memory state) is NEVER treated as a
+ * trusted authorization boundary. Backend Spring Security endpoints and domain
+ * services are the authoritative source of truth and independently enforce
+ * all role and permission constraints on every single API request.
+ */
+
+/**
  * Returns current user's granted fine-grained permissions.
  */
 export function getEffectivePermissions(user?: AuthUser | null): string[] {

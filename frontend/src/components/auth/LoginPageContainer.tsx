@@ -9,9 +9,6 @@ export default function LoginPageContainer() {
         try {
             // 1. Thử đăng nhập qua Backend API Spring Boot
             const user = await login({ username, password });
-            const token = localStorage.getItem("nexushrm_auth_token") || "jwt-token";
-            localStorage.setItem("accessToken", token);
-            localStorage.setItem("currentUser", JSON.stringify(user));
 
             if (user.requiresPasswordChange) {
                 navigate("/change-password", { replace: true });
