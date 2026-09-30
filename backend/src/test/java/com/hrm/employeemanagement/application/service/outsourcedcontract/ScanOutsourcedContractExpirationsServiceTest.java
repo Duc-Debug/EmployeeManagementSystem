@@ -120,8 +120,8 @@ class ScanOutsourcedContractExpirationsServiceTest {
         when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of(emp));
         when(loadContractPort.findOrgUnitNamesByIds(any())).thenReturn(Map.of(10L, "Phòng Phần mềm"));
 
-        // Tuần phân bổ chứa ngày hết hạn (vắt qua ngày hết hạn theo QTN-21)
-        YearWeek expWeek = YearWeek.from(contractEnd);
+        // Tuần phân bổ nằm sau ngày hết hạn (vắt qua / vi phạm theo QTN-21)
+        YearWeek expWeek = YearWeek.from(contractEnd.plusWeeks(1));
         OutsourcedAllocationRecord alloc = new OutsourcedAllocationRecord(
                 501L, 101L, 201L, expWeek, BigDecimal.valueOf(40.0)
         );
