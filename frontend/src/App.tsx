@@ -79,6 +79,7 @@ function App() {
             <Routes>
                 {/* 1. Public Routes */}
                 <Route path="/login" element={<LoginRoute />} />
+                <Route path="/forgot-password" element={<Navigate to="/login?forgot=true" replace />} />
                 <Route
                     path="/reset-password"
                     element={

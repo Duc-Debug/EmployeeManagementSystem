@@ -2,7 +2,13 @@ package com.hrm.employeemanagement.infrastructure.adapter.outbound.persistence.e
 
 import java.time.Instant;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "password_reset_email_outbox")
@@ -64,6 +70,10 @@ public class PasswordResetEmailOutboxJpaEntity {
         return !createdAt.plus(validityMinutes, java.time.temporal.ChronoUnit.MINUTES).isAfter(now);
     }
 
+    public void claimForProcessing(Instant leaseUntil) {
+        this.availableAt = leaseUntil;
+    }
+
     public void markDelivered(Instant now) {
         this.deliveredAt = now;
         this.resetToken = "";
@@ -81,4 +91,11 @@ public class PasswordResetEmailOutboxJpaEntity {
         this.availableAt = availableAt;
         this.lastError = error == null ? null : error.substring(0, Math.min(error.length(), 1000));
     }
+
+    public Integer getAttempts() { return attempts; }
+    public Instant getAvailableAt() { return availableAt; }
+    public Instant getDeliveredAt() { return deliveredAt; }
+    public String getLastError() { return lastError; }
+    public Instant getCreatedAt() { return createdAt; }
 }
+

@@ -1,6 +1,6 @@
 package com.hrm.employeemanagement.infrastructure.adapter.outbound.email;
 
-import com.hrm.employeemanagement.application.port.outbound.email.SimulatedEmailPort;
+import com.hrm.employeemanagement.application.port.outbound.email.EmailSenderPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,13 +10,13 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 /**
- * Production Email Adapter implementing SimulatedEmailPort/EmailPort.
+ * Production Email Adapter implementing EmailSenderPort.
  * Dispatches password reset emails securely via production JavaMailSender without logging plaintext reset tokens.
  * Fails fast during Spring startup if JavaMailSender or reset base URL configuration is missing in production.
  */
 @Component
 @Profile("prod")
-public class ProductionEmailAdapter implements SimulatedEmailPort {
+public class ProductionEmailAdapter implements EmailSenderPort {
 
     private static final Logger log = LoggerFactory.getLogger(ProductionEmailAdapter.class);
 
