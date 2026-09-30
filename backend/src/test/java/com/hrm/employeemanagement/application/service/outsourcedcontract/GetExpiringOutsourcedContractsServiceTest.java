@@ -104,7 +104,7 @@ class GetExpiringOutsourcedContractsServiceTest {
         when(loadContractPort.findAllOutsourcedEmployeesWithContract()).thenReturn(List.of(emp));
         when(loadContractPort.findOrgUnitNamesByIds(List.of(10L))).thenReturn(Map.of(10L, "Phòng Ban Đầu tư"));
 
-        YearWeek week = YearWeek.from(contractEnd);
+        YearWeek week = YearWeek.from(contractEnd.plusWeeks(1));
         OutsourcedAllocationRecord alloc = new OutsourcedAllocationRecord(
                 701L, 105L, 301L, week, BigDecimal.valueOf(35.0)
         );

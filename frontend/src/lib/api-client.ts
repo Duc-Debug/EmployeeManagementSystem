@@ -48,6 +48,10 @@ export async function apiRequest<T = unknown>(
   if (!headers.has("X-Requested-With")) {
     headers.set("X-Requested-With", "XMLHttpRequest");
   }
+  if (!headers.has("ngrok-skip-browser-warning")) {
+    headers.set("ngrok-skip-browser-warning", "true");
+  }
+
 
   try {
     const response = await fetch(url, {
@@ -133,7 +137,7 @@ export async function apiRequest<T = unknown>(
     }
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new ApiError(
-        "Không thể kết nối đến máy chủ Backend (http://localhost:8080). Vui lòng kiểm tra máy chủ đã được khởi động chưa.",
+        "Không thể kết nối đến máy chủ . Vui lòng kiểm tra máy chủ đã được khởi động chưa.",
         0
       );
     }
