@@ -20,11 +20,14 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.auth.oauth2.TokenResponseException;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
@@ -42,6 +45,7 @@ import jakarta.mail.internet.MimeMessage;
 /**
  * Infrastructure Adapter sending password reset emails via Gmail API with OAuth 2.0.
  * Active exclusively under the 'gmail' Spring Profile.
+ * Supports headless execution by loading pre-authorized credentials or configured refresh token.
  */
 @Component
 @Profile("gmail")
@@ -50,24 +54,39 @@ public class GmailEmailAdapter implements EmailSenderPort {
     private static final Logger log = LoggerFactory.getLogger(GmailEmailAdapter.class);
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     private static final String APPLICATION_NAME = "Employee Management System";
+    private static final String USER_ID = "user";
 
     private final String credentialsPath;
     private final String tokensDirectoryPath;
     private final int oauthPort;
+    private final String configuredRefreshToken;
+    private final boolean allowBrowserAuth;
     private final String resetPasswordBaseUrl;
 
     private Gmail gmailService;
 
     @Autowired
     public GmailEmailAdapter(
-            @Value("${app.gmail.credentials-path}") String credentialsPath,
-            @Value("${app.gmail.tokens-directory-path:tokens}") String tokensDirectoryPath,
+            @Value("${app.gmail.credentials-path:backend/credentials/credentials.json}") String credentialsPath,
+            @Value("${app.gmail.tokens-directory-path:backend/tokens}") String tokensDirectoryPath,
             @Value("${app.gmail.oauth-port:8889}") int oauthPort,
+            @Value("${app.gmail.refresh-token:}") String configuredRefreshToken,
+            @Value("${app.gmail.allow-browser-auth:false}") boolean allowBrowserAuth,
             @Value("${app.auth.reset-password-base-url:http://localhost:5173/reset-password}") String resetPasswordBaseUrl) {
         this.credentialsPath = credentialsPath;
         this.tokensDirectoryPath = tokensDirectoryPath;
         this.oauthPort = oauthPort;
+        this.configuredRefreshToken = configuredRefreshToken;
+        this.allowBrowserAuth = allowBrowserAuth;
         this.resetPasswordBaseUrl = resetPasswordBaseUrl;
+    }
+
+    public GmailEmailAdapter(
+            String credentialsPath,
+            String tokensDirectoryPath,
+            int oauthPort,
+            String resetPasswordBaseUrl) {
+        this(credentialsPath, tokensDirectoryPath, oauthPort, null, false, resetPasswordBaseUrl);
     }
 
     /**
@@ -77,6 +96,8 @@ public class GmailEmailAdapter implements EmailSenderPort {
         this.credentialsPath = null;
         this.tokensDirectoryPath = null;
         this.oauthPort = 8888;
+        this.configuredRefreshToken = null;
+        this.allowBrowserAuth = false;
         this.resetPasswordBaseUrl = resetPasswordBaseUrl;
         this.gmailService = gmailService;
     }
@@ -97,6 +118,16 @@ public class GmailEmailAdapter implements EmailSenderPort {
 
             Message response = service.users().messages().send("me", gmailMessage).execute();
             log.info("Gmail API successfully sent password reset email to {} (Message ID: {})", recipientEmail, response.getId());
+        } catch (TokenResponseException ex) {
+            log.error("Gmail OAuth token không hợp lệ hoặc đã bị thu hồi: {}", ex.getMessage(), ex);
+            throw new IllegalStateException("Gmail OAuth token đã hết hạn hoặc bị thu hồi (invalid_grant). Cần cấp quyền lại: " + ex.getMessage(), ex);
+        } catch (GoogleJsonResponseException ex) {
+            if (ex.getStatusCode() == 401) {
+                log.error("Gmail API trả về 401 Unauthorized - OAuth token không hợp lệ hoặc đã bị thu hồi.", ex);
+                throw new IllegalStateException("Gmail OAuth xác thực thất bại (401 Unauthorized). Vui lòng cấp quyền lại: " + ex.getMessage(), ex);
+            }
+            log.error("Lỗi Google API khi gửi email tới {}: {}", recipientEmail, ex.getMessage(), ex);
+            throw new RuntimeException("Lỗi gửi email qua Gmail API: " + ex.getMessage(), ex);
         } catch (MessagingException | IOException | GeneralSecurityException ex) {
             log.error("Failed to send password reset email via Gmail API to recipient: {}", recipientEmail, ex);
             throw new RuntimeException("Lỗi gửi email qua Gmail API: " + ex.getMessage(), ex);
@@ -109,12 +140,9 @@ public class GmailEmailAdapter implements EmailSenderPort {
         }
 
         File credentialsFile = resolveCredentialsFile(this.credentialsPath);
-        if (!credentialsFile.exists()) {
-            throw new IllegalStateException("Không tìm thấy file credentials tại: " + this.credentialsPath
-                    + " (Đường dẫn tuyệt đối: " + credentialsFile.getAbsolutePath() + "). Vui lòng kiểm tra lại cấu hình GMAIL_CREDENTIALS_PATH.");
-        }
+        File tokensDir = resolveTokensDirectory(this.tokensDirectoryPath);
 
-        log.info("Initializing Gmail API OAuth 2.0 flow using credentials: {}", credentialsFile.getAbsolutePath());
+        log.info("Loading Gmail API OAuth 2.0 credentials from: {}", credentialsFile.getAbsolutePath());
 
         NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         GoogleClientSecrets clientSecrets;
@@ -122,31 +150,66 @@ public class GmailEmailAdapter implements EmailSenderPort {
             clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in, StandardCharsets.UTF_8));
         }
 
-        File tokensDir = resolveTokensDirectory(this.tokensDirectoryPath);
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                httpTransport,
-                JSON_FACTORY,
-                clientSecrets,
-                Collections.singletonList(GmailScopes.GMAIL_SEND))
-                .setDataStoreFactory(new FileDataStoreFactory(tokensDir))
-                .setAccessType("offline")
-                .build();
+        Credential credential = null;
 
-        Credential credential;
-        try {
-            LocalServerReceiver receiver = this.oauthPort > 0
-                    ? new LocalServerReceiver.Builder().setPort(this.oauthPort).build()
-                    : new LocalServerReceiver.Builder().build();
-            log.info("Starting local OAuth authorization server on port {}...", this.oauthPort > 0 ? this.oauthPort : "dynamic");
-            credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
-        } catch (IOException ex) {
-            if (this.oauthPort > 0 && ex.getMessage() != null && ex.getMessage().contains("already in use")) {
-                log.warn("Cổng OAuth {} bị chiếm dụng ({}), tự động thử lại với cổng ngẫu nhiên khả dụng...", this.oauthPort, ex.getMessage());
-                LocalServerReceiver dynamicReceiver = new LocalServerReceiver.Builder().build();
-                credential = new AuthorizationCodeInstalledApp(flow, dynamicReceiver).authorize("user");
-            } else {
-                throw ex;
+        // 1. Cấu hình refresh token trực tiếp qua biến môi trường / Secret Manager
+        if (this.configuredRefreshToken != null && !this.configuredRefreshToken.isBlank()) {
+            log.info("Using configured refresh token from environment/properties.");
+            credential = new GoogleCredential.Builder()
+                    .setTransport(httpTransport)
+                    .setJsonFactory(JSON_FACTORY)
+                    .setClientSecrets(clientSecrets)
+                    .build()
+                    .setRefreshToken(this.configuredRefreshToken);
+        } else {
+            // 2. Nạp thông tin xác thực đã được cấp quyền trước từ DataStore trong thư mục tokens
+            FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(tokensDir);
+            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                    httpTransport,
+                    JSON_FACTORY,
+                    clientSecrets,
+                    Collections.singletonList(GmailScopes.GMAIL_SEND))
+                    .setDataStoreFactory(dataStoreFactory)
+                    .setAccessType("offline")
+                    .build();
+
+            credential = flow.loadCredential(USER_ID);
+
+            // 3. Nếu chưa có thông tin xác thực trong tokens directory
+            if (credential == null || (credential.getRefreshToken() == null && credential.getAccessToken() == null)) {
+                if (this.allowBrowserAuth) {
+                    LocalServerReceiver receiver = this.oauthPort > 0
+                            ? new LocalServerReceiver.Builder().setPort(this.oauthPort).build()
+                            : new LocalServerReceiver.Builder().build();
+                    log.info("Interactive OAuth mode enabled: Starting local authorization server on port {}...",
+                            this.oauthPort > 0 ? this.oauthPort : "dynamic");
+                    credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize(USER_ID);
+                } else {
+                    throw new IllegalStateException(
+                            "Không tìm thấy thông tin xác thực Gmail OAuth 2.0 đã được cấp quyền (refresh token) tại: "
+                                    + tokensDir.getAbsolutePath()
+                                    + ". Backend đang chạy trong môi trường tự động/không có trình duyệt và không tự mở OAuth browser flow. "
+                                    + "Vui lòng hoàn tất cấp quyền trước (pre-authorize) hoặc cấu hình GMAIL_REFRESH_TOKEN."
+                    );
+                }
             }
+        }
+
+        // 4. Kiểm tra làm mới token và phát hiện token hết hạn / bị thu hồi
+        try {
+            Long expiresIn = credential.getExpiresInSeconds();
+            if (credential.getAccessToken() == null || (expiresIn != null && expiresIn <= 60)) {
+                boolean refreshed = credential.refreshToken();
+                if (!refreshed && credential.getAccessToken() == null) {
+                    throw new IllegalStateException("Không thể làm mới access token Gmail OAuth: Refresh token không hợp lệ.");
+                }
+            }
+        } catch (TokenResponseException ex) {
+            if (ex.getDetails() != null && "invalid_grant".equals(ex.getDetails().getError())) {
+                log.error("Gmail OAuth refresh token đã bị thu hồi hoặc hết hạn (invalid_grant). Cần cấp quyền lại OAuth.", ex);
+                throw new IllegalStateException("Gmail OAuth refresh token đã bị thu hồi hoặc hết hạn. Vui lòng cấp quyền lại: " + ex.getMessage(), ex);
+            }
+            throw new RuntimeException("Lỗi xác thực Gmail OAuth khi làm mới token: " + ex.getMessage(), ex);
         }
 
         this.gmailService = new Gmail.Builder(httpTransport, JSON_FACTORY, credential)
@@ -157,56 +220,65 @@ public class GmailEmailAdapter implements EmailSenderPort {
         return this.gmailService;
     }
 
-    private File resolveCredentialsFile(String path) {
+    public File resolveCredentialsFile(String path) {
         if (path == null || path.isBlank()) {
-            path = "backend/credentials/credentials.json";
+            throw new IllegalArgumentException("Đường dẫn credentials không được để trống.");
         }
-        File directFile = new File(path);
-        if (directFile.exists()) {
-            return directFile;
-        }
-        File backendFile = new File("backend", path);
-        if (backendFile.exists()) {
-            return backendFile;
-        }
-        if (path.startsWith("backend/") || path.startsWith("backend\\")) {
-            File strippedFile = new File(path.substring(8));
-            if (strippedFile.exists()) {
-                return strippedFile;
-            }
-        }
-        if ("credentials.json".equals(path) || "credentials/credentials.json".equals(path) || "backend/credentials/credentials.json".equals(path)) {
-            File[] candidateDirs = new File[] {
-                    new File("credentials"),
-                    new File("backend/credentials")
-            };
-            for (File dir : candidateDirs) {
-                if (dir.exists() && dir.isDirectory()) {
-                    File[] jsonFiles = dir.listFiles((d, name) -> name.endsWith(".json"));
-                    if (jsonFiles != null && jsonFiles.length > 0) {
-                        return jsonFiles[0];
+        File file = new File(path);
+        if (!file.isAbsolute()) {
+            if (!file.exists()) {
+                File backendPrefixed = new File("backend", path);
+                if (backendPrefixed.exists()) {
+                    file = backendPrefixed;
+                } else if (path.startsWith("backend/") || path.startsWith("backend\\")) {
+                    File stripped = new File(path.substring(8));
+                    if (stripped.exists()) {
+                        file = stripped;
                     }
                 }
             }
         }
-        return directFile;
+        if (!file.exists()) {
+            throw new IllegalStateException("Không tìm thấy file credentials tại: " + path
+                    + " (Đường dẫn tuyệt đối: " + file.getAbsolutePath() + "). Vui lòng kiểm tra lại cấu hình credentials.");
+        }
+        if (!file.isFile()) {
+            throw new IllegalStateException("Đường dẫn credentials không phải là file: " + file.getAbsolutePath());
+        }
+        return file;
     }
 
-    private File resolveTokensDirectory(String path) {
+    public File resolveTokensDirectory(String path) {
         if (path == null || path.isBlank()) {
-            path = "tokens";
+            throw new IllegalArgumentException("Đường dẫn thư mục tokens không được để trống.");
         }
-        File directDir = new File(path);
-        if ((path.startsWith("backend/") || path.startsWith("backend\\")) && new File("src").exists()) {
-            return new File(path.substring(8));
+        File dir = new File(path);
+        if (!dir.isAbsolute()) {
+            if (!dir.exists()) {
+                File backendPrefixed = new File("backend", path);
+                if (backendPrefixed.exists()) {
+                    dir = backendPrefixed;
+                } else if (path.startsWith("backend/") || path.startsWith("backend\\")) {
+                    File stripped = new File(path.substring(8));
+                    if (stripped.exists()) {
+                        dir = stripped;
+                    }
+                }
+            }
         }
-        if (directDir.isAbsolute()) {
-            return directDir;
+        if (!dir.exists()) {
+            boolean created = dir.mkdirs();
+            if (!created && !dir.exists()) {
+                throw new IllegalStateException("Không thể tạo thư mục lưu trữ tokens tại: " + dir.getAbsolutePath());
+            }
         }
-        if (new File("backend").isDirectory() && !path.startsWith("backend")) {
-            return new File("backend", path);
+        if (!dir.isDirectory()) {
+            throw new IllegalStateException("Đường dẫn tokens không phải là thư mục: " + dir.getAbsolutePath());
         }
-        return directDir;
+        if (!dir.canWrite()) {
+            throw new IllegalStateException("Thư mục tokens không có quyền ghi: " + dir.getAbsolutePath());
+        }
+        return dir;
     }
 
     private MimeMessage createMimeMessage(String recipientEmail, String username, String resetToken, long validityMinutes)
@@ -246,6 +318,14 @@ public class GmailEmailAdapter implements EmailSenderPort {
 
     public int getOauthPort() {
         return oauthPort;
+    }
+
+    public String getConfiguredRefreshToken() {
+        return configuredRefreshToken;
+    }
+
+    public boolean isAllowBrowserAuth() {
+        return allowBrowserAuth;
     }
 
     public String getResetPasswordBaseUrl() {
